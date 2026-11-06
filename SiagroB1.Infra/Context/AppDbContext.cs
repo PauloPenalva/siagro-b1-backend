@@ -99,6 +99,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MarketQuote> MarketQuotes { get; set; }
     public DbSet<MarketDailyClose> MarketDailyCloses { get; set; }
     public DbSet<CmaSettings> CmaSettings { get; set; }
+    public DbSet<MarketDestination> MarketDestinations { get; set; }
+    public DbSet<MarketFreightRate> MarketFreightRates { get; set; }
+    public DbSet<MarketPriceTable> MarketPriceTables { get; set; }
+    public DbSet<MarketPriceTableLine> MarketPriceTableLines { get; set; }
+    public DbSet<MarketTradingSettings> MarketTradingSettings { get; set; }
+    public DbSet<MarketTradeTicket> MarketTradeTickets { get; set; }
     public DbSet<AccountingSettings> AccountingSettings { get; set; }
     public DbSet<SpedFiscalSettings> SpedFiscalSettings { get; set; }
     public DbSet<ReinfSettings> ReinfSettings { get; set; }
@@ -227,6 +233,61 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             relationship.DeleteBehavior = DeleteBehavior.NoAction;
         }
+
+        // Mercado: carimbos em UTC saem com Kind=Utc (OData/REST serializam com o fuso certo). Datas de negócio (DATE) não.
+        modelBuilder.Entity<MarketFreightRate>().Property(x => x.CreatedAt).HasConversion(UtcDateTimeConverters.Required);
+        modelBuilder.Entity<MarketPriceTable>().Property(x => x.UpdatedAt).HasConversion(UtcDateTimeConverters.Required);
+        // ItemName é opcional na ENTRADA (o serviço preenche pelo IItemService), mas a coluna segue NOT NULL.
+        modelBuilder.Entity<MarketPriceTable>().Property(x => x.ItemName).IsRequired();
+        modelBuilder.Entity<MarketTradeTicket>(t =>
+        {
+            t.Property(x => x.CreatedAt).HasConversion(UtcDateTimeConverters.Required);
+            t.Property(x => x.ApprovedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.BoardApprovedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.RejectedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.CanceledAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.QuotedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.FxQuotedAt).HasConversion(UtcDateTimeConverters.Optional);
+        });
+
+        // Mercado (parte 2): linhas da tabela de preços caem com a tabela; instrumentos e destino são Restrict.
+        // A boleta (MarketTradeTicket) guarda tabela/linha/destino/instrumento/contrato sem FK, de propósito.
+        modelBuilder.Entity<MarketPriceTableLine>()
+            .HasOne(x => x.PriceTable).WithMany(x => x.Lines)
+            .HasForeignKey(x => x.PriceTableId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<MarketPriceTableLine>()
+            .HasOne(x => x.Instrument).WithMany()
+            .HasForeignKey(x => x.InstrumentCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketPriceTableLine>()
+            .HasOne(x => x.FxCurveInstrument).WithMany()
+            .HasForeignKey(x => x.FxCurveInstrumentCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketPriceTableLine>()
+            .HasOne(x => x.Destination).WithMany()
+            .HasForeignKey(x => x.DestinationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketFreightRate>()
+            .HasOne(x => x.Municipality).WithMany()
+            .HasForeignKey(x => x.MunicipalityCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketFreightRate>()
+            .HasOne(x => x.Destination).WithMany()
+            .HasForeignKey(x => x.DestinationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketPriceTable>()
+            .HasOne(x => x.HarvestSeason).WithMany()
+            .HasForeignKey(x => x.HarvestSeasonCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketTradeTicket>()
+            .HasOne(x => x.HarvestSeason).WithMany()
+            .HasForeignKey(x => x.HarvestSeasonCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketTradeTicket>()
+            .HasOne(x => x.Municipality).WithMany()
+            .HasForeignKey(x => x.MunicipalityCode)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Regra de distribuição: versão única por (regra, vigência); versões e linhas caem em cascata.
         modelBuilder.Entity<DistributionRuleVersion>()

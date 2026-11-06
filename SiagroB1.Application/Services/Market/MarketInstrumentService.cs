@@ -24,7 +24,7 @@ public class MarketInstrumentService(
     public override async Task<MarketInstrument> CreateAsync(MarketInstrument entity)
     {
         Validate(entity);
-        var created = await base.CreateAsync(entity);
+        var created = await MarketPersistence.AddAndSaveAsync(context, entity);
         NotifyTerminals();
         return created;
     }
@@ -32,10 +32,19 @@ public class MarketInstrumentService(
     public override async Task<MarketInstrument?> UpdateAsync(string key, MarketInstrument entity)
     {
         Validate(entity);
+        if ((!entity.Active || entity.QuoteUnit != MarketQuoteUnit.BrlPerUsd) && await IsSpotFxAsync(key))
+            throw new BusinessException(
+                "Este instrumento é o dólar à vista dos parâmetros do Mercado; troque-o nos parâmetros antes de inativá-lo ou mudar a unidade.");
         var updated = await base.UpdateAsync(key, entity);
         if (updated is not null)
             NotifyTerminals();
         return updated;
+    }
+
+    private async Task<bool> IsSpotFxAsync(string code)
+    {
+        var spot = await context.MarketTradingSettings.AsNoTracking().Select(s => s.SpotFxInstrumentCode).FirstOrDefaultAsync();
+        return spot is not null && string.Equals(spot.Trim(), code?.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
     private void NotifyTerminals() => store.NotifyChanged(companyContext.CompanyCode);
@@ -43,9 +52,16 @@ public class MarketInstrumentService(
     /// <summary>Com cotação ou fechamento o instrumento tem histórico: inativa-se, não se exclui.</summary>
     public override async Task<bool> DeleteAsync(string code)
     {
+        if (await IsSpotFxAsync(code))
+            throw new BusinessException(
+                "Este instrumento é o dólar à vista dos parâmetros do Mercado; troque-o nos parâmetros antes de excluí-lo.");
+
         if (await context.MarketQuotes.AnyAsync(q => q.InstrumentCode == code)
             || await context.MarketDailyCloses.AnyAsync(c => c.InstrumentCode == code))
             throw new BusinessException("Instrumento possui cotações ou fechamentos; inative-o em vez de excluir.");
+
+        if (await context.MarketPriceTableLines.AnyAsync(l => l.InstrumentCode == code || l.FxCurveInstrumentCode == code))
+            throw new BusinessException("Instrumento é usado em linhas de tabelas de preços; inative-o em vez de excluir.");
 
         var deleted = await base.DeleteAsync(code);
         if (deleted)

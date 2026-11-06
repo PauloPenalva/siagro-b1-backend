@@ -1,0 +1,92 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Query;
+using Microsoft.AspNetCore.OData.Results;
+using Microsoft.AspNetCore.OData.Routing.Controllers;
+using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Market.Tickets;
+using SiagroB1.Commons.Time;
+using SiagroB1.Domain.Entities.Market;
+using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra.Context;
+using SiagroB1.Web.Filters;
+using SiagroB1.Web.Market;
+
+namespace SiagroB1.Web.Controllers;
+
+public sealed record MarketTradeTicketRejectInput(string? Reason);
+
+/// <summary>
+/// Boletas do Mercado: leitura por OData (só GET) e as operações por REST em <c>market/tickets</c>.
+/// Criar: qualquer autenticado; aprovar/rejeitar/cancelar: a permissão é checada no serviço (403 com texto pt-BR).
+/// </summary>
+[Authorize]
+[MarketModuleEnabled]
+public class MarketTradeTicketsController(
+    AppDbContext context, MarketTradeTicketService service, TimeProvider time, ILogger<MarketTradeTicketsController> logger)
+    : ODataController
+{
+    public const string InvalidBodyMessage = "Dados da boleta inválidos ou ausentes.";
+
+    public const string SaveFailedMessage = "Não foi possível gravar a boleta. Atualize e tente de novo.";
+
+    private string UserName => User.Identity?.Name ?? string.Empty;
+
+    [EnableQuery(PageSize = 200)]
+    public IActionResult Get() => Ok(context.MarketTradeTickets.AsNoTracking());
+
+    /// <summary>SingleResult sobre consulta: o $expand (Municipality, HarvestSeason) roda no banco.</summary>
+    [EnableQuery]
+    public async Task<IActionResult> Get([FromRoute] int key)
+    {
+        var query = context.MarketTradeTickets.AsNoTracking().Where(t => t.Id == key);
+        return await query.AnyAsync() ? Ok(SingleResult.Create(query)) : NotFound();
+    }
+
+    [HttpPost("market/tickets")]
+    public Task<IActionResult> Create([FromBody] MarketTradeTicketInput? input, CancellationToken cancellationToken) =>
+        input is null || !ModelState.IsValid
+            ? Task.FromResult<IActionResult>(MarketTextResults.BadRequest(InvalidBodyMessage))
+            : Run(() => service.CreateAsync(input, UserName, Today(), cancellationToken));
+
+    [HttpPost("market/tickets/{id:int}/approve")]
+    public Task<IActionResult> Approve(int id, CancellationToken cancellationToken) =>
+        Run(() => service.ApproveAsync(id, UserName, cancellationToken));
+
+    [HttpPost("market/tickets/{id:int}/reject")]
+    public Task<IActionResult> Reject(int id, [FromBody] MarketTradeTicketRejectInput? input, CancellationToken cancellationToken) =>
+        Run(() => service.RejectAsync(id, input?.Reason ?? string.Empty, UserName, cancellationToken));
+
+    [HttpPost("market/tickets/{id:int}/cancel")]
+    public Task<IActionResult> Cancel(int id, CancellationToken cancellationToken) =>
+        Run(() => service.CancelAsync(id, UserName, cancellationToken));
+
+    private DateOnly Today() => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(time.GetUtcNow(), SaoPauloTime.Zone).DateTime);
+
+    private async Task<IActionResult> Run(Func<Task<MarketTradeTicket>> action)
+    {
+        try
+        {
+            var ticket = await action();
+            // Kind=Utc já vem do conversor do AppDbContext (UtcDateTimeConverters).
+            return new JsonResult(ticket, MarketQuotesStreamLoop.JsonOptions);
+        }
+        catch (KeyNotFoundException e)
+        {
+            return MarketTextResults.NotFound(e.Message);
+        }
+        catch (ForbiddenException e)
+        {
+            return MarketTextResults.Forbidden(e.Message);
+        }
+        catch (BusinessException e)
+        {
+            return MarketTextResults.BadRequest(e.Message);
+        }
+        catch (DbUpdateException e)
+        {
+            logger.LogError(e, "Falha ao gravar a boleta do Mercado.");
+            return MarketTextResults.BadRequest(SaveFailedMessage);
+        }
+    }
+}

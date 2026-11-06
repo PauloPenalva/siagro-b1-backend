@@ -3078,6 +3078,66 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("MARKET_DAILY_CLOSES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketDestination", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("MARKET_DESTINATIONS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketFreightRate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("DestinationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MunicipalityCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(7) NOT NULL");
+
+                    b.Property<decimal>("RatePerTon")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<DateTime>("ValidFrom")
+                        .HasColumnType("DATE");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationId");
+
+                    b.HasIndex("MunicipalityCode", "DestinationId", "ValidFrom")
+                        .IsUnique();
+
+                    b.ToTable("MARKET_FREIGHT_RATES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketInstrument", b =>
                 {
                     b.Property<string>("Code")
@@ -3132,6 +3192,132 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("MARKET_INSTRUMENTS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketPriceTable", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<string>("HarvestSeasonCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(200) NOT NULL");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HarvestSeasonCode");
+
+                    b.ToTable("MARKET_PRICE_TABLES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketPriceTableLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("DailyInterestPercent")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<DateTime?>("DeliveryEndDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<DateTime?>("DeliveryStartDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<int>("DestinationId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("DiscountIsPercent")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("DiscountValue")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<decimal>("ElevationCost")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<decimal>("FreightCoefficientPercent")
+                        .HasColumnType("DECIMAL(18,8)");
+
+                    b.Property<string>("FxCurveInstrumentCode")
+                        .HasColumnType("VARCHAR(30)");
+
+                    b.Property<decimal>("FxDiscount")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<string>("InstrumentCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(30) NOT NULL");
+
+                    b.Property<decimal>("MarginPercent")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<DateTime?>("PaymentDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<decimal>("Premium")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<int>("PriceTableId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReceiptDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<decimal>("RuralTaxPercent")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TechnicalLossPercent")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationId");
+
+                    b.HasIndex("FxCurveInstrumentCode");
+
+                    b.HasIndex("InstrumentCode");
+
+                    b.HasIndex("PriceTableId");
+
+                    b.ToTable("MARKET_PRICE_TABLE_LINES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketQuote", b =>
                 {
                     b.Property<string>("InstrumentCode")
@@ -3183,6 +3369,223 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasKey("InstrumentCode");
 
                     b.ToTable("MARKET_QUOTES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketTradeTicket", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AgentCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AgentName")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("BoardApprovalReason")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<DateTime?>("BoardApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("BoardApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<decimal>("CalculatedPrice")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("CardCode")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("CardName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<decimal?>("CurveFx")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<DateTime?>("DeliveryEndDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<DateTime?>("DeliveryStartDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<int>("DestinationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DestinationName")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<decimal>("DeviationPercent")
+                        .HasColumnType("DECIMAL(18,4)");
+
+                    b.Property<decimal>("ExchangeQuote")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<decimal>("FreightPerTon")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<int?>("FxQuoteSource")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("FxQuotedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("HarvestSeasonCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("InstrumentCode")
+                        .HasColumnType("VARCHAR(30)");
+
+                    b.Property<string>("ItemCode")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("ItemName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("LineDescription")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("LogisticRegionCode")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("MunicipalityCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(7) NOT NULL");
+
+                    b.Property<decimal>("NegotiatedPrice")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal?>("NetFx")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime?>("PaymentDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<decimal>("PortPrice")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("Premium")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<string>("PriceTableDescription")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("PriceTableId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PriceTableLineId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PurchaseContractCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<Guid?>("PurchaseContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("QuoteSource")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("QuotedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ReceiptDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<DateTime?>("RejectedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RejectedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<bool>("RequiresBoardApproval")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<decimal?>("SpotFx")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StepsJson")
+                        .HasColumnType("NVARCHAR(MAX)");
+
+                    b.Property<decimal>("VolumeKg")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<string>("WarehouseCode")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("WarehouseName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HarvestSeasonCode");
+
+                    b.HasIndex("MunicipalityCode");
+
+                    b.ToTable("MARKET_TRADE_TICKETS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketTradingSettings", b =>
+                {
+                    b.Property<int>("Key")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("BoardApprovalDeviationPercent")
+                        .HasColumnType("DECIMAL(18,4)");
+
+                    b.Property<decimal?>("BoardApprovalVolumeTons")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<string>("ContractFreightUmCode")
+                        .HasColumnType("VARCHAR(4)");
+
+                    b.Property<string>("ContractUnitOfMeasureCode")
+                        .HasColumnType("VARCHAR(4)");
+
+                    b.Property<string>("SpotFxInstrumentCode")
+                        .HasColumnType("VARCHAR(30)");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("MARKET_TRADING_SETTINGS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Municipality", b =>
@@ -11430,6 +11833,70 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Instrument");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketFreightRate", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketDestination", "Destination")
+                        .WithMany()
+                        .HasForeignKey("DestinationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Municipality", "Municipality")
+                        .WithMany()
+                        .HasForeignKey("MunicipalityCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Destination");
+
+                    b.Navigation("Municipality");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketPriceTable", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.HarvestSeason", "HarvestSeason")
+                        .WithMany()
+                        .HasForeignKey("HarvestSeasonCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("HarvestSeason");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketPriceTableLine", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketDestination", "Destination")
+                        .WithMany()
+                        .HasForeignKey("DestinationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketInstrument", "FxCurveInstrument")
+                        .WithMany()
+                        .HasForeignKey("FxCurveInstrumentCode")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketInstrument", "Instrument")
+                        .WithMany()
+                        .HasForeignKey("InstrumentCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketPriceTable", "PriceTable")
+                        .WithMany("Lines")
+                        .HasForeignKey("PriceTableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Destination");
+
+                    b.Navigation("FxCurveInstrument");
+
+                    b.Navigation("Instrument");
+
+                    b.Navigation("PriceTable");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketQuote", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Market.MarketInstrument", "Instrument")
@@ -11439,6 +11906,25 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired();
 
                     b.Navigation("Instrument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketTradeTicket", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.HarvestSeason", "HarvestSeason")
+                        .WithMany()
+                        .HasForeignKey("HarvestSeasonCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Municipality", "Municipality")
+                        .WithMany()
+                        .HasForeignKey("MunicipalityCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("HarvestSeason");
+
+                    b.Navigation("Municipality");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>
@@ -13320,6 +13806,11 @@ namespace SiagroB1.Migrations.AppContext
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ManagementView", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketPriceTable", b =>
                 {
                     b.Navigation("Lines");
                 });

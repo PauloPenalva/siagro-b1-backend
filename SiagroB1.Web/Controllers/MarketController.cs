@@ -26,7 +26,8 @@ public class MarketController(
     LiveQuoteStore store,
     MarketQuotesSseWriter sse,
     ICompanyContext companyContext,
-    IUserPermissions permissions) : ControllerBase
+    IUserPermissions permissions,
+    MarketPermissionGuard guard) : ControllerBase
 {
     private string UserName => User.Identity?.Name ?? string.Empty;
 
@@ -39,15 +40,15 @@ public class MarketController(
 
     [HttpPost("quotes/{code}/manual")]
     public Task<IActionResult> SetManual(string code, [FromBody] ManualQuoteInput input, CancellationToken cancellationToken) =>
-        Run(() => quotes.SetManualAsync(code, input, UserName, cancellationToken));
+        RunManage(() => quotes.SetManualAsync(code, input, UserName, cancellationToken));
 
     [HttpPost("quotes/{code}/release")]
     public Task<IActionResult> Release(string code, CancellationToken cancellationToken) =>
-        Run(() => quotes.ReleaseManualAsync(code, cancellationToken));
+        RunManage(() => quotes.ReleaseManualAsync(code, cancellationToken));
 
     [HttpPost("daily-closes")]
     public Task<IActionResult> SetDailyClose([FromBody] DailyCloseInput input, CancellationToken cancellationToken) =>
-        Run(() => dailyCloses.SetManualCloseAsync(input.Code, input.Date, input.Close, UserName, cancellationToken));
+        RunManage(() => dailyCloses.SetManualCloseAsync(input.Code, input.Date, input.Close, UserName, cancellationToken));
 
     [HttpPost("instruments/samples")]
     public async Task<IActionResult> CreateSamples(CancellationToken cancellationToken)
@@ -77,12 +78,12 @@ public class MarketController(
         }
         catch (BusinessException e)
         {
-            return BadRequest(e.Message);
+            return MarketTextResults.BadRequest(e.Message);
         }
         catch (DefaultException)
         {
             // Nfe:CertificateKey malformada (não é base64 de 32 bytes): a cifra recusa a chave.
-            return BadRequest("Chave de criptografia (Nfe:CertificateKey) inválida neste ambiente; corrija-a antes de salvar a senha.");
+            return MarketTextResults.BadRequest("Chave de criptografia (Nfe:CertificateKey) inválida neste ambiente; corrija-a antes de salvar a senha.");
         }
     }
 
@@ -99,8 +100,15 @@ public class MarketController(
     private async Task<bool> IsAdminAsync() => await permissions.HasRoleAsync(UserName, Roles.Admin);
 
     // Forbid() sem corpo vira erro genérico no front; a mensagem no corpo deixa mostrar o motivo.
-    private ObjectResult Forbidden() =>
-        StatusCode(StatusCodes.Status403Forbidden, "Você não tem permissão de administrador para esta operação.");
+    private static ContentResult Forbidden() =>
+        MarketTextResults.Forbidden("Você não tem permissão de administrador para esta operação.");
+
+    // Gravações de cotação/fechamento manual exigem MARKET_MANAGE (403 com texto pt-BR).
+    private Task<IActionResult> RunManage(Func<Task> action) => Run(async () =>
+    {
+        await guard.EnsureAsync(UserName, PermissionCodes.MarketManage);
+        await action();
+    });
 
     private async Task<IActionResult> Run(Func<Task> action)
     {
@@ -109,9 +117,13 @@ public class MarketController(
             await action();
             return NoContent();
         }
+        catch (ForbiddenException e)
+        {
+            return MarketTextResults.Forbidden(e.Message);
+        }
         catch (BusinessException e)
         {
-            return BadRequest(e.Message);
+            return MarketTextResults.BadRequest(e.Message);
         }
     }
 }

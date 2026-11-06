@@ -20,6 +20,15 @@ public static class PermissionCodes
     public const string PaymentReleaseStore = "PAYMENT_RELEASE_STORE";
     public const string PaymentReleaseBoard = "PAYMENT_RELEASE_BOARD";
 
+    /// <summary>Mercado: manter instrumentos, cotações manuais, destinos, frete, tabela de preços e parâmetros.</summary>
+    public const string MarketManage = "MARKET_MANAGE";
+
+    /// <summary>Mercado: aprovar ou rejeitar boletas.</summary>
+    public const string MarketTicketApprove = "MARKET_TICKET_APPROVE";
+
+    /// <summary>Mercado: aprovar boletas na alçada da diretoria e definir os limiares de alçada.</summary>
+    public const string MarketBoardApprove = "MARKET_BOARD_APPROVE";
+
     /// <summary>Código de permissão que libera o pagamento pelo departamento.</summary>
     public static string ForDepartment(PaymentReleaseDepartment department) => department switch
     {

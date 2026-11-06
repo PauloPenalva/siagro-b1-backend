@@ -49,3 +49,16 @@ Onde olhar:
   falhas de banco/cifra trazem a exceção completa. Repetições saem no máximo uma vez por minuto.
 - `SiagroB1.Web.Market.CmaStreamingHostedService` (sessão que terminou) e `MarketQuotesStreamLoop` (SSE).
 - Hangfire: job `market-daily-close-job` (sem retry automático; "fora da janela" aparece como warning).
+
+## 5. Parte 2 — Preços, tabela de preços e boleta
+
+1. **Migrations em TODOS os clientes** (com ou sem módulo ligado — o Web recusa subir com migration pendente):
+   - em **todo banco de empresa** (`AppDbContext`): `AddMarketPricing` e `AddMarketTicketFxTrace`;
+   - no **banco comum** (`CommonDbContext`): `AddMarketPricingMenuAndPermissions` e `AddMarketRoleMenus`.
+2. **Papéis**: usuário não-admin precisa de `MARKET_TRADER` e/ou `MARKET_BOARD` num perfil. Sem isso, cotação
+   manual, liberação, fechamento manual e cadastro de instrumentos passam a dar **403** (antes da Parte 2 eram livres).
+3. **Parâmetros do Mercado** — salvar ANTES da primeira boleta: instrumento do dólar à vista (ativo, R$/US$),
+   unidade do frete e unidade do contrato **KG** (única aceita nesta versão; a boleta grava o contrato em kg).
+4. **Limiares de alçada** (volume em t, desvio em %) vazios = sem alçada da diretoria.
+5. **Trava de aprovação** vale por processo: rode **um Web por cliente**. Entre processos, o que impede contrato
+   duplicado é a chave do contrato pré-atribuída na boleta.

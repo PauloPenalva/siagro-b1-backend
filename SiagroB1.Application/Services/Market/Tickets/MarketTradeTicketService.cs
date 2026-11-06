@@ -1,0 +1,341 @@
+using System.Globalization;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Interfaces;
+using SiagroB1.Application.Services.Market.Pricing;
+using SiagroB1.Domain.Entities.Market;
+using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces;
+using SiagroB1.Infra.Companies;
+using SiagroB1.Infra.Context;
+
+namespace SiagroB1.Application.Services.Market.Tickets;
+
+/// <summary>Corpo da criação da boleta (os números do preço vêm sempre do servidor, nunca do cliente).</summary>
+public sealed record MarketTradeTicketInput(
+    int PriceTableLineId, string MunicipalityCode, string CardCode, decimal VolumeKg, decimal NegotiatedPrice,
+    string WarehouseCode, int AgentCode, string BranchCode, string LogisticRegionCode, string? Notes);
+
+/// <summary>
+/// Boleta de compra: criação (congela a linha da grade), alçada (comprador → aprovador → diretoria) e geração do
+/// contrato já aprovado. A aprovação grava os carimbos e a chave PRÉ-ATRIBUÍDA do contrato ANTES de gerá-lo, num
+/// UPDATE protegido pelo RowVersion (o "pedido de vez"). A trava por boleta (KeyedAsyncLock) só serializa dentro
+/// de um processo; o que garante um contrato só entre processos e entre tentativas é a chave pré-atribuída: quem
+/// chega depois reencontra o contrato dessa chave (ou bate na chave primária), nunca cria outro.
+/// </summary>
+public class MarketTradeTicketService(
+    AppDbContext context,
+    MarketPriceGridService grid,
+    MarketTradeTicketContractService contracts,
+    IBusinessPartnerService businessPartners,
+    IWarehouseService warehouses,
+    IAgentService agents,
+    IUserPermissions permissions,
+    MarketPermissionGuard guard,
+    TimeProvider time,
+    KeyedAsyncLock locks,
+    ICompanyContext companyContext)
+{
+    public const string ConcurrencyMessage = "A boleta foi alterada por outro usuário. Atualize e tente de novo.";
+
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
+    private static readonly JsonSerializerOptions StepsJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+    private DateTime UtcNow => time.GetUtcNow().UtcDateTime;
+
+    public async Task<MarketTradeTicket> CreateAsync(
+        MarketTradeTicketInput input, string userName, DateOnly today, CancellationToken ct)
+    {
+        // Escala das colunas (VolumeKg 3 casas, NegotiatedPrice 2) ANTES do desvio e da resposta: o que se mostra é o que se grava.
+        input = input with
+        {
+            VolumeKg = Math.Round(input.VolumeKg, 3, MidpointRounding.AwayFromZero),
+            NegotiatedPrice = Math.Round(input.NegotiatedPrice, 2, MidpointRounding.AwayFromZero),
+        };
+        if (input.VolumeKg <= 0)
+            throw new BusinessException("O volume deve ser maior que zero.");
+        if (input.NegotiatedPrice <= 0)
+            throw new BusinessException("O preço negociado deve ser maior que zero.");
+        if (string.IsNullOrWhiteSpace(input.MunicipalityCode))
+            throw new BusinessException("Informe a cidade.");
+        if (input.Notes?.Trim().Length > 500)
+            throw new BusinessException("As observações devem ter no máximo 500 caracteres.");
+
+        var settings = await context.MarketTradingSettings.AsNoTracking().FirstOrDefaultAsync(ct);
+        if (string.IsNullOrWhiteSpace(settings?.ContractUnitOfMeasureCode))
+            throw new BusinessException("Informe a unidade de medida do contrato nos parâmetros do Mercado.");
+        if (!string.Equals(settings.ContractUnitOfMeasureCode.Trim(), MarketTradeTicketContractService.ContractUnitOfMeasure,
+                StringComparison.OrdinalIgnoreCase))
+            throw new BusinessException(MarketTradeTicketContractService.ContractUnitMessage);
+        if (string.IsNullOrWhiteSpace(settings.ContractFreightUmCode))
+            throw new BusinessException("Informe a unidade de medida do frete nos parâmetros do Mercado.");
+
+        var cardCode = Required(input.CardCode, "o parceiro");
+        var partner = await businessPartners.GetByIdAsync(cardCode)
+                      ?? throw new BusinessException("Parceiro não encontrado.");
+        var warehouseCode = Required(input.WarehouseCode, "o armazém");
+        var warehouse = await warehouses.GetByIdAsync(warehouseCode)
+                        ?? throw new BusinessException("Armazém não encontrado.");
+        var agent = await agents.GetByIdAsync(input.AgentCode)
+                    ?? throw new BusinessException("Agente não encontrado.");
+        var branchCode = Required(input.BranchCode, "a filial");
+        if (!await context.Branchs.AnyAsync(b => b.Code == branchCode, ct))
+            throw new BusinessException("Filial não encontrada.");
+        var regionCode = Required(input.LogisticRegionCode, "a região logística");
+        if (!await context.LogisticRegions.AnyAsync(r => r.Code == regionCode, ct))
+            throw new BusinessException("Região logística não encontrada.");
+
+        var row = await grid.GetRowAsync(input.PriceTableLineId, input.MunicipalityCode.Trim(), today, ct)
+                  ?? throw new BusinessException("Linha sem preço: linha da tabela de preços inexistente ou inativa.");
+        if (row.Status != MarketPriceStatus.Ok || row.Price is not > 0)
+            throw new BusinessException($"Linha sem preço: {StatusText(row.Status)}.");
+        if (row.DeliveryStartDate is null || row.DeliveryEndDate is null)
+            throw new BusinessException("A linha da tabela de preços não tem período de entrega.");
+
+        var calculated = row.Price.Value;
+        var deviation = Math.Round((input.NegotiatedPrice - calculated) / calculated * 100m, 4, MidpointRounding.AwayFromZero);
+        var reasons = new List<string>();
+        var tons = input.VolumeKg / 1000m;
+        if (settings.BoardApprovalVolumeTons is { } volumeLimit && tons >= volumeLimit)
+            reasons.Add($"Volume de {tons.ToString("N3", PtBr)} t acima do limite de {volumeLimit.ToString("N3", PtBr)} t");
+        if (settings.BoardApprovalDeviationPercent is { } deviationLimit && Math.Abs(deviation) >= deviationLimit)
+            reasons.Add($"desvio de preço de {deviation.ToString("N2", PtBr)} % acima do limite de {deviationLimit.ToString("N2", PtBr)} %");
+        var reason = reasons.Count == 0 ? null : string.Join("; ", reasons);
+        if (reason is not null)
+            reason = char.ToUpper(reason[0], PtBr) + reason[1..];
+
+        var ticket = new MarketTradeTicket
+        {
+            Status = MarketTradeTicketStatus.Pending,
+            CreatedAt = UtcNow,
+            CreatedBy = userName,
+            PriceTableId = row.PriceTableId,
+            PriceTableLineId = row.LineId,
+            PriceTableDescription = row.PriceTableDescription,
+            LineDescription = row.LineDescription,
+            ItemCode = row.ItemCode,
+            ItemName = row.ItemName,
+            HarvestSeasonCode = row.HarvestSeasonCode,
+            MunicipalityCode = input.MunicipalityCode.Trim(),
+            DestinationId = row.DestinationId,
+            DestinationName = row.DestinationName,
+            InstrumentCode = row.InstrumentCode,
+            ExchangeQuote = row.ExchangeQuote ?? 0,
+            Premium = row.Premium,
+            NetFx = row.NetFx,
+            SpotFx = row.SpotFx,
+            FreightPerTon = row.FreightPerTon ?? 0,
+            PortPrice = Math.Round(row.PortPrice ?? 0, 2, MidpointRounding.AwayFromZero),
+            CalculatedPrice = calculated,
+            StepsJson = JsonSerializer.Serialize(row.Steps, StepsJsonOptions),
+            QuotedAt = row.QuotedAt,
+            QuoteSource = row.QuoteSource,
+            CurveFx = row.CurveFx,
+            FxQuotedAt = row.FxQuotedAt,
+            FxQuoteSource = row.FxQuoteSource,
+            DeliveryStartDate = ToDateTime(row.DeliveryStartDate),
+            DeliveryEndDate = ToDateTime(row.DeliveryEndDate),
+            ReceiptDate = ToDateTime(row.ReceiptDate),
+            PaymentDate = ToDateTime(row.PaymentDate),
+            CardCode = cardCode,
+            CardName = partner.CardName,
+            VolumeKg = input.VolumeKg,
+            NegotiatedPrice = input.NegotiatedPrice,
+            WarehouseCode = warehouseCode,
+            WarehouseName = warehouse.Name,
+            AgentCode = input.AgentCode,
+            AgentName = agent.Name,
+            BranchCode = branchCode,
+            LogisticRegionCode = regionCode,
+            Notes = string.IsNullOrWhiteSpace(input.Notes) ? null : input.Notes.Trim(),
+            DeviationPercent = deviation,
+            RequiresBoardApproval = reason is not null,
+            BoardApprovalReason = reason,
+        };
+        context.MarketTradeTickets.Add(ticket);
+        await context.SaveChangesAsync(ct);
+        return ticket;
+    }
+
+    public async Task<MarketTradeTicket> ApproveAsync(int id, string userName, CancellationToken ct)
+    {
+        using var _ = await LockAsync(id, ct);
+        var ticket = await LoadAsync(id, ct);
+        switch (ticket.Status)
+        {
+            case MarketTradeTicketStatus.Pending:
+                await guard.EnsureAsync(userName, PermissionCodes.MarketTicketApprove);
+                if (ticket.ApprovedBy is null)
+                {
+                    ticket.ApprovedBy = userName;
+                    ticket.ApprovedAt = UtcNow;
+                }
+
+                if (ticket.RequiresBoardApproval && ticket.BoardApprovedBy is null)
+                {
+                    if (!await permissions.HasAsync(userName, PermissionCodes.MarketBoardApprove))
+                    {
+                        ticket.Status = MarketTradeTicketStatus.PendingBoard;
+                        await SaveAsync(ct);
+                        return ticket;
+                    }
+
+                    StampBoard(ticket, userName);
+                }
+
+                break;
+            case MarketTradeTicketStatus.PendingBoard:
+                await guard.EnsureAsync(userName, PermissionCodes.MarketBoardApprove);
+                if (ticket.BoardApprovedBy is null)
+                    StampBoard(ticket, userName);
+                break;
+            default:
+                throw new BusinessException($"A boleta nº {id} não está pendente de aprovação.");
+        }
+
+        // Chave do contrato pré-atribuída e gravada no MESMO UPDATE do pedido de vez: daqui em diante qualquer
+        // tentativa (deste ou de outro processo) usa esta chave, então nunca nasce um segundo contrato.
+        ticket.PurchaseContractKey ??= Guid.NewGuid();
+        // "Pedido de vez": força o UPDATE (mesmo numa retomada sem campo novo) para o RowVersion barrar o segundo aprovador.
+        context.Entry(ticket).Property(t => t.Status).IsModified = true;
+        await SaveAsync(ct);
+
+        // Vez marcada: a geração e a gravação final não honram mais o token da requisição (cliente desconectado
+        // no meio não pode interromper o que já começou).
+        try
+        {
+            await contracts.GenerateAsync(ticket, userName, CancellationToken.None);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // O que o Create deixou rastreado (contrato revertido) não pode ir num SaveChanges futuro.
+            context.ChangeTracker.Clear();
+            throw new BusinessException(
+                $"Não foi possível gerar o contrato da boleta nº {id}: {e.Message} Aprove de novo para continuar.");
+        }
+
+        ticket.Status = MarketTradeTicketStatus.Approved;
+        await SaveAsync(CancellationToken.None);
+        return ticket;
+    }
+
+    public async Task<MarketTradeTicket> RejectAsync(int id, string reason, string userName, CancellationToken ct)
+    {
+        using var _ = await LockAsync(id, ct);
+        var ticket = await LoadAsync(id, ct);
+        await EnsureCurrentLevelAsync(ticket, userName);
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new BusinessException("Informe o motivo da rejeição.");
+        await EnsureNoLiveContractAsync(ticket, "rejeitar", ct);
+
+        ticket.Status = MarketTradeTicketStatus.Rejected;
+        ticket.RejectedBy = userName;
+        ticket.RejectedAt = UtcNow;
+        ticket.RejectionReason = reason.Trim();
+        await SaveAsync(ct);
+        return ticket;
+    }
+
+    public async Task<MarketTradeTicket> CancelAsync(int id, string userName, CancellationToken ct)
+    {
+        using var _ = await LockAsync(id, ct);
+        var ticket = await LoadAsync(id, ct);
+        EnsureOpen(ticket);
+        if (!string.Equals(ticket.CreatedBy, userName, StringComparison.OrdinalIgnoreCase))
+            await guard.EnsureAsync(userName, PermissionCodes.MarketTicketApprove);
+        await EnsureNoLiveContractAsync(ticket, "cancelar", ct);
+
+        ticket.Status = MarketTradeTicketStatus.Canceled;
+        ticket.CanceledBy = userName;
+        ticket.CanceledAt = UtcNow;
+        await SaveAsync(ct);
+        return ticket;
+    }
+
+    private async Task EnsureCurrentLevelAsync(MarketTradeTicket ticket, string userName)
+    {
+        EnsureOpen(ticket);
+        await guard.EnsureAsync(userName, ticket.Status == MarketTradeTicketStatus.PendingBoard
+            ? PermissionCodes.MarketBoardApprove
+            : PermissionCodes.MarketTicketApprove);
+    }
+
+    /// <summary>
+    /// Geração parcial deixa a boleta aberta apontando para um contrato vivo: fechá-la deixaria esse contrato órfão
+    /// e aprovável sozinho. Só libera se o contrato não existe (chave pré-atribuída sem contrato criado, ou contrato
+    /// excluído) ou foi cancelado/rejeitado.
+    /// </summary>
+    private async Task EnsureNoLiveContractAsync(MarketTradeTicket ticket, string action, CancellationToken ct)
+    {
+        if (ticket.PurchaseContractKey is not { } key)
+            return;
+        var status = await context.PurchaseContracts.AsNoTracking()
+            .Where(c => c.Key == key).Select(c => c.Status).FirstOrDefaultAsync(ct);
+        if (status is null or ContractStatus.Canceled or ContractStatus.Rejected)
+            return;
+        throw new BusinessException(
+            $"A boleta já gerou o contrato {ticket.PurchaseContractCode}. Conclua a aprovação da boleta ou exclua/cancele " +
+            $"esse contrato antes de {action} a boleta.");
+    }
+
+    private static void EnsureOpen(MarketTradeTicket ticket)
+    {
+        if (ticket.Status is not (MarketTradeTicketStatus.Pending or MarketTradeTicketStatus.PendingBoard))
+            throw new BusinessException($"A boleta nº {ticket.Id} não está pendente.");
+    }
+
+    private void StampBoard(MarketTradeTicket ticket, string userName)
+    {
+        ticket.BoardApprovedBy = userName;
+        ticket.BoardApprovedAt = UtcNow;
+    }
+
+    /// <summary>
+    /// Aprovar/rejeitar/cancelar a mesma boleta é serializado por empresa + id: a boleta fica Pending durante a geração
+    /// do contrato, então só o RowVersion não impede um segundo pedido simultâneo de criar outro contrato.
+    /// Exclusão só no processo; entre processos quem garante um contrato só é a chave pré-atribuída (e o RowVersion).
+    /// </summary>
+    private Task<IDisposable> LockAsync(int id, CancellationToken ct) =>
+        locks.AcquireAsync($"market-ticket:{companyContext.CompanyCode}:{id}", ct);
+
+    /// <summary>Sempre o estado do banco: uma instância rastreada antes do lock pode estar velha.</summary>
+    private async Task<MarketTradeTicket> LoadAsync(int id, CancellationToken ct)
+    {
+        var ticket = await context.MarketTradeTickets.FirstOrDefaultAsync(t => t.Id == id, ct)
+                     ?? throw new KeyNotFoundException($"Boleta {id} não encontrada.");
+        var entry = context.Entry(ticket);
+        await entry.ReloadAsync(ct);
+        if (entry.State == EntityState.Detached)
+            throw new KeyNotFoundException($"Boleta {id} não encontrada.");
+        return ticket;
+    }
+
+    private async Task SaveAsync(CancellationToken ct)
+    {
+        try
+        {
+            await context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            context.ChangeTracker.Clear();
+            throw new BusinessException(ConcurrencyMessage);
+        }
+    }
+
+    private static string Required(string? value, string name) =>
+        string.IsNullOrWhiteSpace(value) ? throw new BusinessException($"Informe {name}.") : value.Trim();
+
+    private static DateTime? ToDateTime(DateOnly? date) => date?.ToDateTime(TimeOnly.MinValue);
+
+    private static string StatusText(MarketPriceStatus status) => status switch
+    {
+        MarketPriceStatus.MissingQuote => "sem cotação",
+        MarketPriceStatus.MissingFx => "sem dólar",
+        MarketPriceStatus.MissingFreight => "sem frete vigente para a cidade",
+        MarketPriceStatus.InvalidSetup => "configuração inválida",
+        _ => "sem preço calculado",
+    };
+}
