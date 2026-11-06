@@ -46,9 +46,10 @@ public class MarketPositionController(
     {
         if (string.IsNullOrWhiteSpace(commodity))
             return MarketTextResults.BadRequest("Informe a commodity.");
-        if (year is null || month is null or < 1 or > 12)
-            return MarketTextResults.BadRequest("Informe o ano e o mês do vencimento.");
-        return Json(await position.GetBucketContractsAsync(commodity, year.Value, month.Value, cancellationToken));
+        // Ano e mês juntos = um vencimento; os dois ausentes = a linha de total da commodity (todos os vencimentos).
+        if ((year is null) != (month is null) || month is < 1 or > 12)
+            return MarketTextResults.BadRequest("Informe o ano e o mês do vencimento, ou nenhum dos dois para o total.");
+        return Json(await position.GetBucketContractsAsync(commodity, year, month, cancellationToken));
     }
 
     [HttpGet("market/position/usd-contracts")]

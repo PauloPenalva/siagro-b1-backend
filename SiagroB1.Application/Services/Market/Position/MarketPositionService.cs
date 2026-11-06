@@ -146,13 +146,14 @@ public class MarketPositionService(
     }
 
     /// <summary>Linhas físicas que formam um balde (commodity × mês de bolsa).</summary>
-    public async Task<IReadOnlyList<MarketPositionContractRow>> GetBucketContractsAsync(string commodity, int year, int month, CancellationToken ct)
+    public async Task<IReadOnlyList<MarketPositionContractRow>> GetBucketContractsAsync(string commodity, int? year, int? month, CancellationToken ct)
     {
         var exposure = await physical.GetAsync(ct);
         return exposure.Rows
             .Where(r => string.Equals(r.CommodityCode, commodity.Trim(), StringComparison.OrdinalIgnoreCase)
-                        && r.FuturesYear == year && r.FuturesMonth == month)
-            .OrderBy(r => r.Side).ThenBy(r => r.ContractCode)
+                        // Sem ano e mês = linha de total da commodity: todos os vencimentos.
+                        && (year is null || (r.FuturesYear == year && r.FuturesMonth == month)))
+            .OrderBy(r => r.Side).ThenBy(r => r.FuturesYear).ThenBy(r => r.FuturesMonth).ThenBy(r => r.ContractCode)
             .Select(r => new MarketPositionContractRow(r.Side, r.ContractKey, r.ContractCode, r.CardName, r.ItemCode, r.DeliveryEndDate,
                 r.FirmOpenKg / 1000m, Math.Round(r.PricePerKg * KgPerBag, 2, MidpointRounding.AwayFromZero), r.Currency,
                 r.MarketInstrumentCode, r.MarketExchangePrice, r.MarketPremium, r.UsdLinked, r.FxLocked))

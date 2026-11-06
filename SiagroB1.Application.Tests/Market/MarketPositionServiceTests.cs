@@ -416,6 +416,10 @@ public class MarketPositionServiceTests
         var p = rows.Single(r => r.Side == MarketEfpContractSide.Purchase);
         Assert.Equal(("CC1", 1000m, 120m, Zsn7, 1188.25m, false), (p.ContractCode, p.FirmOpenTons, p.PricePerBag, p.MarketInstrumentCode, p.MarketExchangePrice, p.UsdLinked));
 
+        // Linha de total da commodity: sem ano e mês vêm todos os vencimentos; outro vencimento não traz nada.
+        Assert.Equal(2, (await Service(db).GetBucketContractsAsync("SOY", null, null, Ct)).Count);
+        Assert.Empty(await Service(db).GetBucketContractsAsync("SOY", 2027, 3, Ct));
+
         var usd = Assert.Single(await Service(db).GetUsdContractsAsync(Ct));
         Assert.Equal(("CV1", 500m, 200_000m, 24m, true, 5.4m, new DateOnly(2026, 12, 15)),
             (usd.ContractCode, usd.FirmOpenTons, usd.UsdAmount, usd.UsdPricePerBag, usd.FxLocked, usd.FxRate, usd.CashFlowDate));
