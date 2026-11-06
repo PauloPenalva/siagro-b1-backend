@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Market;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Market;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Web.Market;
 
 namespace SiagroB1.Application.Tests.Market;
@@ -95,5 +96,38 @@ public class MarketQuotesStreamLoopTests
 
         Assert.True(reads > 10);
         Assert.Equal(2, logger.Entries.Count(e => e.Level == LogLevel.Warning));
+    }
+
+    [Fact]
+    public async Task GenericLoop_EmitsPayloadOnVersionChange_AndHeartbeats()
+    {
+        var store = new LiveQuoteStore();
+        store.NotifyChanged("A");
+        var time = new ManualTime();
+        using var cts = new CancellationTokenSource();
+        var output = new MemoryStream();
+        var ticks = 0;
+        var builds = 0;
+        var loop = new MarketLiveStreamLoop(store, new TestLogger<MarketQuotesStreamLoop>(), time, (span, _) =>
+        {
+            time.Now += span;
+            // Muda a versão no 4o tick; 40 ticks (20 s) cobrem um heartbeat de 15 s.
+            if (++ticks == 4) store.NotifyChanged("A");
+            if (ticks >= 40) cts.Cancel();
+            return Task.CompletedTask;
+        });
+
+        await loop.RunAsync("A", output, "teste", (snapshot, _) =>
+        {
+            builds++;
+            return Task.FromResult<object>(new { snapshot.Version, Items = new[] { MarketPriceStatus.MissingFx } });
+        }, cts.Token);
+
+        var text = Encoding.UTF8.GetString(output.ToArray());
+        Assert.Equal(2, builds);
+        Assert.Equal(2, text.Split("data: ").Length - 1);
+        Assert.Contains("\"version\":2", text);
+        Assert.Contains("\"missingFx\"", text);
+        Assert.Contains(": ping", text);
     }
 }
