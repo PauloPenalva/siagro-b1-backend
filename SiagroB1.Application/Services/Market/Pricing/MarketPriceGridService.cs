@@ -16,7 +16,8 @@ public sealed record MarketPriceGridRow(
     DateOnly DeliveryStartDate, DateOnly DeliveryEndDate, DateOnly ReceiptDate, DateOnly PaymentDate,
     decimal? ExchangeQuote, decimal? ExchangeLast, decimal? ChangePercent, decimal Premium, decimal? SpotFx, decimal? NetFx,
     decimal? PortPrice, decimal? FreightPerTon, decimal? Price, MarketPriceStatus Status,
-    DateTime? QuotedAt, MarketQuoteSource? QuoteSource, IReadOnlyList<MarketPriceStep> Steps);
+    DateTime? QuotedAt, MarketQuoteSource? QuoteSource, IReadOnlyList<MarketPriceStep> Steps,
+    string HarvestSeasonCode);
 
 public sealed record MarketPriceGrid(
     string HarvestSeasonCode, string MunicipalityCode, DateTime GeneratedAt, IReadOnlyList<MarketPriceGridRow> Rows);
@@ -48,7 +49,7 @@ public class MarketPriceGridService(AppDbContext context, MarketFreightRateServi
         decimal FreightCoefficientPercent, DateTime? DeliveryStartDate, DateTime? DeliveryEndDate, DateTime? ReceiptDate,
         DateTime? PaymentDate, int SortOrder,
         bool? InstrumentActive, MarketQuoteUnit? QuoteUnit, decimal? TonFactor,
-        bool? CurveActive, MarketInstrumentType? CurveType, int? CurveDays);
+        bool? CurveActive, MarketInstrumentType? CurveType, int? CurveDays, string HarvestSeasonCode);
 
     private async Task<List<MarketPriceGridRow>> BuildRowsAsync(
         Expression<Func<MarketPriceTableLine, bool>> filter, string municipalityCode, DateOnly today, CancellationToken ct)
@@ -65,7 +66,8 @@ public class MarketPriceGridService(AppDbContext context, MarketFreightRateServi
                 l.FreightCoefficientPercent, l.DeliveryStartDate, l.DeliveryEndDate, l.ReceiptDate,
                 l.PaymentDate, l.SortOrder,
                 (bool?)l.Instrument!.Active, (MarketQuoteUnit?)l.Instrument.QuoteUnit, (decimal?)l.Instrument.TonFactor,
-                (bool?)l.FxCurveInstrument!.Active, (MarketInstrumentType?)l.FxCurveInstrument.Type, l.FxCurveInstrument.CurveDays))
+                (bool?)l.FxCurveInstrument!.Active, (MarketInstrumentType?)l.FxCurveInstrument.Type, l.FxCurveInstrument.CurveDays,
+                l.PriceTable.HarvestSeasonCode))
             .ToListAsync(ct);
         if (lines.Count == 0)
             return [];
@@ -131,7 +133,8 @@ public class MarketPriceGridService(AppDbContext context, MarketFreightRateServi
             ToDate(l.DeliveryStartDate), ToDate(l.DeliveryEndDate), receipt, payment,
             used, quote?.Last, quote?.ChangePercent, l.Premium, isUsd ? spotFx : null, result.NetFx,
             result.PortPrice, freightPerTon, result.Price, result.Status,
-            quote is null ? null : DateTime.SpecifyKind(quote.QuotedAt, DateTimeKind.Utc), quote?.Source, result.Steps);
+            quote is null ? null : DateTime.SpecifyKind(quote.QuotedAt, DateTimeKind.Utc), quote?.Source, result.Steps,
+            l.HarvestSeasonCode);
     }
 
     private static DateOnly ToDate(DateTime? value) => value is null ? default : DateOnly.FromDateTime(value.Value);

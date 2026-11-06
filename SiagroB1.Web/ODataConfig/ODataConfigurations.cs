@@ -23,6 +23,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketFreightRate>("MarketFreightRates");
         modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketPriceTable>("MarketPriceTables");
         modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketPriceTableLine>("MarketPriceTableLines");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketTradeTicket>("MarketTradeTickets");
         modelBuilder.EntitySet<Branch>("Branchs");
         modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
         modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");
