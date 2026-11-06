@@ -454,4 +454,21 @@ public class MarketPhysicalExposureServiceTests
     {
         SalesContractKey = s.Key, FixationVolume = volume, FixationPrice = price, Status = status,
     };
+
+    [Fact]
+    public async Task UsdRows_IndependentOfCommodity_BrlWithoutUsdPriceExcluded()
+    {
+        var db = NewDb();
+        var usd = Purchase("CC1", item: "MILHO", currency: CurrencyType.Usd);
+        var brl = Purchase("CC2", item: "MILHO");
+        db.Context.PurchaseContracts.AddRange(usd, brl);
+
+        var result = await Read(db);
+
+        var row = Assert.Single(result.UsdRows);
+        Assert.Equal((usd.Key, 600_000m, 2m), (row.ContractKey, row.FirmOpenKg, row.UsdPricePerKg));
+        Assert.Contains(result.Ignored, i => i.ContractKey == usd.Key && i.Reason == MarketPhysicalExposureService.ReasonNoCommodity);
+        Assert.Contains(result.Ignored, i => i.ContractKey == brl.Key);
+        Assert.Empty(result.Rows);
+    }
 }

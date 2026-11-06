@@ -111,8 +111,8 @@ public class MarketPositionServiceTests
     private static MarketCommodityBucket SoyJuly(MarketPositionSnapshot s) =>
         s.Commodities.Single(c => c.Code == "SOY").Buckets.Single(b => b.Year == 2027 && b.Month == 7);
 
-    // 4 lotes ZS = 4 × 5000 / (0,36745 × 100) = 544,29179… t; a parte 3 arredonda o total a 544,2917
-    // (o brief cita 544,2916, que é 4 × o lote já arredondado). O painel usa o número da parte 3.
+    // 4 lotes ZS = 4 × 5000 / 36,745 = 4 × 136,0729351 = 544,29174… → 544,2917 (a parte 3 arredonda uma vez, no fim);
+    // o 544,2916 do plano era 4 × o lote já arredondado.
     [Fact]
     public async Task PurchaseAndShortFutures_NetCoveredAndHedgePercent()
     {
@@ -281,7 +281,7 @@ public class MarketPositionServiceTests
         var b = Assert.Single(s.Usd.Buckets);
         Assert.Equal(-150_000m, b.NetUsd);
         Assert.Null(b.FxHedgeUnrealizedBrl);
-        Assert.Equal(0m, s.Results.UnrealizedBrl);
+        Assert.Null(s.Results.UnrealizedBrl); // NDF aberto sem dólar à vista: sem base, não zero
     }
 
     [Fact]
@@ -467,5 +467,49 @@ public class MarketPositionServiceTests
         var rowsJson = System.Text.Json.JsonSerializer.Serialize(rows, SiagroB1.Web.Market.MarketQuotesStreamLoop.JsonOptions);
         Assert.Contains("\"deliveryEndDate\":\"2027-06-30\"", rowsJson);
         Assert.Contains("\"side\":\"sales\"", rowsJson);
+    }
+
+    [Fact]
+    public async Task Unrealized_UsdFuturesWithoutQuote_Null_NoPosition_Zero()
+    {
+        var db = await SeedAsync();
+        Futures(db, MarketTradeSide.Sell, 4, 1190m);
+        var s = await Snapshot(db);
+        Assert.Null(s.Results.UnrealizedUsd);
+        Assert.Equal(0m, s.Results.UnrealizedBrl);
+
+        var empty = await Snapshot(await SeedAsync());
+        Assert.Equal((0m, 0m), (empty.Results.UnrealizedUsd!.Value, empty.Results.UnrealizedBrl!.Value));
+    }
+
+    [Fact]
+    public async Task Dollar_ContractWithoutCommodity_CountsInUsd_AndListed_LockedOnlyListed()
+    {
+        var db = await SeedAsync();
+        var sale = Sales(db, "CV7", 500_000m);
+        sale.ItemCode = "SORGO"; // sem commodity: fora das toneladas
+        sale.MarketUsdPrice = 0.4m;
+        sale.StandardCashFlowDate = new DateTime(2026, 12, 15);
+        var purchase = Purchase(db, "CC7", 100_000m, item: "SORGO");
+        purchase.StandardCurrency = CurrencyType.Usd;
+        purchase.StandardPrice = 0.3m;
+        purchase.StandardCashFlowDate = new DateTime(2026, 12, 15);
+        Purchase(db, "CC8", 100_000m, item: "SORGO"); // R$ sem MarketUsdPrice: não é dólar
+
+        var s = await Snapshot(db);
+
+        Assert.Equal(3, s.Ignored.Count);
+        var b = Assert.Single(s.Usd.Buckets);
+        Assert.Equal((200_000m, 30_000m, 170_000m), (b.ReceivableUsd, b.PayableUsd, b.NetUsd));
+        var listed = await Service(db).GetUsdContractsAsync(Ct);
+        Assert.Equal(["CC7", "CV7"], listed.Select(r => r.ContractCode).Order());
+
+        db.Context.SalesContracts.Attach(sale);
+        sale.MarketFxLocked = true;
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+        var locked = await Service(db).GetSnapshotAsync(Today, Ct);
+        Assert.Equal((0m, -30_000m), (locked.Usd.Total.ReceivableUsd, locked.Usd.Total.NetUsd));
+        Assert.Contains(await Service(db).GetUsdContractsAsync(Ct), r => r.ContractCode == "CV7" && r.FxLocked);
     }
 }

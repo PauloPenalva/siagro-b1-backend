@@ -18,7 +18,8 @@ public sealed record MarketUsdBucket(int? Year, int? Month, decimal ReceivableUs
 
 public sealed record MarketUsdPosition(IReadOnlyList<MarketUsdBucket> Buckets, MarketUsdBucket Total, decimal? SpotFx, decimal OpenCommodityValueUsd);
 
-public sealed record MarketResultSummary(decimal RealizedUsd, decimal RealizedBrl, decimal UnrealizedUsd, decimal UnrealizedBrl);
+/// <summary>Não realizado nulo quando há posição aberta naquela moeda que não pôde ser marcada; zero só sem posição.</summary>
+public sealed record MarketResultSummary(decimal RealizedUsd, decimal RealizedBrl, decimal? UnrealizedUsd, decimal? UnrealizedBrl);
 
 /// <summary>Limite estourado. <c>Scope</c>: commodity (t) | usd (US$); <c>LimitValue</c> sempre positivo; descrição pt-BR sem números.</summary>
 public sealed record MarketLimitAlert(int LimitId, string Scope, string Description, decimal Value, decimal LimitValue, string State);
@@ -58,7 +59,7 @@ public class MarketPositionService(
         var futures = await derivatives.GetOpenPositionsAsync(ct);
 
         var spotCode = (await context.MarketTradingSettings.AsNoTracking()
-            .Select(s => s.SpotFxInstrumentCode).FirstOrDefaultAsync(ct))?.Trim();
+            .OrderBy(s => s.Key).Select(s => s.SpotFxInstrumentCode).FirstOrDefaultAsync(ct))?.Trim();
         if (string.IsNullOrEmpty(spotCode)) spotCode = null;
 
         var names = await context.MarketCommodities.AsNoTracking()
@@ -68,8 +69,11 @@ public class MarketPositionService(
             .Select(r => r.MarketInstrumentCode!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var futureCodes = futures.Select(f => f.InstrumentCode).ToList();
         var extra = referenced.Concat(futureCodes).Concat(spotCode is null ? [] : [spotCode]).ToList();
+        // Vencidos há mais de um mês só entram se tiverem posição aberta (estão em "extra").
+        var recentExpiration = today.AddMonths(-1).ToDateTime(TimeOnly.MinValue);
         var instruments = await context.MarketInstruments.AsNoTracking()
-            .Where(i => (i.Active && i.Type == MarketInstrumentType.Future && i.ExpirationDate != null) || extra.Contains(i.Code))
+            .Where(i => (i.Active && i.Type == MarketInstrumentType.Future && i.ExpirationDate != null && i.ExpirationDate >= recentExpiration)
+                        || extra.Contains(i.Code))
             .Select(i => new InstrumentData(i.Code, i.Commodity, i.Type, i.Active, i.ExpirationDate, i.QuoteUnit, i.ContractSize, i.TonFactor))
             .ToListAsync(ct);
         var instrumentByCode = instruments
@@ -127,16 +131,16 @@ public class MarketPositionService(
                 .Select(h => (h.Side, h.AmountUsd, h.ContractedRate, Settlement: DateOnly.FromDateTime(h.SettlementDate))).ToList(),
             spotFx, openCommodityValueUsd, limits, alerts);
 
-        var openNdfBrl = spotFx is { } fx
-            ? fxHedges.Where(h => h.Status == MarketFxHedgeStatus.Open)
-                .Sum(h => MarketFxMath.RealizedPnlBrl(h.Side, h.ContractedRate, fx, h.AmountUsd))
-            : 0m;
+        var openNdfs = fxHedges.Where(h => h.Status == MarketFxHedgeStatus.Open).ToList();
+        decimal? openNdfBrl = openNdfs.Count == 0 ? 0m
+            : spotFx is { } fx ? openNdfs.Sum(h => MarketFxMath.RealizedPnlBrl(h.Side, h.ContractedRate, fx, h.AmountUsd))
+            : null;
         var results = new MarketResultSummary(
             realized.Where(r => r.Currency == CurrencyType.Usd).Sum(r => r.Total),
             realized.Where(r => r.Currency == CurrencyType.Brl).Sum(r => r.Total)
                 + fxHedges.Where(h => h.Status == MarketFxHedgeStatus.Settled).Sum(h => h.RealizedPnlBrl ?? 0m),
-            futures.Where(f => f.Currency == CurrencyType.Usd).Sum(f => f.UnrealizedPnl ?? 0m),
-            futures.Where(f => f.Currency == CurrencyType.Brl).Sum(f => f.UnrealizedPnl ?? 0m) + openNdfBrl);
+            Unrealized(futures, CurrencyType.Usd),
+            Unrealized(futures, CurrencyType.Brl) + openNdfBrl);
 
         return new MarketPositionSnapshot(time.GetUtcNow().UtcDateTime, commodities, usd, results, alerts, exposure.Ignored);
     }
@@ -155,37 +159,31 @@ public class MarketPositionService(
             .ToList();
     }
 
-    /// <summary>Todos os contratos atrelados a dólar com saldo firme a entregar, travados ou não (os travados para reabrir).</summary>
-    public async Task<IReadOnlyList<MarketUsdContractRow>> GetUsdContractsAsync(CancellationToken ct)
-    {
-        var rows = (await physical.GetAsync(ct)).Rows.Where(r => r.UsdLinked).ToList();
-        if (rows.Count == 0) return [];
-
-        // A taxa gravada não faz parte da leitura física (cache): uma consulta por lado, só aqui (fora do SSE).
-        var purchaseKeys = rows.Where(r => r.Side == MarketEfpContractSide.Purchase).Select(r => r.ContractKey).ToList();
-        var salesKeys = rows.Where(r => r.Side == MarketEfpContractSide.Sales).Select(r => r.ContractKey).ToList();
-        var rates = new Dictionary<Guid, decimal?>();
-        if (purchaseKeys.Count > 0)
-            foreach (var p in await context.PurchaseContracts.AsNoTracking().Where(c => purchaseKeys.Contains(c.Key))
-                         .Select(c => new { c.Key, c.MarketFxRate }).ToListAsync(ct))
-                rates[p.Key] = p.MarketFxRate;
-        if (salesKeys.Count > 0)
-            foreach (var s in await context.SalesContracts.AsNoTracking().Where(c => salesKeys.Contains(c.Key))
-                         .Select(c => new { c.Key, c.MarketFxRate }).ToListAsync(ct))
-                rates[s.Key] = s.MarketFxRate;
-
-        return rows.OrderBy(r => r.CashFlowDate).ThenBy(r => r.ContractCode)
+    /// <summary>
+    /// Todos os contratos atrelados a dólar com saldo firme a entregar, travados ou não (os travados para reabrir),
+    /// independente de commodity e de regra de mês (lista <see cref="MarketPhysicalExposure.UsdRows"/>).
+    /// </summary>
+    public async Task<IReadOnlyList<MarketUsdContractRow>> GetUsdContractsAsync(CancellationToken ct) =>
+        (await physical.GetAsync(ct)).UsdRows
+            .OrderBy(r => r.CashFlowDate).ThenBy(r => r.ContractCode)
             .Select(r => new MarketUsdContractRow(r.Side, r.ContractKey, r.ContractCode, r.CardName, r.ItemCode, r.CashFlowDate,
-                r.FirmOpenKg / 1000m, UsdAmount(r),
-                r.UsdPricePerKg is { } p ? Math.Round(p * KgPerBag, 4, MidpointRounding.AwayFromZero) : null,
-                r.FxLocked, rates.GetValueOrDefault(r.ContractKey)))
+                r.FirmOpenKg / 1000m, UsdAmount(r), Math.Round(r.UsdPricePerKg * KgPerBag, 4, MidpointRounding.AwayFromZero),
+                r.FxLocked, r.MarketFxRate))
             .ToList();
+
+    private static decimal UsdAmount(MarketUsdRow r) => Math.Round(r.FirmOpenKg * r.UsdPricePerKg, 2, MidpointRounding.AwayFromZero);
+
+    /// <summary>Não realizado dos futuros abertos de uma moeda; nulo se algum não tem cotação, zero se não há posição.</summary>
+    private static decimal? Unrealized(IReadOnlyList<MarketFuturesOpenPosition> futures, CurrencyType currency)
+    {
+        var open = futures.Where(f => f.Currency == currency).ToList();
+        return open.Any(f => f.UnrealizedPnl is null) ? null : open.Sum(f => f.UnrealizedPnl!.Value);
     }
 
-    private static decimal? UsdAmount(MarketPhysicalRow r) =>
-        r.UsdPricePerKg is { } p ? Math.Round(r.FirmOpenKg * p, 2, MidpointRounding.AwayFromZero) : null;
-
-    /// <summary>US$ por tonelada de 1 unidade de cotação (US¢/bu → TonFactor; US$/t → 1; R$/sc → TonFactor); nulo sem tonelagem.</summary>
+    /// <summary>
+    /// Valor, na moeda da cotação, por tonelada de 1 unidade de preço: US¢/bu → TonFactor (US$/t); US$/t → 1 (US$/t);
+    /// R$/sc → TonFactor (R$/t). Nulo sem tonelagem.
+    /// </summary>
     private static decimal? ValuePerTon(InstrumentData i) => i.QuoteUnit switch
     {
         MarketQuoteUnit.UsCentsPerBushel or MarketQuoteUnit.BrlPerBag => i.TonFactor > 0 ? i.TonFactor : null,
@@ -341,7 +339,7 @@ public class MarketPositionService(
         List<(MarketTradeSide Side, decimal AmountUsd, decimal ContractedRate, DateOnly Settlement)> openHedges,
         decimal? spotFx, decimal openCommodityValueUsd, List<LimitData> limits, List<MarketLimitAlert> alerts)
     {
-        var contracts = exposure.Rows.Where(r => r.UsdLinked && !r.FxLocked && r.UsdPricePerKg.HasValue).ToList();
+        var contracts = exposure.UsdRows.Where(r => !r.FxLocked).ToList();
         var dollarFutures = futures.Where(f => f.Usd.HasValue).ToList();
         var keys = contracts.Select(r => ((int?)r.CashFlowDate.Year, (int?)r.CashFlowDate.Month))
             .Concat(openHedges.Select(h => ((int?)h.Settlement.Year, (int?)h.Settlement.Month)))
@@ -353,8 +351,8 @@ public class MarketPositionService(
         {
             var rows = contracts.Where(r => r.CashFlowDate.Year == year && r.CashFlowDate.Month == month).ToList();
             var hedges = openHedges.Where(h => h.Settlement.Year == year && h.Settlement.Month == month).ToList();
-            var receivable = rows.Where(r => r.Side == MarketEfpContractSide.Sales).Sum(r => UsdAmount(r)!.Value);
-            var payable = rows.Where(r => r.Side == MarketEfpContractSide.Purchase).Sum(r => UsdAmount(r)!.Value);
+            var receivable = rows.Where(r => r.Side == MarketEfpContractSide.Sales).Sum(UsdAmount);
+            var payable = rows.Where(r => r.Side == MarketEfpContractSide.Purchase).Sum(UsdAmount);
             var fxHedge = hedges.Sum(h => h.Side == MarketTradeSide.Sell ? -h.AmountUsd : h.AmountUsd);
             var usdFutures = dollarFutures.Where(f => f.ExpirationDate?.Year == year && f.ExpirationDate?.Month == month).Sum(f => f.Usd!.Value);
             decimal? unrealized = hedges.Count > 0 && spotFx is { } fx

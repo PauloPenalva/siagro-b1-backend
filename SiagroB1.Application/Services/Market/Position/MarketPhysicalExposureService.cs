@@ -14,7 +14,15 @@ public sealed record MarketPhysicalRow(MarketEfpContractSide Side, Guid Contract
 /// <summary>Contrato que teria volume firme a entregar mas ficou fora da posição. <c>Reason</c> em pt-BR.</summary>
 public sealed record MarketIgnoredContract(MarketEfpContractSide Side, Guid ContractKey, string ContractCode, string ItemCode, string Reason);
 
-public sealed record MarketPhysicalExposure(DateTime ReadAt, IReadOnlyList<MarketPhysicalRow> Rows, IReadOnlyList<MarketIgnoredContract> Ignored);
+/// <summary>
+/// Contrato atrelado a dólar (moeda US$ ou <c>MarketUsdPrice</c>) com volume firme a entregar, em KG, INDEPENDENTE de
+/// commodity e de regra de mês: a exposição em dólar depende só da moeda/preço. Travados também (para reabrir).
+/// </summary>
+public sealed record MarketUsdRow(MarketEfpContractSide Side, Guid ContractKey, string ContractCode, string CardName, string ItemCode,
+    decimal FirmOpenKg, decimal UsdPricePerKg, bool FxLocked, decimal? MarketFxRate, DateOnly CashFlowDate, DateOnly DeliveryEndDate);
+
+public sealed record MarketPhysicalExposure(DateTime ReadAt, IReadOnlyList<MarketPhysicalRow> Rows, IReadOnlyList<MarketIgnoredContract> Ignored,
+    IReadOnlyList<MarketUsdRow> UsdRows);
 
 /// <summary>
 /// Exposição física: volume com preço firme ainda não entregue dos contratos aprovados em KG, por commodity e
@@ -33,7 +41,7 @@ public class MarketPhysicalExposureService(
         string UnitOfMeasureCode, ContractType Type, decimal TotalVolume, decimal AllocatedVolume, decimal WashedOutVolume,
         decimal WashedOutUnfixedVolume, decimal ContractPrice, CurrencyType? Currency, DateTime DeliveryEndDate,
         DateTime? CashFlowDate, string? MarketInstrumentCode, decimal? MarketExchangePrice, decimal? MarketPremium,
-        decimal? MarketUsdPrice, bool MarketFxLocked);
+        decimal? MarketUsdPrice, bool MarketFxLocked, decimal? MarketFxRate);
 
     /// <summary>Somas só das fixações confirmadas; <c>Count</c> conta as linhas em QUALQUER status.</summary>
     private sealed record FixationTotals(Guid Key, decimal Volume, decimal Amount, int Count);
@@ -56,7 +64,7 @@ public class MarketPhysicalExposureService(
             .Select(c => new ContractData(MarketEfpContractSide.Purchase, c.Key, c.Code, c.CardName, c.ItemCode,
                 c.UnitOfMeasureCode, c.Type, c.TotalVolume, c.AllocatedVolume, c.WashedOutVolume, c.WashedOutUnfixedVolume,
                 c.StandardPrice, c.StandardCurrency, c.DeliveryEndDate, c.StandardCashFlowDate, c.MarketInstrumentCode,
-                c.MarketExchangePrice, c.MarketPremium, c.MarketUsdPrice, c.MarketFxLocked))
+                c.MarketExchangePrice, c.MarketPremium, c.MarketUsdPrice, c.MarketFxLocked, c.MarketFxRate))
             .ToListAsync(ct);
 
         var sales = await context.SalesContracts.AsNoTracking()
@@ -64,7 +72,7 @@ public class MarketPhysicalExposureService(
             .Select(c => new ContractData(MarketEfpContractSide.Sales, c.Key, c.Code, c.CardName, c.ItemCode,
                 c.UnitOfMeasureCode, c.Type, c.TotalVolume, c.AllocatedVolume, c.WashedOutVolume, c.WashedOutUnfixedVolume,
                 c.Price, c.StandardCurrency, c.DeliveryEndDate, c.StandardCashFlowDate, c.MarketInstrumentCode,
-                c.MarketExchangePrice, c.MarketPremium, c.MarketUsdPrice, c.MarketFxLocked))
+                c.MarketExchangePrice, c.MarketPremium, c.MarketUsdPrice, c.MarketFxLocked, c.MarketFxRate))
             .ToListAsync(ct);
 
         var purchaseFixations = await context.PurchaseContractsPriceFixations.AsNoTracking()
@@ -112,6 +120,7 @@ public class MarketPhysicalExposureService(
 
         var rows = new List<MarketPhysicalRow>();
         var ignored = new List<MarketIgnoredContract>();
+        var usdRows = new List<MarketUsdRow>();
 
         foreach (var c in purchases.Concat(sales))
         {
@@ -126,6 +135,17 @@ public class MarketPhysicalExposureService(
             {
                 ignored.Add(Ignored(c, ReasonNotKg));
                 continue;
+            }
+
+            var currency = c.Currency ?? CurrencyType.Brl;
+            var usdLinked = currency == CurrencyType.Usd || c.MarketUsdPrice.HasValue;
+            var usdPrice = c.MarketUsdPrice ?? (currency == CurrencyType.Usd ? price : null);
+            // Dólar: no mesmo passe, antes das regras de commodity/mês (que só valem para a posição em toneladas).
+            if (usdLinked && usdPrice.HasValue && (c.CashFlowDate.HasValue || c.DeliveryEndDate != default))
+            {
+                var end = c.DeliveryEndDate == default ? DateOnly.FromDateTime(c.CashFlowDate!.Value) : DateOnly.FromDateTime(c.DeliveryEndDate);
+                usdRows.Add(new MarketUsdRow(c.Side, c.Key, c.Code ?? "", c.CardName ?? "", c.ItemCode, firmOpen, usdPrice.Value,
+                    c.MarketFxLocked, c.MarketFxRate, c.CashFlowDate.HasValue ? DateOnly.FromDateTime(c.CashFlowDate.Value) : end, end));
             }
 
             if (c.DeliveryEndDate == default)
@@ -150,17 +170,13 @@ public class MarketPhysicalExposureService(
                 continue;
             }
 
-            var currency = c.Currency ?? CurrencyType.Brl;
-            var usdLinked = currency == CurrencyType.Usd || c.MarketUsdPrice.HasValue;
-            var usdPrice = c.MarketUsdPrice ?? (currency == CurrencyType.Usd ? price : null);
-
             rows.Add(new MarketPhysicalRow(c.Side, c.Key, c.Code ?? "", c.CardName ?? "", c.ItemCode, commodity,
                 futures.Value.Year, futures.Value.Month, deliveryEnd, firmOpen, price, currency,
                 c.MarketInstrumentCode, c.MarketExchangePrice, c.MarketPremium, usdLinked, c.MarketFxLocked, usdPrice,
                 c.CashFlowDate.HasValue ? DateOnly.FromDateTime(c.CashFlowDate.Value) : deliveryEnd));
         }
 
-        return new MarketPhysicalExposure(time.GetUtcNow().UtcDateTime, rows.AsReadOnly(), ignored.AsReadOnly());
+        return new MarketPhysicalExposure(time.GetUtcNow().UtcDateTime, rows.AsReadOnly(), ignored.AsReadOnly(), usdRows.AsReadOnly());
     }
 
     private static MarketIgnoredContract Ignored(ContractData c, string reason) =>
