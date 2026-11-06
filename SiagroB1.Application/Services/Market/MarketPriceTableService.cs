@@ -23,6 +23,11 @@ public class MarketPriceTableService(
     public async Task<MarketPriceTable> CreateAsync(MarketPriceTable entity, string? userName)
     {
         await ValidateAsync(entity, userName);
+        // Inclusão em profundidade (cabeçalho + linhas no mesmo POST): cada linha passa pelas mesmas regras da
+        // gravação avulsa antes de qualquer SaveChanges, então uma linha inválida não deixa nada gravado.
+        foreach (var line in entity.Lines)
+            await MarketPriceTableLineRules.ValidateAsync(context, line);
+
         var created = await base.CreateAsync(entity);
         store.NotifyChanged(companyContext.CompanyCode);
         return created;
@@ -32,8 +37,7 @@ public class MarketPriceTableService(
     {
         entity.Id = key;
         await ValidateAsync(entity, userName);
-        // As linhas têm serviço próprio: o corpo do cabeçalho não as altera.
-        entity.Lines = [];
+        IgnorePayloadLines(entity);
         var updated = await base.UpdateAsync(key, entity);
         store.NotifyChanged(companyContext.CompanyCode);
         return updated;
@@ -50,6 +54,28 @@ public class MarketPriceTableService(
         await context.SaveChangesAsync();
         store.NotifyChanged(companyContext.CompanyCode);
         return true;
+    }
+
+    // As linhas têm serviço próprio: o corpo do cabeçalho não as altera. Em PUT a entidade vem solta e a lista é
+    // descartada; em PATCH a entidade já está rastreada e só saem as linhas novas do payload, sem tocar nas rastreadas.
+    private void IgnorePayloadLines(MarketPriceTable entity)
+    {
+        if (context.Entry(entity).State == EntityState.Detached)
+        {
+            entity.Lines = [];
+            return;
+        }
+
+        // Entry() roda o DetectChanges: linha nova do payload já aparece como Added, não como Detached.
+        foreach (var line in entity.Lines.ToList())
+        {
+            var entry = context.Entry(line);
+            if (entry.State is not (EntityState.Detached or EntityState.Added))
+                continue;
+
+            entry.State = EntityState.Detached;
+            entity.Lines.Remove(line);
+        }
     }
 
     private async Task ValidateAsync(MarketPriceTable entity, string? userName)

@@ -34,6 +34,13 @@ public class MarketPriceTableLineService(
     public async Task<MarketPriceTableLine?> UpdateAsync(int key, MarketPriceTableLine entity, string? userName)
     {
         entity.Id = key;
+        var currentTableId = await context.MarketPriceTableLines.AsNoTracking()
+            .Where(l => l.Id == key).Select(l => (int?)l.PriceTableId).FirstOrDefaultAsync();
+        if (currentTableId is null)
+            throw new KeyNotFoundException("Entity not found.");
+        if (currentTableId != entity.PriceTableId)
+            throw new BusinessException("Não é possível mover a linha para outra tabela de preços.");
+
         await ValidateAsync(entity);
         await StampHeaderAsync(entity.PriceTableId, userName);
         var updated = await base.UpdateAsync(key, entity);
@@ -72,70 +79,6 @@ public class MarketPriceTableLineService(
         if (!await context.MarketPriceTables.AsNoTracking().AnyAsync(t => t.Id == entity.PriceTableId))
             throw new BusinessException("Tabela de preços não encontrada.");
 
-        entity.Description = entity.Description?.Trim() ?? string.Empty;
-        if (entity.Description.Length == 0)
-            throw new BusinessException("Informe a descrição da linha.");
-        if (entity.Description.Length > 100)
-            throw new BusinessException("A descrição da linha deve ter no máximo 100 caracteres.");
-
-        var instrument = await context.MarketInstruments.AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Code == entity.InstrumentCode)
-            ?? throw new BusinessException("Instrumento não encontrado.");
-        if (!instrument.Active)
-            throw new BusinessException("O instrumento da linha está inativo.");
-        if (instrument.Type is not (MarketInstrumentType.Future or MarketInstrumentType.Spot)
-            || instrument.QuoteUnit == MarketQuoteUnit.BrlPerUsd)
-            throw new BusinessException("O instrumento da linha deve ser um contrato futuro ou spot de mercadoria.");
-
-        var destination = await context.MarketDestinations.AsNoTracking()
-            .FirstOrDefaultAsync(d => d.Id == entity.DestinationId)
-            ?? throw new BusinessException("Destino não encontrado.");
-        if (!destination.Active)
-            throw new BusinessException("O destino da linha está inativo.");
-
-        if (instrument.QuoteUnit is MarketQuoteUnit.UsCentsPerBushel or MarketQuoteUnit.UsdPerTon)
-        {
-            var curveCode = entity.FxCurveInstrumentCode?.Trim();
-            if (string.IsNullOrEmpty(curveCode))
-                throw new BusinessException("Instrumento cotado em dólar exige o ponto da curva de dólar.");
-            var curve = await context.MarketInstruments.AsNoTracking().FirstOrDefaultAsync(i => i.Code == curveCode)
-                        ?? throw new BusinessException("Ponto da curva de dólar não encontrado.");
-            if (curve.Type != MarketInstrumentType.CurvePoint || curve.CurveDays is null or <= 0)
-                throw new BusinessException("O ponto da curva de dólar deve ser um instrumento de curva com dias maiores que zero.");
-            entity.FxCurveInstrumentCode = curve.Code;
-        }
-        else
-        {
-            entity.FxCurveInstrumentCode = null;
-        }
-
-        if (entity.PaymentDate is null)
-            throw new BusinessException("Informe a data de pagamento.");
-        if (entity.ReceiptDate is null)
-            throw new BusinessException("Informe a data de recebimento.");
-        entity.PaymentDate = entity.PaymentDate.Value.Date;
-        entity.ReceiptDate = entity.ReceiptDate.Value.Date;
-        entity.DeliveryStartDate = entity.DeliveryStartDate?.Date;
-        entity.DeliveryEndDate = entity.DeliveryEndDate?.Date;
-        if (entity.DeliveryStartDate > entity.DeliveryEndDate)
-            throw new BusinessException("O início da entrega não pode ser posterior ao fim da entrega.");
-
-        Percent(entity.MarginPercent, "margem");
-        Percent(entity.DailyInterestPercent, "juros diários");
-        Percent(entity.TechnicalLossPercent, "quebra técnica");
-        Percent(entity.RuralTaxPercent, "imposto rural");
-        Percent(entity.FreightCoefficientPercent, "coeficiente de frete");
-        if (entity.DiscountIsPercent)
-            Percent(entity.DiscountValue, "desconto");
-        else if (entity.DiscountValue < 0)
-            throw new BusinessException("O desconto não pode ser negativo.");
-        if (entity.ElevationCost < 0)
-            throw new BusinessException("O custo de elevação não pode ser negativo.");
-    }
-
-    private static void Percent(decimal value, string name)
-    {
-        if (value < 0 || value > 100)
-            throw new BusinessException($"O percentual de {name} deve estar entre 0 e 100.");
+        await MarketPriceTableLineRules.ValidateAsync(context, entity);
     }
 }

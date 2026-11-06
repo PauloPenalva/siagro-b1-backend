@@ -133,4 +133,70 @@ public class MarketPriceTableServiceTests
 
         await Assert.ThrowsAsync<BusinessException>(() => MarketTestHelpers.InstrumentService(db).DeleteAsync("CCMF27"));
     }
+
+    private static MarketPriceTable NewTable(params MarketPriceTableLine[] lines) => new()
+    {
+        Description = "Nova", ItemCode = "SOJA", ItemName = "", HarvestSeasonCode = "26/27", Lines = [.. lines],
+    };
+
+    [Fact]
+    public async Task DeepInsert_ValidLine_Saved_AndNormalised()
+    {
+        var db = await SeedPricingAsync(Brl(), Curve());
+
+        await TableService(db).CreateAsync(NewTable(Line("CCMF27", "CURVA 30D")), "ana");
+
+        var line = await db.Context.MarketPriceTableLines.AsNoTracking().SingleAsync(l => l.PriceTableId != 1);
+        Assert.Null(line.FxCurveInstrumentCode);
+        Assert.Equal(2, await db.Context.MarketPriceTables.CountAsync());
+    }
+
+    [Fact]
+    public async Task DeepInsert_OneInvalidLine_Rejected_NothingSaved()
+    {
+        var db = await SeedPricingAsync(Brl(), Usd(), Curve());
+        var valid = Line("CCMF27");
+        var usdWithoutCurve = Line("ZSF7");
+
+        await Assert.ThrowsAsync<BusinessException>(() =>
+            TableService(db).CreateAsync(NewTable(valid, usdWithoutCurve), "ana"));
+
+        db.Context.ChangeTracker.Clear();
+        Assert.Equal(1, await db.Context.MarketPriceTables.CountAsync());
+        Assert.Empty(db.Context.MarketPriceTableLines);
+    }
+
+    [Fact]
+    public async Task HeaderUpdate_TrackedEntity_KeepsTrackedLines_IgnoresPayloadLines()
+    {
+        var db = await SeedPricingAsync(Brl());
+        await LineService(db).CreateAsync(Line("CCMF27"), "ana");
+        db.Context.ChangeTracker.Clear();
+
+        var header = await db.Context.MarketPriceTables.Include(t => t.Lines).SingleAsync();
+        header.Description = "Renomeada";
+        header.Lines.Add(new MarketPriceTableLine { Description = "x", InstrumentCode = "CCMF27" });
+        await TableService(db).UpdateAsync(header.Id, header, "bia");
+
+        db.Context.ChangeTracker.Clear();
+        Assert.Single(db.Context.MarketPriceTableLines);
+        Assert.Equal("Renomeada", (await db.Context.MarketPriceTables.SingleAsync()).Description);
+    }
+
+    [Fact]
+    public async Task LineUpdate_MovingToAnotherTable_Rejected()
+    {
+        var db = await SeedPricingAsync(Brl());
+        var created = await LineService(db).CreateAsync(Line("CCMF27"), "ana");
+        db.Context.MarketPriceTables.Add(new MarketPriceTable
+        {
+            Id = 2, Description = "Outra", ItemCode = "SOJA", ItemName = "SOJA", HarvestSeasonCode = "26/27",
+        });
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var moved = Line("CCMF27");
+        moved.PriceTableId = 2;
+        await Assert.ThrowsAsync<BusinessException>(() => LineService(db).UpdateAsync(created.Id, moved, "ana"));
+    }
 }

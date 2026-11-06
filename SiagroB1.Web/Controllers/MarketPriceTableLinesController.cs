@@ -44,10 +44,15 @@ public class MarketPriceTableLinesController(MarketPriceTableLineService service
     }
 
     [HttpPatch("odata/MarketPriceTables({priceTableId})/Lines({lineId})")]
-    public Task<IActionResult> PatchNested(
+    public async Task<IActionResult> PatchNested(
         [FromODataUri] int priceTableId, [FromODataUri] int lineId, [FromBody] Delta<MarketPriceTableLine> patch) =>
-        Patch(lineId, patch);
+        await BelongsToAsync(priceTableId, lineId) ? await Patch(lineId, patch) : NotFound();
 
     [HttpDelete("odata/MarketPriceTables({priceTableId})/Lines({lineId})")]
-    public Task<IActionResult> DeleteNested([FromODataUri] int priceTableId, [FromODataUri] int lineId) => Delete(lineId);
+    public async Task<IActionResult> DeleteNested([FromODataUri] int priceTableId, [FromODataUri] int lineId) =>
+        await BelongsToAsync(priceTableId, lineId) ? await Delete(lineId) : NotFound();
+
+    // Rota aninhada: a linha precisa pertencer à tabela da URL.
+    private async Task<bool> BelongsToAsync(int priceTableId, int lineId) =>
+        (await service.GetByIdAsync(lineId))?.PriceTableId == priceTableId;
 }
