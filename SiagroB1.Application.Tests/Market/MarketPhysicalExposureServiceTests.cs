@@ -352,4 +352,106 @@ public class MarketPhysicalExposureServiceTests
         cache.Invalidate("0001");
         Assert.Same(b, await Service(db, cache, clock, "0002").GetAsync(CancellationToken.None));
     }
+
+    [Theory]
+    [InlineData(PriceFixationStatus.InApproval)]
+    [InlineData(PriceFixationStatus.Rejected)]
+    [InlineData(PriceFixationStatus.Canceled)]
+    public async Task FixedContractWhoseOnlyFixationIsNotConfirmed_NoRow(PriceFixationStatus status)
+    {
+        var db = NewDb();
+        var c = Purchase("CC1");
+        db.Context.PurchaseContracts.Add(c);
+        db.Context.PurchaseContractsPriceFixations.Add(Fix(c, c.TotalVolume, c.StandardPrice, status));
+
+        var result = await Read(db);
+        Assert.Empty(result.Rows);
+        Assert.Empty(result.Ignored);
+    }
+
+    [Theory]
+    [InlineData(PriceFixationStatus.InApproval)]
+    [InlineData(PriceFixationStatus.Rejected)]
+    public async Task FixedSalesContractWhoseOnlyFixationIsNotConfirmed_NoRow(PriceFixationStatus status)
+    {
+        var db = NewDb();
+        var s = Sales("CV1", ContractType.Fixed);
+        db.Context.SalesContracts.Add(s);
+        db.Context.SalesContractsPriceFixations.Add(SalesFix(s, s.TotalVolume, 2.5m, status));
+
+        Assert.Empty((await Read(db)).Rows);
+    }
+
+    [Fact]
+    public async Task FixedSalesContractWithoutFixationRow_WholeVolumeAtContractPrice()
+    {
+        var db = NewDb();
+        db.Context.SalesContracts.Add(Sales("CV1", ContractType.Fixed));
+
+        var row = Assert.Single((await Read(db)).Rows);
+        Assert.Equal((500_000m, 2.5m), (row.FirmOpenKg, row.PricePerKg));
+    }
+
+    [Fact]
+    public async Task Result_ListsAreNotMutableLists()
+    {
+        var db = NewDb();
+        AddFixed(db, Purchase("CC1"));
+
+        var result = await Read(db);
+        Assert.IsNotType<List<MarketPhysicalRow>>(result.Rows);
+        Assert.IsNotType<List<MarketIgnoredContract>>(result.Ignored);
+        Assert.Throws<NotSupportedException>(() => ((IList<MarketPhysicalRow>)result.Rows).Clear());
+    }
+
+    // Washout: o fixado lavado sai do firme; o não fixado lavado não reduz o firme.
+    [Theory]
+    [InlineData(100_000, 0, 300_000)]       // PAF 1.000 t, 400 t fixadas: lavou 100 t fixadas → 300 t
+    [InlineData(100_000, 100_000, 400_000)] // lavou 100 t não fixadas → firme intacto
+    [InlineData(500_000, 0, 0)]             // washout maior que o fixado → sem linha
+    public async Task PurchaseWashout_ReducesOnlyFixedPart(int washedOut, int washedOutUnfixed, int expected)
+    {
+        var db = NewDb();
+        var c = Purchase("CC1", ContractType.ToBeDetermined, total: 1_000_000m);
+        c.WashedOutVolume = washedOut;
+        c.WashedOutUnfixedVolume = washedOutUnfixed;
+        db.Context.PurchaseContracts.Add(c);
+        db.Context.PurchaseContractsPriceFixations.Add(Fix(c, 400_000m, 2m));
+
+        var rows = (await Read(db)).Rows;
+        if (expected == 0) Assert.Empty(rows);
+        else Assert.Equal((decimal)expected, Assert.Single(rows).FirmOpenKg);
+    }
+
+    [Theory]
+    [InlineData(100_000, 0, 200_000)]
+    [InlineData(100_000, 100_000, 300_000)]
+    [InlineData(400_000, 0, 0)]
+    public async Task SalesWashout_ReducesOnlyFixedPart(int washedOut, int washedOutUnfixed, int expected)
+    {
+        var db = NewDb();
+        var s = Sales("CV1", ContractType.ToBeDetermined, total: 1_000_000m);
+        s.WashedOutVolume = washedOut;
+        s.WashedOutUnfixedVolume = washedOutUnfixed;
+        db.Context.SalesContracts.Add(s);
+        db.Context.SalesContractsPriceFixations.Add(SalesFix(s, 300_000m, 2.5m));
+
+        var rows = (await Read(db)).Rows;
+        if (expected == 0) Assert.Empty(rows);
+        else Assert.Equal((decimal)expected, Assert.Single(rows).FirmOpenKg);
+    }
+
+    private static SalesContract Sales(string code, ContractType type, decimal total = 500_000m) => new()
+    {
+        Key = Guid.NewGuid(), Code = code, CardCode = "C001", CardName = "CLIENTE", ItemCode = "SOJA",
+        BranchCode = "01", UnitOfMeasureCode = "KG", HarvestSeasonCode = "2026", TotalVolume = total,
+        Type = type, Status = ContractStatus.Approved, Price = type == ContractType.Fixed ? 2.5m : 0m,
+        DeliveryEndDate = June2027,
+    };
+
+    private static SalesContractPriceFixation SalesFix(SalesContract s, decimal volume, decimal price,
+        PriceFixationStatus status = PriceFixationStatus.Confirmed) => new()
+    {
+        SalesContractKey = s.Key, FixationVolume = volume, FixationPrice = price, Status = status,
+    };
 }

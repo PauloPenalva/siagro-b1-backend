@@ -35,7 +35,8 @@ public class MarketPhysicalExposureService(
         DateTime? CashFlowDate, string? MarketInstrumentCode, decimal? MarketExchangePrice, decimal? MarketPremium,
         decimal? MarketUsdPrice, bool MarketFxLocked);
 
-    private sealed record FixationTotals(Guid Key, decimal Volume, decimal Amount);
+    /// <summary>Somas só das fixações confirmadas; <c>Count</c> conta as linhas em QUALQUER status.</summary>
+    private sealed record FixationTotals(Guid Key, decimal Volume, decimal Amount, int Count);
 
     public async Task<MarketPhysicalExposure> GetAsync(CancellationToken ct)
     {
@@ -67,17 +68,21 @@ public class MarketPhysicalExposureService(
             .ToListAsync(ct);
 
         var purchaseFixations = await context.PurchaseContractsPriceFixations.AsNoTracking()
-            .Where(f => f.Status == PriceFixationStatus.Confirmed && f.PurchaseContractKey != null
-                        && f.PurchaseContract!.Status == ContractStatus.Approved)
+            .Where(f => f.PurchaseContractKey != null && f.PurchaseContract!.Status == ContractStatus.Approved)
             .GroupBy(f => f.PurchaseContractKey!.Value)
-            .Select(g => new FixationTotals(g.Key, g.Sum(f => f.FixationVolume), g.Sum(f => f.FixationVolume * f.FixationPrice)))
+            .Select(g => new FixationTotals(g.Key,
+                g.Sum(f => f.Status == PriceFixationStatus.Confirmed ? f.FixationVolume : 0m),
+                g.Sum(f => f.Status == PriceFixationStatus.Confirmed ? f.FixationVolume * f.FixationPrice : 0m),
+                g.Count()))
             .ToListAsync(ct);
 
         var salesFixations = await context.SalesContractsPriceFixations.AsNoTracking()
-            .Where(f => f.Status == PriceFixationStatus.Confirmed && f.SalesContractKey != null
-                        && f.SalesContract!.Status == ContractStatus.Approved)
+            .Where(f => f.SalesContractKey != null && f.SalesContract!.Status == ContractStatus.Approved)
             .GroupBy(f => f.SalesContractKey!.Value)
-            .Select(g => new FixationTotals(g.Key, g.Sum(f => f.FixationVolume), g.Sum(f => f.FixationVolume * f.FixationPrice)))
+            .Select(g => new FixationTotals(g.Key,
+                g.Sum(f => f.Status == PriceFixationStatus.Confirmed ? f.FixationVolume : 0m),
+                g.Sum(f => f.Status == PriceFixationStatus.Confirmed ? f.FixationVolume * f.FixationPrice : 0m),
+                g.Count()))
             .ToListAsync(ct);
 
         var items = await context.MarketCommodityItems.AsNoTracking()
@@ -155,7 +160,7 @@ public class MarketPhysicalExposureService(
                 c.CashFlowDate.HasValue ? DateOnly.FromDateTime(c.CashFlowDate.Value) : deliveryEnd));
         }
 
-        return new MarketPhysicalExposure(time.GetUtcNow().UtcDateTime, rows, ignored);
+        return new MarketPhysicalExposure(time.GetUtcNow().UtcDateTime, rows.AsReadOnly(), ignored.AsReadOnly());
     }
 
     private static MarketIgnoredContract Ignored(ContractData c, string reason) =>
@@ -163,13 +168,14 @@ public class MarketPhysicalExposureService(
 
     /// <summary>
     /// Volume com preço firme (Σ fixações confirmadas) e preço médio ponderado. Contrato de preço FIXO sem
-    /// nenhuma fixação confirmada (legado anterior à fixação automática) conta inteiro ao preço do contrato.
+    /// NENHUMA linha de fixação (legado anterior à fixação automática) conta inteiro ao preço do contrato; se a
+    /// fixação automática existe em outro status (estornada para InApproval, Rejected), nada é firme.
     /// </summary>
     private static (decimal Confirmed, decimal Price) FirmVolumeAndPrice(ContractData c, FixationTotals? fix)
     {
         if (fix is not null && fix.Volume > 0m)
             return (fix.Volume, decimal.Round(fix.Amount / fix.Volume, 8, MidpointRounding.AwayFromZero));
-        if (c.Type == ContractType.Fixed && fix is null)
+        if (c.Type == ContractType.Fixed && (fix is null || fix.Count == 0))
             return (c.TotalVolume, c.ContractPrice);
         return (0m, 0m);
     }
