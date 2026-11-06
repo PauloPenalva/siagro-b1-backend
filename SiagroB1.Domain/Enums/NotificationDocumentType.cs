@@ -8,4 +8,7 @@ public enum NotificationDocumentType
 {
     PurchaseContract = 0,
     SalesContract = 1,
+
+    /// <summary>Posição do módulo Mercado (alerta de limite de exposição; não há documento por trás).</summary>
+    MarketPosition = 2,
 }

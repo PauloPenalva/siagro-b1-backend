@@ -15,6 +15,7 @@ public static class NotificationEventLabels
     {
         NotificationDocumentType.PurchaseContract => "Contrato de Compra",
         NotificationDocumentType.SalesContract => "Contrato de Venda",
+        NotificationDocumentType.MarketPosition => "Posição de mercado",
         _ => documentType.ToString(),
     };
 
@@ -37,6 +38,7 @@ public static class NotificationEventLabels
         NotificationEventType.WashoutApproved => "Washout aprovado",
         NotificationEventType.WashoutRejected => "Washout rejeitado",
         NotificationEventType.WashoutReversed => "Washout estornado",
+        NotificationEventType.ExposureLimitExceeded => "Limite de exposição excedido",
         _ => eventType.ToString(),
     };
 
@@ -55,6 +57,7 @@ public static class NotificationEventLabels
         NotificationEventType.Rejected => "🔴",
         NotificationEventType.Canceled => "🔴",
         NotificationEventType.Closed => "⚫",
+        NotificationEventType.ExposureLimitExceeded => "🔴",
         _ => "🔵",
     };
 

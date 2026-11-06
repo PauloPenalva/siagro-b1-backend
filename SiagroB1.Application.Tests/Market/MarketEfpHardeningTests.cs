@@ -315,7 +315,7 @@ public class MarketEfpHardeningTests
     private static async Task AssertRefusedAsync(Func<Task> action, int efpId)
     {
         var e = await Assert.ThrowsAsync<ApplicationException>(action);
-        Assert.Equal($"Esta fixação foi gerada pelo EFP nº {efpId}. Estorne pelo EFP (Mercado → EFP).", e.Message);
+        Assert.Equal($"Esta fixação foi gerada pelo EFP nº {efpId}. Estorne pelo EFP (Trading → EFP).", e.Message);
     }
 
     /// <summary>EFP Processing com a fixação EM APROVAÇÃO (a aprovação falhou).</summary>

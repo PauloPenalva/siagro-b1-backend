@@ -20,14 +20,17 @@ public sealed class MarketLiveStreamLoop(
 
     /// <param name="streamName">Nome da fonte para o log (ex.: "quadro de cotações").</param>
     /// <param name="buildPayload">Monta o objeto serializado no evento; recebe o snapshot da versão sendo emitida.</param>
+    /// <param name="minInterval">Intervalo mínimo entre dois eventos de dados (nulo = sem limite, o padrão).</param>
     public async Task RunAsync(
         string companyCode,
         Stream output,
         string streamName,
         Func<LiveQuoteSnapshot, CancellationToken, Task<object>> buildPayload,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeSpan? minInterval = null)
     {
         var lastVersion = -1L;
+        DateTimeOffset? lastEmit = null;
         var lastWrite = _time.GetUtcNow();
         DateTimeOffset? retryAt = null;
         var readFailureLog = new LogThrottle(MarketQuotesStreamLoop.RepeatedLogInterval);
@@ -38,7 +41,8 @@ public sealed class MarketLiveStreamLoop(
             {
                 var now = _time.GetUtcNow();
                 var snapshot = store.Get(companyCode);
-                var emit = snapshot.Version != lastVersion && (retryAt is null || now >= retryAt);
+                var emit = snapshot.Version != lastVersion && (retryAt is null || now >= retryAt)
+                           && (minInterval is null || lastEmit is null || now - lastEmit >= minInterval);
 
                 if (emit)
                 {
@@ -62,6 +66,7 @@ public sealed class MarketLiveStreamLoop(
                         lastVersion = snapshot.Version;
                         retryAt = null;
                         lastWrite = _time.GetUtcNow();
+                        lastEmit = now;
                     }
                 }
                 else if (now - lastWrite >= MarketQuotesStreamLoop.HeartbeatInterval)

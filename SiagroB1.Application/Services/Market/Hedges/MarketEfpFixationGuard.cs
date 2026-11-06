@@ -51,6 +51,6 @@ public class MarketEfpFixationGuard(AppDbContext context, MarketEfpFixationScope
             .Select(e => (int?)e.Id).FirstOrDefaultAsync();
         if (efpId is not null)
             throw new ApplicationException(
-                $"Esta fixação foi gerada pelo EFP nº {efpId}. Estorne pelo EFP (Mercado → EFP).");
+                $"Esta fixação foi gerada pelo EFP nº {efpId}. Estorne pelo EFP (Trading → EFP).");
     }
 }

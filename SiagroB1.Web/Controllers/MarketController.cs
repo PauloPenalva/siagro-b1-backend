@@ -31,6 +31,10 @@ public class MarketController(
 {
     private string UserName => User.Identity?.Name ?? string.Empty;
 
+    /// <summary>O frontend consulta para saber se o módulo está ligado; desligado, o filtro responde 404.</summary>
+    [HttpGet("module")]
+    public IActionResult Module() => Ok(new { enabled = true });
+
     [HttpGet("quotes/live")]
     public Task Live(CancellationToken cancellationToken) => sse.RunAsync(HttpContext, companyContext, cancellationToken);
 

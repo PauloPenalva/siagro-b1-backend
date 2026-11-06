@@ -26,6 +26,7 @@ public sealed class CompanyScopedJobRunner(
     public const string ReceivedDfeSync = "received-dfe-sync";
     public const string ReinfBatchQuery = "reinf-batch-query";
     public const string MarketDailyClose = "market-daily-close";
+    public const string MarketLimitAlert = "market-limit-alert";
 
     private static readonly IReadOnlyDictionary<string, Func<IServiceProvider, CancellationToken, Task>> Jobs =
         new Dictionary<string, Func<IServiceProvider, CancellationToken, Task>>
@@ -37,6 +38,7 @@ public sealed class CompanyScopedJobRunner(
             [ReceivedDfeSync] = (sp, ct) => sp.GetRequiredService<ReceivedDfeSyncJob>().ExecuteAsync(ct),
             [ReinfBatchQuery] = (sp, ct) => sp.GetRequiredService<SiagroB1.Application.Jobs.Reinf.ReinfBatchQueryJob>().ExecuteAsync(ct),
             [MarketDailyClose] = (sp, ct) => sp.GetRequiredService<MarketDailyCloseJob>().ExecuteAsync(ct),
+            [MarketLimitAlert] = (sp, ct) => sp.GetRequiredService<MarketLimitAlertJob>().ExecuteAsync(ct),
         };
 
     /// <summary>

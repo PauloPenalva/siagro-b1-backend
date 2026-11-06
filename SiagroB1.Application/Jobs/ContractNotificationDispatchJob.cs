@@ -69,10 +69,25 @@ public class ContractNotificationDispatchJob(
             return;
         }
 
-        var payload = JsonSerializer.Deserialize<ContractNotificationPayload>(message.PayloadJson)
-                      ?? throw new ApplicationException($"Payload inválido na notificação {outboxKey}.");
+        string text;
+        if (message.DocumentType == NotificationDocumentType.MarketPosition)
+        {
+            // Alerta do Mercado: o texto já vem pronto no payload. Payload ruim falha só esta linha (sem retry).
+            var marketText = ReadMarketText(message.PayloadJson);
+            if (marketText is null)
+            {
+                await ResolveAsync(message, NotificationOutboxStatus.Failed, "Payload inválido: texto da mensagem ausente.", ct);
+                return;
+            }
+            text = marketText;
+        }
+        else
+        {
+            var payload = JsonSerializer.Deserialize<ContractNotificationPayload>(message.PayloadJson)
+                          ?? throw new ApplicationException($"Payload inválido na notificação {outboxKey}.");
 
-        var text = ContractNotificationMessageBuilder.Build(payload);
+            text = ContractNotificationMessageBuilder.Build(payload);
+        }
         var attempt = message.AttemptCount + 1;
 
         var sent = 0;
@@ -135,6 +150,24 @@ public class ContractNotificationDispatchJob(
 
             throw new ApplicationException(
                 $"Falha transitória ao enviar a notificação {outboxKey}: {firstError}");
+        }
+    }
+
+    private static string? ReadMarketText(string payloadJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(payloadJson);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                   && doc.RootElement.TryGetProperty("text", out var t)
+                   && t.ValueKind == JsonValueKind.String
+                   && !string.IsNullOrWhiteSpace(t.GetString())
+                ? t.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 

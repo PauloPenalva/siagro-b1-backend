@@ -311,10 +311,18 @@ if (MarketModule.IsEnabled(app.Configuration))
         runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.MarketDailyClose, CancellationToken.None),
         SiagroB1.Application.Jobs.MarketDailyCloseJob.Cron,
         new RecurringJobOptions { TimeZone = SaoPauloTime.Zone });
+
+    // Alerta de limite de exposição: a cada 15 min, 8h–19h de Brasília, dias úteis (um aviso por limite por dia).
+    RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
+        "market-limit-alert-job",
+        runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.MarketLimitAlert, CancellationToken.None),
+        SiagroB1.Application.Jobs.MarketLimitAlertJob.Cron,
+        new RecurringJobOptions { TimeZone = SaoPauloTime.Zone });
 }
 else
 {
     RecurringJob.RemoveIfExists("market-daily-close-job");
+    RecurringJob.RemoveIfExists("market-limit-alert-job");
 }
 
 // E-mail da NF-e própria: só STANDALONE (em SAPB1 a NF-e é do SAP).

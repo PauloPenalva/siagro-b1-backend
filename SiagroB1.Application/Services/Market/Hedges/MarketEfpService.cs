@@ -5,6 +5,7 @@ using SiagroB1.Application.Interfaces;
 using SiagroB1.Application.Services.Market.Tickets;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.SalesContracts;
+using SiagroB1.Commons.Market;
 using SiagroB1.Commons.Time;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Market;
@@ -73,7 +74,8 @@ public class MarketEfpService(
     ICompanyContext companyContext,
     MarketFuturesTradeService trades,
     MarketEfpFixations fixations,
-    MarketEfpFixationScope fixationScope)
+    MarketEfpFixationScope fixationScope,
+    MarketExposureCache? exposureCache = null)
 {
     public const decimal KgPerBag = 60m;
 
@@ -133,7 +135,9 @@ public class MarketEfpService(
         // trabalho para a retomada). Qualquer falha agora diz que o EFP ficou em processamento.
         try
         {
-            return await RunLockedAsync(efp.Id, userName, CancellationToken.None);
+            var done = await RunLockedAsync(efp.Id, userName, CancellationToken.None);
+            InvalidateExposure();
+            return done;
         }
         catch (Exception e) when (e is not MarketEfpPendingException)
         {
@@ -150,8 +154,13 @@ public class MarketEfpService(
     public async Task<MarketEfp> ResumeAsync(int id, string userName, CancellationToken ct)
     {
         await guard.EnsureAsync(userName, PermissionCodes.MarketManage);
-        return await RunLockedAsync(id, userName, ct);
+        var done = await RunLockedAsync(id, userName, ct);
+        InvalidateExposure();
+        return done;
     }
+
+    /// <summary>A fixação do EFP muda o volume firme: a posição não pode esperar o cache de 30 s.</summary>
+    private void InvalidateExposure() => exposureCache?.Invalidate(companyContext.CompanyCode);
 
     public async Task<MarketEfp> CancelAsync(int id, string userName, CancellationToken ct)
     {
@@ -160,7 +169,9 @@ public class MarketEfpService(
         var first = await LoadAsync(id, CancellationToken.None);
         // Ordem fixa das travas: EFP → contrato (criar, retomar e estornar seguem a mesma).
         using var __ = await locks.AcquireAsync(ContractLockKey(first), ct);
-        return await RetryOnDeadlockAsync(() => CancelPassAsync(id, userName));
+        var canceled = await RetryOnDeadlockAsync(() => CancelPassAsync(id, userName));
+        InvalidateExposure();
+        return canceled;
     }
 
     private async Task<MarketEfp> CancelPassAsync(int id, string userName)

@@ -166,7 +166,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Market.Tickets.MarketTradeTicketContractService>();
         services.AddScoped<SiagroB1.Application.Services.Market.Tickets.MarketTradeTicketService>();
         services.AddSingleton<SiagroB1.Application.Services.Market.Tickets.KeyedAsyncLock>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketCommodityService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketCommodityItemService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketCommodityMonthService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketExposureLimitService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketContractFxLockService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketContractMarketDataService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketPhysicalExposureService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketPositionService>();
+        services.AddSingleton<SiagroB1.Commons.Market.MarketExposureCache>();
         services.AddScoped<MarketDailyCloseJob>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketLimitAlertService>();
+        services.AddScoped<MarketLimitAlertJob>();
         services.AddScoped<SiagroB1.Application.Services.Market.CmaSettingsService>();
         services.AddSingleton<SiagroB1.Commons.Market.LiveQuoteStore>();
         // A URL do login da CMA leva usuário e senha: sem os loggers padrão do HttpClient (que registram a URI).

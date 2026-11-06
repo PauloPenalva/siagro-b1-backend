@@ -2,7 +2,9 @@ using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Interfaces;
+using SiagroB1.Application.Services.Market.Position;
 using SiagroB1.Application.Services.Market.Pricing;
+using SiagroB1.Commons.Time;
 using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -35,7 +37,8 @@ public class MarketTradeTicketService(
     MarketPermissionGuard guard,
     TimeProvider time,
     KeyedAsyncLock locks,
-    ICompanyContext companyContext)
+    ICompanyContext companyContext,
+    MarketPositionService? position = null)
 {
     public const string ConcurrencyMessage = "A boleta foi alterada por outro usuário. Atualize e tente de novo.";
 
@@ -65,12 +68,12 @@ public class MarketTradeTicketService(
 
         var settings = await context.MarketTradingSettings.AsNoTracking().FirstOrDefaultAsync(ct);
         if (string.IsNullOrWhiteSpace(settings?.ContractUnitOfMeasureCode))
-            throw new BusinessException("Informe a unidade de medida do contrato nos parâmetros do Mercado.");
+            throw new BusinessException("Informe a unidade de medida do contrato nos parâmetros de Trading.");
         if (!string.Equals(settings.ContractUnitOfMeasureCode.Trim(), MarketTradeTicketContractService.ContractUnitOfMeasure,
                 StringComparison.OrdinalIgnoreCase))
             throw new BusinessException(MarketTradeTicketContractService.ContractUnitMessage);
         if (string.IsNullOrWhiteSpace(settings.ContractFreightUmCode))
-            throw new BusinessException("Informe a unidade de medida do frete nos parâmetros do Mercado.");
+            throw new BusinessException("Informe a unidade de medida do frete nos parâmetros de Trading.");
 
         var cardCode = Required(input.CardCode, "o parceiro");
         var partner = await businessPartners.GetByIdAsync(cardCode)
@@ -102,9 +105,9 @@ public class MarketTradeTicketService(
             reasons.Add($"Volume de {tons.ToString("N3", PtBr)} t acima do limite de {volumeLimit.ToString("N3", PtBr)} t");
         if (settings.BoardApprovalDeviationPercent is { } deviationLimit && Math.Abs(deviation) >= deviationLimit)
             reasons.Add($"desvio de preço de {deviation.ToString("N2", PtBr)} % acima do limite de {deviationLimit.ToString("N2", PtBr)} %");
-        var reason = reasons.Count == 0 ? null : string.Join("; ", reasons);
-        if (reason is not null)
-            reason = char.ToUpper(reason[0], PtBr) + reason[1..];
+        if (await ExposureLimitReasonAsync(row.ItemCode, row.DeliveryEndDate.Value, tons, today, null, ct) is { } limitReason)
+            reasons.Add(limitReason);
+        var reason = reasons.Count == 0 ? null : Capitalize(string.Join("; ", reasons));
 
         var ticket = new MarketTradeTicket
         {
@@ -171,6 +174,17 @@ public class MarketTradeTicketService(
                 {
                     ticket.ApprovedBy = userName;
                     ticket.ApprovedAt = UtcNow;
+                }
+
+                // Limite de exposição reconferido na aprovação de primeiro nível (a posição pode ter mudado desde a
+                // criação, ou o limite nem existia): se agora estoura, a boleta passa a exigir a diretoria.
+                if (!ticket.RequiresBoardApproval && ticket.PurchaseContractKey is null && ticket.ItemCode is { } ticketItem
+                    && ticket.DeliveryEndDate is { } deliveryEnd
+                    && await ExposureLimitReasonAsync(ticketItem, DateOnly.FromDateTime(deliveryEnd), ticket.VolumeKg / 1000m,
+                        SaoPauloTime.Today(time), ticket.Id, ct) is { } limitReason)
+                {
+                    ticket.RequiresBoardApproval = true;
+                    ticket.BoardApprovalReason = Capitalize(limitReason);
                 }
 
                 if (ticket.RequiresBoardApproval && ticket.BoardApprovedBy is null)
@@ -254,6 +268,73 @@ public class MarketTradeTicketService(
         return ticket;
     }
 
+    /// <summary>
+    /// Alçada por limite de exposição: a boleta é COMPRA (soma toneladas compradas). Exige diretoria quando
+    /// líquido + boletas abertas + toneladas da boleta passa o MaxLong do limite ativo do TOTAL da commodity ou do mês de
+    /// bolsa da entrega. Boleta aberta = pendente (de qualquer nível) e ainda sem contrato, de produto da mesma commodity;
+    /// para o mês, só as do mesmo mês de bolsa. <paramref name="ownTicketId"/> (reconferência na aprovação) não conta
+    /// duas vezes. Sem commodity, sem regra para o mês ou sem limite → nada. Se a posição não puder ser calculada com
+    /// limite ativo, falha a favor do controle (exige diretoria).
+    /// </summary>
+    private async Task<string?> ExposureLimitReasonAsync(string itemCode, DateOnly deliveryEnd, decimal tons, DateOnly today,
+        int? ownTicketId, CancellationToken ct)
+    {
+        if (position is null) return null;
+
+        var item = itemCode.Trim();
+        var commodity = await context.MarketCommodityItems.AsNoTracking()
+            .Where(i => i.ItemCode == item && i.Commodity!.Active)
+            .Select(i => new { i.CommodityCode, i.Commodity!.Name })
+            .FirstOrDefaultAsync(ct);
+        if (commodity is null) return null;
+
+        var rules = await context.MarketCommodityMonths.AsNoTracking()
+            .Where(m => m.CommodityCode == commodity.CommodityCode)
+            .Select(m => new MarketPositionMath.MonthRule(m.DeliveryMonth, m.FuturesMonth, m.YearOffset))
+            .ToListAsync(ct);
+        if (MarketPositionMath.MapDelivery(deliveryEnd, rules) is not { } bucket) return null;
+
+        var limits = await context.MarketExposureLimits.AsNoTracking()
+            .Where(l => l.Active && l.Scope == MarketLimitScope.Commodity && l.CommodityCode == commodity.CommodityCode
+                        && l.MaxLong != null
+                        && ((l.Year == null && l.Month == null) || (l.Year == bucket.Year && l.Month == bucket.Month)))
+            .Select(l => new { l.Year, l.MaxLong })
+            .ToListAsync(ct);
+        if (limits.Count == 0) return null;
+
+        // Posição com o cache do físico (até 30 s de defasagem): aceitável porque a boleta só vira contrato depois de aprovada.
+        MarketPositionSnapshot snapshot;
+        try
+        {
+            snapshot = await position.GetSnapshotAsync(today, ct);
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return $"Não foi possível conferir o limite de exposição de {commodity.Name}";
+        }
+
+        var current = snapshot.Commodities.FirstOrDefault(c =>
+            string.Equals(c.Code, commodity.CommodityCode, StringComparison.OrdinalIgnoreCase));
+        var totalNet = current?.Total.NetTons ?? 0m;
+        var bucketNet = current?.Buckets.FirstOrDefault(b => b.Year == bucket.Year && b.Month == bucket.Month)?.NetTons ?? 0m;
+
+        // Boletas abertas da mesma commodity ainda não estão na posição (só contrato aprovado entra).
+        var commodityItems = context.MarketCommodityItems.Where(i => i.CommodityCode == commodity.CommodityCode).Select(i => i.ItemCode);
+        var open = await context.MarketTradeTickets.AsNoTracking()
+            .Where(t => (t.Status == MarketTradeTicketStatus.Pending || t.Status == MarketTradeTicketStatus.PendingBoard)
+                        && t.PurchaseContractKey == null && t.Id != (ownTicketId ?? 0) && t.ItemCode != null && commodityItems.Contains(t.ItemCode!))
+            .Select(t => new { t.VolumeKg, t.DeliveryEndDate })
+            .ToListAsync(ct);
+        var openTotal = open.Sum(t => t.VolumeKg) / 1000m;
+        var openBucket = open.Where(t => t.DeliveryEndDate is { } d
+                                         && MarketPositionMath.MapDelivery(DateOnly.FromDateTime(d), rules) is { } b
+                                         && b.Year == bucket.Year && b.Month == bucket.Month)
+            .Sum(t => t.VolumeKg) / 1000m;
+
+        var exceeded = limits.Any(l => (l.Year is null ? totalNet + openTotal : bucketNet + openBucket) + tons > l.MaxLong!.Value);
+        return exceeded ? $"Estoura o limite de exposição de {commodity.Name}" : null;
+    }
+
     private async Task EnsureCurrentLevelAsync(MarketTradeTicket ticket, string userName)
     {
         EnsureOpen(ticket);
@@ -324,6 +405,8 @@ public class MarketTradeTicketService(
             throw new BusinessException(ConcurrencyMessage);
         }
     }
+
+    private static string Capitalize(string text) => char.ToUpper(text[0], PtBr) + text[1..];
 
     private static string Required(string? value, string name) =>
         string.IsNullOrWhiteSpace(value) ? throw new BusinessException($"Informe {name}.") : value.Trim();

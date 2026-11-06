@@ -14,7 +14,7 @@ public class MarketPermissionGuardTests
 
         var ex = await Assert.ThrowsAsync<ForbiddenException>(() => guard.EnsureAsync("ana", PermissionCodes.MarketManage));
 
-        Assert.Equal("Você não tem permissão para esta operação do Mercado.", ex.Message);
+        Assert.Equal("Você não tem permissão para esta operação de Trading.", ex.Message);
     }
 
     [Fact]

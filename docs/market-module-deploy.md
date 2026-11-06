@@ -1,6 +1,7 @@
-# Módulo Mercado (cotações) — implantação
+# Módulo Trading (antigo "Mercado") — implantação
 
-Checklist curto para ligar o módulo Mercado num ambiente. Nada aqui é aplicado pela publicação: cada
+Checklist curto para ligar o módulo Trading num ambiente (no código e na configuração ele continua `Market`;
+veja a seção 8). Nada aqui é aplicado pela publicação: cada
 instalação (VPS, cliente) mantém os próprios `appsettings`, e o pacote publicado não leva nenhum.
 
 ## 1. Configuração
@@ -9,9 +10,9 @@ instalação (VPS, cliente) mantém os próprios `appsettings`, e o pacote publi
   o conector da CMA e o job de fechamento; o Gateway, para o menu. Só num dos dois o módulo fica pela metade.
 - **Rota no Gateway**: `ReverseProxy:Routes:market-route` com `Match.Path = /market/{**catch-all}`,
   `ClusterId` = o cluster do Web (`backend`) e `AuthorizationPolicy = AuthenticatedOnly`. Sem ela a tela
-  mostra "Serviço do módulo Mercado não encontrado (verifique a rota /market no Gateway)". Com a rota mas o
+  mostra "Serviço do módulo Trading não encontrado (verifique a rota /market no Gateway)". Com a rota mas o
   módulo desligado no Web, a resposta é 404 com o cabeçalho `X-Market-Module: disabled` e a tela mostra
-  "Módulo Mercado não habilitado neste ambiente".
+  "Módulo Trading não habilitado neste ambiente".
 - **`Nfe:CertificateKey`** (base64 de 32 bytes) precisa existir no Web **antes** de salvar a senha da CMA:
   ela cifra a senha. Chave vazia ou malformada → o salvamento devolve 400.
 - **Reiniciar** Web e Gateway depois de mudar a chave: o serviço de streaming da CMA e o job
@@ -20,7 +21,7 @@ instalação (VPS, cliente) mantém os próprios `appsettings`, e o pacote publi
 ## 2. Banco
 
 - `AppDbContext`, em **todo banco de empresa**: `AddMarketQuotes` e `AddMarketDailyCloseQuotedAt`.
-- `CommonDbContext`, no banco comum: `AddMarketMenu` (o item "Mercado" entra por último no menu superior).
+- `CommonDbContext`, no banco comum: `AddMarketMenu` (o item "Trading" — "Mercado" antes da parte 4 — entra por último no menu superior).
 - O Web recusa subir com migration pendente (`PendingMigrationsGuard`).
 
 ## 3. Regras de operação
@@ -57,7 +58,7 @@ Onde olhar:
    - no **banco comum** (`CommonDbContext`): `AddMarketPricingMenuAndPermissions` e `AddMarketRoleMenus`.
 2. **Papéis**: usuário não-admin precisa de `MARKET_TRADER` e/ou `MARKET_BOARD` num perfil. Sem isso, cotação
    manual, liberação, fechamento manual e cadastro de instrumentos passam a dar **403** (antes da Parte 2 eram livres).
-3. **Parâmetros do Mercado** — salvar ANTES da primeira boleta: instrumento do dólar à vista (ativo, R$/US$),
+3. **Parâmetros de Trading** — salvar ANTES da primeira boleta: instrumento do dólar à vista (ativo, R$/US$),
    unidade do frete e unidade do contrato **KG** (única aceita nesta versão; a boleta grava o contrato em kg).
 4. **Limiares de alçada** (volume em t, desvio em %) vazios = sem alçada da diretoria.
 5. **Trava de aprovação** vale por processo: rode **um Web por cliente**. Entre processos, o que impede contrato
@@ -79,3 +80,53 @@ Onde olhar:
    do contrato é recusado enquanto o EFP não estiver cancelado.
 5. **Pendência antes de operar dólar futuro**: confirmar com uma nota de corretagem real a escala do preço. A B3 cota
    em R$ por US$ 1.000; o sistema assume R$ por US$ 1 com `ContractSize` 50.000.
+
+## 7. Parte 4 — Posição
+
+1. **Migrations em TODOS os clientes** (com ou sem módulo ligado — o Web recusa subir com migration pendente):
+   - em **todo banco de empresa** (`AppDbContext`): `AddMarketPosition`;
+   - no **banco comum** (`CommonDbContext`): `AddMarketPositionMenu` e `RenameMarketMenuToTrading`.
+   - O **Reports** mapeia as entidades de contrato e **não** tem a guarda de migration pendente: migre o banco
+     **antes** de subir o Reports novo, senão os relatórios de contrato quebram por coluna inexistente.
+2. **Job `market-limit-alert-job`**: a cada 15 min, das 8h às 19h, de segunda a sexta, horário de São Paulo, sem
+   retry, por empresa. Só existe com o módulo ligado e é removido quando ele é desligado — **reinicie o Web** ao
+   trocar `Modules:Market:Enabled`.
+3. **Como o aviso de limite chega**: WhatsApp pela outbox e pela varredura (cerca de 1 min). Precisa de
+   `Notifications:WhatsApp:Enabled` e de um grupo de notificação assinando **"Posição de mercado → Limite de
+   exposição excedido"**. Sem assinante a mensagem fica `Skipped` e o estouro daquele dia já foi consumido (não
+   avisa de novo no mesmo dia). Um aviso por limite por dia.
+4. **Permissões**: `MARKET_MANAGE` para commodities, exemplos, fechar câmbio e dados de mercado do contrato;
+   `MARKET_BOARD_APPROVE` para limites (`MARKET_MANAGE` sozinho recebe 403). Toda leitura (posição, resultados,
+   limites) é de qualquer usuário autenticado — decisão pendente do cliente.
+5. **Ordem de configuração**:
+   1. commodities — o `Code` tem de ser igual ao campo `Commodity` dos instrumentos (ex.: `SOY`, `CORN`);
+   2. produtos de cada commodity;
+   3. mapa dos 12 meses de entrega — mês sem regra manda o contrato para "Fora da posição";
+   4. `ExpirationDate` dos instrumentos;
+   5. limites.
+6. **`ExpirationDate` do instrumento**: sem ela o futuro cai no balde "sem vencimento" e o mês não tem cotação nem
+   MTM. O mês da data tem de ser o mês de bolsa do mapa. Os futuros de exemplo criados a partir desta versão já
+   nascem com vencimento aproximado (dia 14 do mês para CBOT, dia 15 para B3) — **confira no calendário da bolsa**;
+   exemplos que já existiam no banco não são alterados.
+7. **O que entra na posição**: só contrato **Aprovado**, em **KG**, volume com **preço firme ainda não entregue**.
+   Contrato aprovado antes do módulo precisa de **"Alterar dados de mercado"** (detalhe do contrato) para ter
+   referência de bolsa/preço em US$; senão conta como "sem referência". O instrumento de referência tem de ser de
+   commodity (não de moeda) e da mesma commodity do produto do contrato.
+8. **Cache de 30 s** (por processo — mesma premissa de um único Web):
+   - aparecem **na hora**: fechar câmbio, dados de mercado, contrato gerado por boleta, EFP e cadastro de
+     commodity, produto e mês;
+   - aparecem **em até 30 s**: aprovação, encerramento, cancelamento, alocação, washout e fixação manual;
+   - o job de alerta **nunca** usa o cache.
+9. **Escala do dólar futuro** (pendência da parte 3, item 5): agora também alimenta a posição em dólar — confirme
+   a escala antes de operar dólar futuro.
+10. **Boleta × limite de exposição**: na criação, a posição considerada soma as toneladas das boletas ainda
+    **abertas** (pendentes de qualquer nível, sem contrato) do mesmo produto→commodity — no total e, para o mês, as
+    do mesmo mês de bolsa. Na aprovação de primeiro nível a regra é **reavaliada** com a posição do momento (a
+    própria boleta não conta duas vezes): se agora estoura, a boleta passa a exigir a diretoria e fica aguardando
+    a diretoria, sem gerar contrato; quem tem `MARKET_BOARD_APPROVE` aprova normalmente.
+
+## 8. Nome: "Trading"
+
+O módulo aparece como **"Trading"** no menu, nos parâmetros, nas permissões, nos papéis e nas mensagens. Só mudou o
+texto que o usuário lê: Keys, Codes, rotas (`/market`) e a chave `Modules:Market:Enabled` não mudaram. Texto
+renomeado à mão pelo cliente (menu, perfis) é preservado pela migration.

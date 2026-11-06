@@ -42,4 +42,7 @@ public enum NotificationEventType
     WashoutApproved = 21,
     WashoutRejected = 22,
     WashoutReversed = 23,
+
+    // Faixa 30+: posição do módulo Mercado.
+    ExposureLimitExceeded = 30,
 }
