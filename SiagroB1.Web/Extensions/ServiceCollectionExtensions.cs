@@ -171,6 +171,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketCommodityMonthService>();
         services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketExposureLimitService>();
         services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketContractFxLockService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketPhysicalExposureService>();
+        services.AddSingleton<SiagroB1.Commons.Market.MarketExposureCache>();
         services.AddScoped<MarketDailyCloseJob>();
         services.AddScoped<SiagroB1.Application.Services.Market.CmaSettingsService>();
         services.AddSingleton<SiagroB1.Commons.Market.LiveQuoteStore>();
