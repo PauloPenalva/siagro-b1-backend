@@ -175,6 +175,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketPositionService>();
         services.AddSingleton<SiagroB1.Commons.Market.MarketExposureCache>();
         services.AddScoped<MarketDailyCloseJob>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Position.MarketLimitAlertService>();
+        services.AddScoped<MarketLimitAlertJob>();
         services.AddScoped<SiagroB1.Application.Services.Market.CmaSettingsService>();
         services.AddSingleton<SiagroB1.Commons.Market.LiveQuoteStore>();
         // A URL do login da CMA leva usuário e senha: sem os loggers padrão do HttpClient (que registram a URI).

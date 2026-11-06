@@ -51,9 +51,10 @@ public class MarketPositionService(
 
     private sealed record Evaluated(string State, decimal? MaxLong, decimal? MaxShort, MarketLimitAlert? Alert);
 
-    public async Task<MarketPositionSnapshot> GetSnapshotAsync(DateOnly today, CancellationToken ct)
+    /// <param name="bypassCache">true lê o físico direto do banco, sem o cache de 30 s (alerta de limite).</param>
+    public virtual async Task<MarketPositionSnapshot> GetSnapshotAsync(DateOnly today, CancellationToken ct, bool bypassCache = false)
     {
-        var exposure = await physical.GetAsync(ct);
+        var exposure = bypassCache ? await physical.ReadAsync(ct) : await physical.GetAsync(ct);
         var futures = await derivatives.GetOpenPositionsAsync(ct);
 
         var spotCode = (await context.MarketTradingSettings.AsNoTracking()

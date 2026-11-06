@@ -61,8 +61,14 @@ internal static class MarketTradeTicketTestHelpers
     public static MarketTradeTicketService TicketService(UnitOfWork db, params string[] granted) =>
         TicketService(db, new KeyedAsyncLock(), granted);
 
-    public static MarketTradeTicketService TicketService(UnitOfWork db, KeyedAsyncLock locks, params string[] granted)
+    public static MarketTradeTicketService TicketService(UnitOfWork db, KeyedAsyncLock locks, params string[] granted) =>
+        TicketServiceWithPosition(db, null, locks, granted);
+
+    /// <summary>Boleta com o painel de posição ligado (regra de alçada por limite de exposição).</summary>
+    public static MarketTradeTicketService TicketServiceWithPosition(UnitOfWork db, SiagroB1.Application.Services.Market.Position.MarketPositionService? position,
+        KeyedAsyncLock? locks = null, params string[] granted)
     {
+        locks ??= new KeyedAsyncLock();
         var permissions = new FakeUserPermissions(granted);
         return new MarketTradeTicketService(
             db.Context, new MarketPriceGridService(db.Context, FreightService(db)), ContractService(db),
@@ -71,7 +77,7 @@ internal static class MarketTradeTicketTestHelpers
             new FakeAgentService(new() { [1] = "AGENTE" }),
             permissions, new MarketPermissionGuard(permissions),
             new ManualTimeProvider(new DateTimeOffset(2026, 11, 6, 15, 0, 0, TimeSpan.Zero)),
-            locks, new FakeCompanyContext("0001"));
+            locks, new FakeCompanyContext("0001"), position);
     }
 
     public static MarketTradeTicketContractService ContractService(UnitOfWork db) => new(

@@ -258,4 +258,80 @@ public class ContractNotificationDispatchJobTests
         Assert.Contains("PC-000123", log.MessageText);
         Assert.Equal(1, log.Attempt);
     }
+
+    private NotificationOutboxMessage SeedMarketOutbox(string payloadJson)
+    {
+        var message = new NotificationOutboxMessage
+        {
+            Key = Guid.NewGuid(),
+            DocumentType = NotificationDocumentType.MarketPosition,
+            EventType = NotificationEventType.ExposureLimitExceeded,
+            DocumentKey = Guid.NewGuid(),
+            DocumentCode = "LIMITE-7",
+            PayloadJson = payloadJson,
+        };
+        _db.Context.NotificationOutboxMessages.Add(message);
+        _db.Context.SaveChanges();
+        return message;
+    }
+
+    private void SeedMarketSubscriber(string phone)
+    {
+        var group = new NotificationGroup { Key = Guid.NewGuid(), Code = "RISCO", Name = "Risco", Active = true };
+        _db.Context.NotificationGroups.Add(group);
+        _db.Context.NotificationGroupSubscriptions.Add(new NotificationGroupSubscription
+        {
+            Key = Guid.NewGuid(), NotificationGroupKey = group.Key,
+            DocumentType = NotificationDocumentType.MarketPosition, EventType = NotificationEventType.ExposureLimitExceeded,
+        });
+        _db.Context.NotificationGroupMembers.Add(new NotificationGroupMember
+        {
+            Key = Guid.NewGuid(), NotificationGroupKey = group.Key, Name = "Risco", Phone = phone, PhoneE164 = phone, Active = true,
+        });
+        _db.Context.SaveChanges();
+    }
+
+    private const string MarketText = "Limite de exposição excedido — Soja — total: posição comprada de 1.234,500 t acima do limite de 1.000,000 t.";
+
+    [Fact]
+    public async Task ExecuteAsync_MarketPosition_SendsPayloadText_ContractMessageUnchanged()
+    {
+        var contract = SeedOutbox();
+        var market = SeedMarketOutbox(JsonSerializer.Serialize(new { text = MarketText }));
+        SeedSubscribers("5566999998888");
+        SeedMarketSubscriber("5566911112222");
+        var sender = new FakeWhatsAppSender();
+        var expectedContractText = ContractNotificationMessageBuilder.Build(
+            JsonSerializer.Deserialize<ContractNotificationPayload>(contract.PayloadJson)!);
+
+        await CreateJob(sender).ExecuteAsync("0001", market.Key);
+        await CreateJob(sender).ExecuteAsync("0001", contract.Key);
+
+        Assert.Equal(2, sender.Sent.Count);
+        Assert.Equal(("5566911112222", MarketText), sender.Sent[0]);
+        Assert.Equal(("5566999998888", expectedContractText), sender.Sent[1]);
+        Assert.Equal(NotificationOutboxStatus.Sent, Reload(market.Key).Status);
+        Assert.Equal(NotificationOutboxStatus.Sent, Reload(contract.Key).Status);
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"text\": \"  \"}")]
+    [InlineData("não é json")]
+    public async Task ExecuteAsync_MarketPosition_BadPayload_FailsWithoutThrowing_OthersStillSent(string payload)
+    {
+        var market = SeedMarketOutbox(payload);
+        var contract = SeedOutbox();
+        SeedSubscribers("5566999998888");
+        SeedMarketSubscriber("5566911112222");
+        var sender = new FakeWhatsAppSender();
+
+        await CreateJob(sender).ExecuteAsync("0001", market.Key);
+        await CreateJob(sender).ExecuteAsync("0001", contract.Key);
+
+        Assert.Equal(NotificationOutboxStatus.Failed, Reload(market.Key).Status);
+        Assert.NotNull(Reload(market.Key).LastError);
+        var (phone, _) = Assert.Single(sender.Sent);
+        Assert.Equal("5566999998888", phone);
+    }
 }

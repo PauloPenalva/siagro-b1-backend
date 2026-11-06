@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Interfaces;
+using SiagroB1.Application.Services.Market.Position;
 using SiagroB1.Application.Services.Market.Pricing;
 using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
@@ -35,7 +36,8 @@ public class MarketTradeTicketService(
     MarketPermissionGuard guard,
     TimeProvider time,
     KeyedAsyncLock locks,
-    ICompanyContext companyContext)
+    ICompanyContext companyContext,
+    MarketPositionService? position = null)
 {
     public const string ConcurrencyMessage = "A boleta foi alterada por outro usuário. Atualize e tente de novo.";
 
@@ -102,6 +104,8 @@ public class MarketTradeTicketService(
             reasons.Add($"Volume de {tons.ToString("N3", PtBr)} t acima do limite de {volumeLimit.ToString("N3", PtBr)} t");
         if (settings.BoardApprovalDeviationPercent is { } deviationLimit && Math.Abs(deviation) >= deviationLimit)
             reasons.Add($"desvio de preço de {deviation.ToString("N2", PtBr)} % acima do limite de {deviationLimit.ToString("N2", PtBr)} %");
+        if (await ExposureLimitReasonAsync(row.ItemCode, row.DeliveryEndDate.Value, tons, today, ct) is { } limitReason)
+            reasons.Add(limitReason);
         var reason = reasons.Count == 0 ? null : string.Join("; ", reasons);
         if (reason is not null)
             reason = char.ToUpper(reason[0], PtBr) + reason[1..];
@@ -252,6 +256,56 @@ public class MarketTradeTicketService(
         ticket.CanceledAt = UtcNow;
         await SaveAsync(ct);
         return ticket;
+    }
+
+    /// <summary>
+    /// Alçada por limite de exposição: a boleta é COMPRA (soma toneladas compradas). Exige diretoria quando
+    /// líquido + toneladas da boleta passa o MaxLong do limite ativo do TOTAL da commodity ou do mês de bolsa da entrega.
+    /// Sem commodity, sem regra para o mês ou sem limite → nada. Se a posição não puder ser calculada com limite ativo,
+    /// falha a favor do controle (exige diretoria).
+    /// </summary>
+    private async Task<string?> ExposureLimitReasonAsync(string itemCode, DateOnly deliveryEnd, decimal tons, DateOnly today, CancellationToken ct)
+    {
+        if (position is null) return null;
+
+        var item = itemCode.Trim();
+        var commodity = await context.MarketCommodityItems.AsNoTracking()
+            .Where(i => i.ItemCode == item && i.Commodity!.Active)
+            .Select(i => new { i.CommodityCode, i.Commodity!.Name })
+            .FirstOrDefaultAsync(ct);
+        if (commodity is null) return null;
+
+        var rules = await context.MarketCommodityMonths.AsNoTracking()
+            .Where(m => m.CommodityCode == commodity.CommodityCode)
+            .Select(m => new MarketPositionMath.MonthRule(m.DeliveryMonth, m.FuturesMonth, m.YearOffset))
+            .ToListAsync(ct);
+        if (MarketPositionMath.MapDelivery(deliveryEnd, rules) is not { } bucket) return null;
+
+        var limits = await context.MarketExposureLimits.AsNoTracking()
+            .Where(l => l.Active && l.Scope == MarketLimitScope.Commodity && l.CommodityCode == commodity.CommodityCode
+                        && l.MaxLong != null
+                        && ((l.Year == null && l.Month == null) || (l.Year == bucket.Year && l.Month == bucket.Month)))
+            .Select(l => new { l.Year, l.MaxLong })
+            .ToListAsync(ct);
+        if (limits.Count == 0) return null;
+
+        MarketPositionSnapshot snapshot;
+        try
+        {
+            snapshot = await position.GetSnapshotAsync(today, ct);
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return $"Não foi possível conferir o limite de exposição de {commodity.Name}";
+        }
+
+        var current = snapshot.Commodities.FirstOrDefault(c =>
+            string.Equals(c.Code, commodity.CommodityCode, StringComparison.OrdinalIgnoreCase));
+        var totalNet = current?.Total.NetTons ?? 0m;
+        var bucketNet = current?.Buckets.FirstOrDefault(b => b.Year == bucket.Year && b.Month == bucket.Month)?.NetTons ?? 0m;
+
+        var exceeded = limits.Any(l => (l.Year is null ? totalNet : bucketNet) + tons > l.MaxLong!.Value);
+        return exceeded ? $"Estoura o limite de exposição de {commodity.Name}" : null;
     }
 
     private async Task EnsureCurrentLevelAsync(MarketTradeTicket ticket, string userName)
