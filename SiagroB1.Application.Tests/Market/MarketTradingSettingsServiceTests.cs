@@ -38,10 +38,10 @@ public class MarketTradingSettingsServiceTests
         var db = await SeedPricingAsync();
 
         await Assert.ThrowsAsync<ForbiddenException>(() =>
-            SettingsService(db, PermissionCodes.MarketBoardApprove).SaveAsync(Input(um: "sc"), "ana"));
-        var saved = await SettingsService(db, PermissionCodes.MarketManage).SaveAsync(Input(um: " sc ", freightUm: "ton"), "ana");
+            SettingsService(db, PermissionCodes.MarketBoardApprove).SaveAsync(Input(um: "kg"), "ana"));
+        var saved = await SettingsService(db, PermissionCodes.MarketManage).SaveAsync(Input(um: " kg ", freightUm: "ton"), "ana");
 
-        Assert.Equal("SC", saved.ContractUnitOfMeasureCode);
+        Assert.Equal("KG", saved.ContractUnitOfMeasureCode);
         Assert.Equal("TON", saved.ContractFreightUmCode);
     }
 
@@ -51,9 +51,9 @@ public class MarketTradingSettingsServiceTests
         var db = await SeedPricingAsync();
         await SettingsService(db, PermissionCodes.MarketBoardApprove).SaveAsync(Input(volume: 500m), "ana");
 
-        await SettingsService(db, PermissionCodes.MarketManage).SaveAsync(Input(volume: 500m, um: "SC"), "bia");
+        await SettingsService(db, PermissionCodes.MarketManage).SaveAsync(Input(volume: 500m, um: "KG"), "bia");
 
-        Assert.Equal("SC", (await db.Context.MarketTradingSettings.AsNoTracking().SingleAsync()).ContractUnitOfMeasureCode);
+        Assert.Equal("KG", (await db.Context.MarketTradingSettings.AsNoTracking().SingleAsync()).ContractUnitOfMeasureCode);
     }
 
     [Fact]
@@ -69,5 +69,30 @@ public class MarketTradingSettingsServiceTests
         await Assert.ThrowsAsync<BusinessException>(() => service.SaveAsync(Input(fx: "CCMF27"), "ana"));
         var saved = await service.SaveAsync(Input(fx: "DOL COM"), "ana");
         Assert.Equal("DOL COM", saved.SpotFxInstrumentCode);
+    }
+
+    [Theory]
+    [InlineData("SC")]
+    [InlineData("TON")]
+    public async Task Settings_ContractUnitOtherThanKg_Rejected(string um)
+    {
+        var db = await SeedPricingAsync();
+
+        var e = await Assert.ThrowsAsync<BusinessException>(() =>
+            SettingsService(db, PermissionCodes.MarketManage).SaveAsync(Input(um: um, freightUm: "SC"), "ana"));
+        Assert.Equal("Nesta versão o contrato gerado pela boleta é sempre em KG.", e.Message);
+    }
+
+    [Theory]
+    [InlineData(0.0001, null)]
+    [InlineData(null, 0.00004)]
+    public async Task Settings_ThresholdRoundedToZero_Rejected(double? volume, double? deviation)
+    {
+        var db = await SeedPricingAsync();
+
+        await Assert.ThrowsAsync<BusinessException>(() =>
+            SettingsService(db, PermissionCodes.MarketBoardApprove).SaveAsync(
+                Input(volume: (decimal?)volume, deviation: (decimal?)deviation), "ana"));
+        Assert.Empty(db.Context.MarketTradingSettings);
     }
 }

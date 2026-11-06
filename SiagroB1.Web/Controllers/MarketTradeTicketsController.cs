@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
+using Microsoft.AspNetCore.OData.Results;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Market.Tickets;
@@ -21,24 +22,32 @@ public sealed record MarketTradeTicketRejectInput(string? Reason);
 /// </summary>
 [Authorize]
 [MarketModuleEnabled]
-public class MarketTradeTicketsController(AppDbContext context, MarketTradeTicketService service, TimeProvider time)
+public class MarketTradeTicketsController(
+    AppDbContext context, MarketTradeTicketService service, TimeProvider time, ILogger<MarketTradeTicketsController> logger)
     : ODataController
 {
+    public const string InvalidBodyMessage = "Dados da boleta inválidos ou ausentes.";
+
+    public const string SaveFailedMessage = "Não foi possível gravar a boleta. Atualize e tente de novo.";
+
     private string UserName => User.Identity?.Name ?? string.Empty;
 
     [EnableQuery(PageSize = 200)]
     public IActionResult Get() => Ok(context.MarketTradeTickets.AsNoTracking());
 
+    /// <summary>SingleResult sobre consulta: o $expand (Municipality, HarvestSeason) roda no banco.</summary>
     [EnableQuery]
     public async Task<IActionResult> Get([FromRoute] int key)
     {
-        var ticket = await context.MarketTradeTickets.AsNoTracking().FirstOrDefaultAsync(t => t.Id == key);
-        return ticket is null ? NotFound() : Ok(ticket);
+        var query = context.MarketTradeTickets.AsNoTracking().Where(t => t.Id == key);
+        return await query.AnyAsync() ? Ok(SingleResult.Create(query)) : NotFound();
     }
 
     [HttpPost("market/tickets")]
-    public Task<IActionResult> Create([FromBody] MarketTradeTicketInput input, CancellationToken cancellationToken) =>
-        Run(() => service.CreateAsync(input, UserName, Today(), cancellationToken));
+    public Task<IActionResult> Create([FromBody] MarketTradeTicketInput? input, CancellationToken cancellationToken) =>
+        input is null || !ModelState.IsValid
+            ? Task.FromResult<IActionResult>(MarketTextResults.BadRequest(InvalidBodyMessage))
+            : Run(() => service.CreateAsync(input, UserName, Today(), cancellationToken));
 
     [HttpPost("market/tickets/{id:int}/approve")]
     public Task<IActionResult> Approve(int id, CancellationToken cancellationToken) =>
@@ -73,6 +82,11 @@ public class MarketTradeTicketsController(AppDbContext context, MarketTradeTicke
         catch (BusinessException e)
         {
             return MarketTextResults.BadRequest(e.Message);
+        }
+        catch (DbUpdateException e)
+        {
+            logger.LogError(e, "Falha ao gravar a boleta do Mercado.");
+            return MarketTextResults.BadRequest(SaveFailedMessage);
         }
     }
 }

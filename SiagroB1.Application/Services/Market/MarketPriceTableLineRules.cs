@@ -57,8 +57,12 @@ public static class MarketPriceTableLineRules
             throw new BusinessException("Informe a data de recebimento.");
         entity.PaymentDate = entity.PaymentDate.Value.Date;
         entity.ReceiptDate = entity.ReceiptDate.Value.Date;
-        entity.DeliveryStartDate = entity.DeliveryStartDate?.Date;
-        entity.DeliveryEndDate = entity.DeliveryEndDate?.Date;
+        if (entity.DeliveryStartDate is null)
+            throw new BusinessException("Informe o início da entrega.");
+        if (entity.DeliveryEndDate is null)
+            throw new BusinessException("Informe o fim da entrega.");
+        entity.DeliveryStartDate = entity.DeliveryStartDate.Value.Date;
+        entity.DeliveryEndDate = entity.DeliveryEndDate.Value.Date;
         if (entity.DeliveryStartDate > entity.DeliveryEndDate)
             throw new BusinessException("O início da entrega não pode ser posterior ao fim da entrega.");
 

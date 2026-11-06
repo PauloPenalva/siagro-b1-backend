@@ -150,4 +150,23 @@ public class MarketPriceCalculatorTests
         var huge = MarketPriceCalculator.Calculate(S1() with { Quote = decimal.MaxValue, Premium = 1m });
         Assert.NotNull(huge);
     }
+
+    [Fact]
+    public void NonPositiveNetFx_InvalidSetup_NoPrice()
+    {
+        var r = MarketPriceCalculator.Calculate(S1() with { FxDiscount = 10m });
+
+        Assert.Equal(MarketPriceStatus.InvalidSetup, r.Status);
+        Assert.Null(r.Price);
+        Assert.Null(r.NetFx);
+    }
+
+    [Fact]
+    public void NonPositivePrice_InvalidSetup_NoPrice()
+    {
+        var r = MarketPriceCalculator.Calculate(B1() with { FreightPerTon = 5000m });
+
+        Assert.Equal(MarketPriceStatus.InvalidSetup, r.Status);
+        Assert.Null(r.Price);
+    }
 }

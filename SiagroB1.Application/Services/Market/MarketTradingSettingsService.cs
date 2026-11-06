@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Interfaces;
+using SiagroB1.Application.Services.Market.Tickets;
 using SiagroB1.Commons.Market;
 using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
@@ -33,13 +34,29 @@ public class MarketTradingSettingsService(
     public async Task<MarketTradingSettingsInput> SaveAsync(
         MarketTradingSettingsInput input, string userName, CancellationToken cancellationToken = default)
     {
+        try
+        {
+            return await SaveCoreAsync(input, userName, cancellationToken);
+        }
+        catch (DbUpdateException e) when (MarketQuoteService.IsUniqueViolation(e))
+        {
+            // Corrida na primeira gravação (linha única Key = 1): outro pedido inseriu antes; repete uma vez como UPDATE.
+            context.ChangeTracker.Clear();
+            return await SaveCoreAsync(input, userName, cancellationToken);
+        }
+    }
+
+    private async Task<MarketTradingSettingsInput> SaveCoreAsync(
+        MarketTradingSettingsInput input, string userName, CancellationToken cancellationToken)
+    {
         var row = await context.MarketTradingSettings.FirstOrDefaultAsync(cancellationToken);
         var current = ToInput(row);
 
         var normalized = new MarketTradingSettingsInput(
             Blank(input.SpotFxInstrumentCode),
-            input.BoardApprovalVolumeTons,
-            input.BoardApprovalDeviationPercent,
+            // Arredonda à escala da coluna ANTES de comparar e validar: 0,0001 t viraria 0 no banco.
+            Scale(input.BoardApprovalVolumeTons, 3),
+            Scale(input.BoardApprovalDeviationPercent, 4),
             Unit(input.ContractUnitOfMeasureCode, "unidade de medida do contrato"),
             Unit(input.ContractFreightUmCode, "unidade de medida do frete"));
 
@@ -60,6 +77,10 @@ public class MarketTradingSettingsService(
             throw new BusinessException("O volume de alçada deve ser maior que zero.");
         if (normalized.BoardApprovalDeviationPercent <= 0)
             throw new BusinessException("O desvio de alçada deve ser maior que zero.");
+
+        if (normalized.ContractUnitOfMeasureCode is not null
+            && normalized.ContractUnitOfMeasureCode != MarketTradeTicketContractService.ContractUnitOfMeasure)
+            throw new BusinessException(MarketTradeTicketContractService.ContractUnitMessage);
 
         if (normalized.SpotFxInstrumentCode is not null)
         {
@@ -90,6 +111,9 @@ public class MarketTradingSettingsService(
     private static MarketTradingSettingsInput ToInput(MarketTradingSettings? row) => new(
         row?.SpotFxInstrumentCode, row?.BoardApprovalVolumeTons, row?.BoardApprovalDeviationPercent,
         row?.ContractUnitOfMeasureCode, row?.ContractFreightUmCode);
+
+    private static decimal? Scale(decimal? value, int decimals) =>
+        value is { } v ? Math.Round(v, decimals, MidpointRounding.AwayFromZero) : null;
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

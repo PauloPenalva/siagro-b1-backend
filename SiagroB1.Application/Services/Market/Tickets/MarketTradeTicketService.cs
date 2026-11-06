@@ -19,8 +19,10 @@ public sealed record MarketTradeTicketInput(
 
 /// <summary>
 /// Boleta de compra: criação (congela a linha da grade), alçada (comprador → aprovador → diretoria) e geração do
-/// contrato já aprovado. A aprovação grava os carimbos ANTES de gerar o contrato: esse UPDATE é o "pedido de vez"
-/// protegido pelo RowVersion, então dois aprovadores simultâneos não geram dois contratos.
+/// contrato já aprovado. A aprovação grava os carimbos e a chave PRÉ-ATRIBUÍDA do contrato ANTES de gerá-lo, num
+/// UPDATE protegido pelo RowVersion (o "pedido de vez"). A trava por boleta (KeyedAsyncLock) só serializa dentro
+/// de um processo; o que garante um contrato só entre processos e entre tentativas é a chave pré-atribuída: quem
+/// chega depois reencontra o contrato dessa chave (ou bate na chave primária), nunca cria outro.
 /// </summary>
 public class MarketTradeTicketService(
     AppDbContext context,
@@ -46,6 +48,12 @@ public class MarketTradeTicketService(
     public async Task<MarketTradeTicket> CreateAsync(
         MarketTradeTicketInput input, string userName, DateOnly today, CancellationToken ct)
     {
+        // Escala das colunas (VolumeKg 3 casas, NegotiatedPrice 2) ANTES do desvio e da resposta: o que se mostra é o que se grava.
+        input = input with
+        {
+            VolumeKg = Math.Round(input.VolumeKg, 3, MidpointRounding.AwayFromZero),
+            NegotiatedPrice = Math.Round(input.NegotiatedPrice, 2, MidpointRounding.AwayFromZero),
+        };
         if (input.VolumeKg <= 0)
             throw new BusinessException("O volume deve ser maior que zero.");
         if (input.NegotiatedPrice <= 0)
@@ -58,6 +66,9 @@ public class MarketTradeTicketService(
         var settings = await context.MarketTradingSettings.AsNoTracking().FirstOrDefaultAsync(ct);
         if (string.IsNullOrWhiteSpace(settings?.ContractUnitOfMeasureCode))
             throw new BusinessException("Informe a unidade de medida do contrato nos parâmetros do Mercado.");
+        if (!string.Equals(settings.ContractUnitOfMeasureCode.Trim(), MarketTradeTicketContractService.ContractUnitOfMeasure,
+                StringComparison.OrdinalIgnoreCase))
+            throw new BusinessException(MarketTradeTicketContractService.ContractUnitMessage);
         if (string.IsNullOrWhiteSpace(settings.ContractFreightUmCode))
             throw new BusinessException("Informe a unidade de medida do frete nos parâmetros do Mercado.");
 
@@ -80,7 +91,7 @@ public class MarketTradeTicketService(
                   ?? throw new BusinessException("Linha sem preço: linha da tabela de preços inexistente ou inativa.");
         if (row.Status != MarketPriceStatus.Ok || row.Price is not > 0)
             throw new BusinessException($"Linha sem preço: {StatusText(row.Status)}.");
-        if (row.DeliveryStartDate == default || row.DeliveryEndDate == default)
+        if (row.DeliveryStartDate is null || row.DeliveryEndDate is null)
             throw new BusinessException("A linha da tabela de preços não tem período de entrega.");
 
         var calculated = row.Price.Value;
@@ -121,6 +132,9 @@ public class MarketTradeTicketService(
             StepsJson = JsonSerializer.Serialize(row.Steps, StepsJsonOptions),
             QuotedAt = row.QuotedAt,
             QuoteSource = row.QuoteSource,
+            CurveFx = row.CurveFx,
+            FxQuotedAt = row.FxQuotedAt,
+            FxQuoteSource = row.FxQuoteSource,
             DeliveryStartDate = ToDateTime(row.DeliveryStartDate),
             DeliveryEndDate = ToDateTime(row.DeliveryEndDate),
             ReceiptDate = ToDateTime(row.ReceiptDate),
@@ -181,13 +195,18 @@ public class MarketTradeTicketService(
                 throw new BusinessException($"A boleta nº {id} não está pendente de aprovação.");
         }
 
+        // Chave do contrato pré-atribuída e gravada no MESMO UPDATE do pedido de vez: daqui em diante qualquer
+        // tentativa (deste ou de outro processo) usa esta chave, então nunca nasce um segundo contrato.
+        ticket.PurchaseContractKey ??= Guid.NewGuid();
         // "Pedido de vez": força o UPDATE (mesmo numa retomada sem campo novo) para o RowVersion barrar o segundo aprovador.
         context.Entry(ticket).Property(t => t.Status).IsModified = true;
         await SaveAsync(ct);
 
+        // Vez marcada: a geração e a gravação final não honram mais o token da requisição (cliente desconectado
+        // no meio não pode interromper o que já começou).
         try
         {
-            await contracts.GenerateAsync(ticket, userName, ct);
+            await contracts.GenerateAsync(ticket, userName, CancellationToken.None);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -198,7 +217,7 @@ public class MarketTradeTicketService(
         }
 
         ticket.Status = MarketTradeTicketStatus.Approved;
-        await SaveAsync(ct);
+        await SaveAsync(CancellationToken.None);
         return ticket;
     }
 
@@ -245,7 +264,8 @@ public class MarketTradeTicketService(
 
     /// <summary>
     /// Geração parcial deixa a boleta aberta apontando para um contrato vivo: fechá-la deixaria esse contrato órfão
-    /// e aprovável sozinho. Só libera se o contrato sumiu ou foi cancelado/rejeitado.
+    /// e aprovável sozinho. Só libera se o contrato não existe (chave pré-atribuída sem contrato criado, ou contrato
+    /// excluído) ou foi cancelado/rejeitado.
     /// </summary>
     private async Task EnsureNoLiveContractAsync(MarketTradeTicket ticket, string action, CancellationToken ct)
     {
@@ -275,7 +295,7 @@ public class MarketTradeTicketService(
     /// <summary>
     /// Aprovar/rejeitar/cancelar a mesma boleta é serializado por empresa + id: a boleta fica Pending durante a geração
     /// do contrato, então só o RowVersion não impede um segundo pedido simultâneo de criar outro contrato.
-    /// Exclusão no processo (um processo Web por cliente); o RowVersion segue como segunda defesa.
+    /// Exclusão só no processo; entre processos quem garante um contrato só é a chave pré-atribuída (e o RowVersion).
     /// </summary>
     private Task<IDisposable> LockAsync(int id, CancellationToken ct) =>
         locks.AcquireAsync($"market-ticket:{companyContext.CompanyCode}:{id}", ct);
@@ -308,7 +328,7 @@ public class MarketTradeTicketService(
     private static string Required(string? value, string name) =>
         string.IsNullOrWhiteSpace(value) ? throw new BusinessException($"Informe {name}.") : value.Trim();
 
-    private static DateTime? ToDateTime(DateOnly date) => date == default ? null : date.ToDateTime(TimeOnly.MinValue);
+    private static DateTime? ToDateTime(DateOnly? date) => date?.ToDateTime(TimeOnly.MinValue);
 
     private static string StatusText(MarketPriceStatus status) => status switch
     {

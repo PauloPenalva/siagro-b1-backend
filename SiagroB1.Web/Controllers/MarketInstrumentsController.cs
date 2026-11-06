@@ -17,6 +17,8 @@ namespace SiagroB1.Web.Controllers;
 public class MarketInstrumentsController(MarketInstrumentService service, MarketPermissionGuard guard)
     : MarketODataController<MarketInstrument, string>(service, guard)
 {
+    protected override string KeyPropertyName => nameof(MarketInstrument.Code);
+
     [EnableQuery]
     public override Task<ActionResult<MarketInstrument>> Get([FromRoute] string key) =>
         base.Get(ODataKeyNormalizer.Normalize(key));

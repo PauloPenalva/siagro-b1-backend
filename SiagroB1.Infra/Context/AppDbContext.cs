@@ -247,6 +247,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             t.Property(x => x.RejectedAt).HasConversion(UtcDateTimeConverters.Optional);
             t.Property(x => x.CanceledAt).HasConversion(UtcDateTimeConverters.Optional);
             t.Property(x => x.QuotedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.FxQuotedAt).HasConversion(UtcDateTimeConverters.Optional);
         });
 
         // Mercado (parte 2): linhas da tabela de preços caem com a tabela; instrumentos e destino são Restrict.

@@ -3,8 +3,8 @@ namespace SiagroB1.Application.Services.Market.Tickets;
 /// <summary>
 /// Exclusão mútua assíncrona por chave (singleton). Cada chave tem um SemaphoreSlim com contagem de referências,
 /// removido quando o último interessado libera, para o dicionário não crescer.
-/// Garante exclusão só DENTRO DO PROCESSO: vale porque o produto roda um processo Web por cliente. Com mais de uma
-/// instância, o RowVersion da boleta continua sendo a segunda linha de defesa.
+/// Garante exclusão só DENTRO DO PROCESSO (evita trabalho concorrente na mesma boleta). Não é ela que garante um
+/// contrato só por boleta entre processos: isso vem da chave do contrato pré-atribuída na boleta e do RowVersion.
 /// </summary>
 public sealed class KeyedAsyncLock
 {

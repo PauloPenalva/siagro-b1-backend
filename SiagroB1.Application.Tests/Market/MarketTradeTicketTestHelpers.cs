@@ -76,14 +76,17 @@ internal static class MarketTradeTicketTestHelpers
 
     public static MarketTradeTicketContractService ContractService(UnitOfWork db) => new(
         db.Context,
+        CreateService(db),
+        new PurchaseContractsSendApprovalService(db.Context, TestNotificationOutbox.For(db.Context)),
+        new PurchaseContractsApprovalService(db.Context, TestNotificationOutbox.For(db.Context),
+            FinancialDocumentTestServices.Generate(db.Context)));
+
+    public static PurchaseContractsCreateService CreateService(UnitOfWork db) =>
         new PurchaseContractsCreateService(db.Context,
             new FakeBusinessPartnerService(names: new() { ["F0001"] = "PRODUTOR TESTE" }),
             new FakeItemService(new() { ["SOJA"] = "SOJA EM GRAOS" }),
             new FakeAgentService(new() { [1] = "AGENTE" }),
             new FakeWarehouseService(new() { ["01"] = "ARM 01" }),
             new FakeDocNumberSequenceService(), TestNotificationOutbox.For(db.Context),
-            new FakeStringLocalizer<Resource>(), NullLogger<PurchaseContractsCreateService>.Instance),
-        new PurchaseContractsSendApprovalService(db.Context, TestNotificationOutbox.For(db.Context)),
-        new PurchaseContractsApprovalService(db.Context, TestNotificationOutbox.For(db.Context),
-            FinancialDocumentTestServices.Generate(db.Context)));
+            new FakeStringLocalizer<Resource>(), NullLogger<PurchaseContractsCreateService>.Instance);
 }

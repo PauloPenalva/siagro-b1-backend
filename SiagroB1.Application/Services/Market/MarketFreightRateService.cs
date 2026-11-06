@@ -26,7 +26,7 @@ public class MarketFreightRateService(
         await ValidateAsync(entity);
         entity.CreatedBy = userName;
         entity.CreatedAt = DateTime.UtcNow;
-        var created = await base.CreateAsync(entity);
+        var created = await MarketPersistence.AddAndSaveAsync(context, entity);
         store.NotifyChanged(companyContext.CompanyCode);
         return created;
     }

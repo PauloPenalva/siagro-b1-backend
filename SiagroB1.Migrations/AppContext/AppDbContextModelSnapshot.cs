@@ -3424,6 +3424,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CreatedBy")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<decimal?>("CurveFx")
+                        .HasColumnType("DECIMAL(18,6)");
+
                     b.Property<DateTime?>("DeliveryEndDate")
                         .HasColumnType("DATE");
 
@@ -3444,6 +3447,12 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<decimal>("FreightPerTon")
                         .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<int?>("FxQuoteSource")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("FxQuotedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("HarvestSeasonCode")
                         .IsRequired()

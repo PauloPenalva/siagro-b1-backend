@@ -96,16 +96,19 @@ public class MarketTradeTicketContractServiceTests
     }
 
     [Fact]
-    public async Task Generate_DeletedContract_Rejected()
+    public async Task Generate_DeletedContract_RecreatedWithSameKey()
     {
-        var (db, id, _) = await SeedHalfDoneAsync(ContractStatus.Draft, null);
+        var (db, id, key) = await SeedHalfDoneAsync(ContractStatus.Draft, null);
         db.Context.PurchaseContracts.Remove(await db.Context.PurchaseContracts.Include(c => c.PriceFixations).SingleAsync());
         await db.SaveChangesAsync();
         db.Context.ChangeTracker.Clear();
 
-        var e = await Assert.ThrowsAsync<BusinessException>(() =>
-            TicketService(db, Approve).ApproveAsync(id, "gerente", CancellationToken.None));
-        Assert.Contains("não pode ser usado", e.Message);
+        var result = await TicketService(db, Approve).ApproveAsync(id, "gerente", CancellationToken.None);
+
+        Assert.Equal(MarketTradeTicketStatus.Approved, result.Status);
+        var contract = await db.Context.PurchaseContracts.AsNoTracking().SingleAsync();
+        Assert.Equal(key, contract.Key);
+        Assert.Equal(contract.Code, result.PurchaseContractCode);
     }
 
     [Theory]
@@ -146,18 +149,145 @@ public class MarketTradeTicketContractServiceTests
     }
 
     [Fact]
-    public async Task Generate_KeySaveFailure_ReportsCreatedContractCode()
+    public async Task Approve_ClaimSavesPreAssignedKey_ContractCreatedWithIt()
+    {
+        var db = await SeedTicketScenarioAsync();
+        var ticket = await TicketService(db).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+
+        var result = await TicketService(db, Approve).ApproveAsync(ticket.Id, "gerente", CancellationToken.None);
+
+        var contract = await db.Context.PurchaseContracts.AsNoTracking().SingleAsync();
+        Assert.Equal(contract.Key, result.PurchaseContractKey);
+        Assert.Equal(contract.Code, result.PurchaseContractCode);
+    }
+
+    [Fact]
+    public async Task Approve_RequestAbortedBetweenCreateAndLink_StillOneContract()
     {
         var name = Guid.NewGuid().ToString();
         var seed = await SeedTicketScenarioAsync(databaseName: name);
         var ticket = await TicketService(seed).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
-        var db = TestDb.CreateUnitOfWork(name, new ThrowOnSaveInterceptor(e =>
-            e.Entity is MarketTradeTicket { PurchaseContractKey: not null } && e.State == EntityState.Modified));
+        using var cts = new CancellationTokenSource();
+        // O navegador "desconecta" no instante em que o contrato é gravado.
+        var db = TestDb.CreateUnitOfWork(name, new CallbackOnSaveInterceptor(context =>
+        {
+            if (context.ChangeTracker.Entries<PurchaseContract>().Any(e => e.State == EntityState.Added))
+                cts.Cancel();
+        }));
 
-        var e = await Assert.ThrowsAsync<BusinessException>(() =>
+        var result = await TicketService(db, Approve).ApproveAsync(ticket.Id, "gerente", cts.Token);
+
+        Assert.True(cts.IsCancellationRequested);
+        Assert.Equal(MarketTradeTicketStatus.Approved, result.Status);
+        db.Context.ChangeTracker.Clear();
+        await Assert.ThrowsAsync<BusinessException>(() =>
             TicketService(db, Approve).ApproveAsync(ticket.Id, "gerente", CancellationToken.None));
+        var contract = await db.Context.PurchaseContracts.AsNoTracking().SingleAsync();
+        Assert.Equal(contract.Key, (await db.Context.MarketTradeTickets.AsNoTracking().SingleAsync()).PurchaseContractKey);
+    }
 
-        var code = (await db.Context.PurchaseContracts.AsNoTracking().SingleAsync()).Code;
-        Assert.Contains($"O contrato {code} foi criado", e.Message);
+    [Fact]
+    public async Task Approve_FailureAfterCreate_RetryReusesContract()
+    {
+        var name = Guid.NewGuid().ToString();
+        var seed = await SeedTicketScenarioAsync(databaseName: name);
+        var ticket = await TicketService(seed).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+        // Cai na gravação final (boleta Aprovada), depois de o contrato já existir e estar aprovado.
+        var failing = TestDb.CreateUnitOfWork(name, new ThrowOnSaveInterceptor(e =>
+            e.Entity is MarketTradeTicket { Status: MarketTradeTicketStatus.Approved } && e.State == EntityState.Modified));
+
+        await Assert.ThrowsAsync<DbUpdateException>(() =>
+            TicketService(failing, Approve).ApproveAsync(ticket.Id, "gerente", CancellationToken.None));
+        var pending = await failing.Context.MarketTradeTickets.AsNoTracking().SingleAsync();
+        Assert.Equal(MarketTradeTicketStatus.Pending, pending.Status);
+        Assert.NotNull(pending.PurchaseContractKey);
+
+        var db = TestDb.CreateUnitOfWork(name);
+        var result = await TicketService(db, Approve).ApproveAsync(ticket.Id, "gerente", CancellationToken.None);
+
+        Assert.Equal(MarketTradeTicketStatus.Approved, result.Status);
+        var contract = await db.Context.PurchaseContracts.AsNoTracking().SingleAsync();
+        Assert.Equal(pending.PurchaseContractKey, contract.Key);
+        Assert.Single(db.Context.FinancialDocuments);
+    }
+
+    [Fact]
+    public async Task Generate_KeyWithoutContract_CreatesWithThatKey()
+    {
+        var db = await SeedTicketScenarioAsync();
+        var created = await TicketService(db).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+        var key = Guid.NewGuid();
+        created.PurchaseContractKey = key;
+        await db.SaveChangesAsync();
+
+        await ContractService(db).GenerateAsync(created, "gerente", CancellationToken.None);
+
+        var contract = await db.Context.PurchaseContracts.AsNoTracking().SingleAsync();
+        Assert.Equal(key, contract.Key);
+        Assert.Equal(ContractStatus.Approved, contract.Status);
+        Assert.Equal(contract.Code, created.PurchaseContractCode);
+    }
+
+    [Fact]
+    public async Task Generate_SecondCreateWithSameKey_DoesNotCreateAnother()
+    {
+        var name = Guid.NewGuid().ToString();
+        var db = await SeedTicketScenarioAsync(databaseName: name);
+        var ticket = await TicketService(db).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+        var key = Guid.NewGuid();
+        ticket.PurchaseContractKey = key;
+        await db.SaveChangesAsync();
+        await ContractService(db).GenerateAsync(ticket, "gerente", CancellationToken.None);
+
+        // Outro "processo" (contexto próprio) tenta criar o contrato da mesma chave por fora.
+        var other = TestDb.CreateUnitOfWork(name);
+        var twin = await other.Context.PurchaseContracts.AsNoTracking().SingleAsync();
+        twin.Key = key;
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            CreateService(other).ExecuteAsync(CloneForCreate(twin), "x"));
+
+        Assert.Equal(key, (await TestDb.CreateUnitOfWork(name).Context.PurchaseContracts.AsNoTracking().SingleAsync()).Key);
+    }
+
+    [Fact]
+    public async Task RejectAndCancel_AllowedWithKeyButNoContract()
+    {
+        var db = await SeedTicketScenarioAsync();
+        var first = await TicketService(db).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+        var second = await TicketService(db).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+        first.PurchaseContractKey = Guid.NewGuid();
+        second.PurchaseContractKey = Guid.NewGuid();
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var rejected = await TicketService(db, Approve).RejectAsync(first.Id, "não", "gerente", CancellationToken.None);
+        var canceled = await TicketService(db).CancelAsync(second.Id, "comprador", CancellationToken.None);
+
+        Assert.Equal(MarketTradeTicketStatus.Rejected, rejected.Status);
+        Assert.Equal(MarketTradeTicketStatus.Canceled, canceled.Status);
+        Assert.Empty(db.Context.PurchaseContracts);
+    }
+
+    private static PurchaseContract CloneForCreate(PurchaseContract c) => new()
+    {
+        Key = c.Key, DocNumberKey = c.DocNumberKey, CardCode = c.CardCode, ItemCode = c.ItemCode,
+        UnitOfMeasureCode = c.UnitOfMeasureCode, HarvestSeasonCode = c.HarvestSeasonCode,
+        DeliveryLocationCode = c.DeliveryLocationCode, AgentCode = c.AgentCode, TotalVolume = c.TotalVolume,
+        StandardPrice = c.StandardPrice, Type = ContractType.Fixed, StandardCurrency = CurrencyType.Brl,
+        DeliveryStartDate = c.DeliveryStartDate, DeliveryEndDate = c.DeliveryEndDate,
+    };
+
+    /// <summary>Executa uma ação no início de cada SaveChanges (para simular eventos no meio do fluxo).</summary>
+    private sealed class CallbackOnSaveInterceptor(Action<DbContext> onSaving)
+        : Microsoft.EntityFrameworkCore.Diagnostics.SaveChangesInterceptor
+    {
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> SavingChangesAsync(
+            Microsoft.EntityFrameworkCore.Diagnostics.DbContextEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (eventData.Context is not null)
+                onSaving(eventData.Context);
+            return ValueTask.FromResult(result);
+        }
     }
 }

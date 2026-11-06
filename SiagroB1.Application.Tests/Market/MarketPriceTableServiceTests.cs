@@ -201,6 +201,43 @@ public class MarketPriceTableServiceTests
     }
 
     [Fact]
+    public async Task HeaderPatch_PayloadLineWithExistingId_NotSaved()
+    {
+        var db = await SeedPricingAsync(Brl());
+        var created = await LineService(db).CreateAsync(Line("CCMF27"), "ana");
+        db.Context.ChangeTracker.Clear();
+
+        // PATCH: cabeçalho rastreado; o payload traz a linha existente com campo inválido (prêmio alterado sem validação).
+        var header = await db.Context.MarketPriceTables.SingleAsync();
+        header.Description = "Renomeada";
+        var payloadLine = Line("CCMF27");
+        payloadLine.Id = created.Id;
+        payloadLine.Description = "ALTERADA PELO CABEÇALHO";
+        payloadLine.MarginPercent = 500;
+        header.Lines.Add(payloadLine);
+        await TableService(db).UpdateAsync(header.Id, header, "bia");
+
+        db.Context.ChangeTracker.Clear();
+        var line = await db.Context.MarketPriceTableLines.AsNoTracking().SingleAsync();
+        Assert.Equal("Jan/27", line.Description);
+        Assert.Equal(0, line.MarginPercent);
+        Assert.Equal("Renomeada", (await db.Context.MarketPriceTables.SingleAsync()).Description);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Line_WithoutDeliveryDates_Rejected(bool missingStart)
+    {
+        var db = await SeedPricingAsync(Brl());
+        var line = Line("CCMF27");
+        if (missingStart) line.DeliveryStartDate = null; else line.DeliveryEndDate = null;
+
+        var e = await Assert.ThrowsAsync<BusinessException>(() => LineService(db).CreateAsync(line, "ana"));
+        Assert.Contains(missingStart ? "início da entrega" : "fim da entrega", e.Message);
+    }
+
+    [Fact]
     public async Task LineUpdate_MovingToAnotherTable_Rejected()
     {
         var db = await SeedPricingAsync(Brl());

@@ -16,7 +16,7 @@ public class MarketDestinationService(
     public override async Task<MarketDestination> CreateAsync(MarketDestination entity)
     {
         await ValidateAsync(entity);
-        var created = await base.CreateAsync(entity);
+        var created = await MarketPersistence.AddAndSaveAsync(context, entity);
         store.NotifyChanged(companyContext.CompanyCode);
         return created;
     }

@@ -28,7 +28,7 @@ public class MarketPriceTableService(
         foreach (var line in entity.Lines)
             await MarketPriceTableLineRules.ValidateAsync(context, line);
 
-        var created = await base.CreateAsync(entity);
+        var created = await MarketPersistence.AddAndSaveAsync(context, entity);
         store.NotifyChanged(companyContext.CompanyCode);
         return created;
     }
@@ -57,7 +57,8 @@ public class MarketPriceTableService(
     }
 
     // As linhas têm serviço próprio: o corpo do cabeçalho não as altera. Em PUT a entidade vem solta e a lista é
-    // descartada; em PATCH a entidade já está rastreada e só saem as linhas novas do payload, sem tocar nas rastreadas.
+    // descartada; em PATCH a entidade já está rastreada e sai TODA linha que o payload trouxe ou alterou (nova ou com
+    // Id existente, que ficaria Modified e seria gravada sem validação); só as rastreadas intactas ficam.
     private void IgnorePayloadLines(MarketPriceTable entity)
     {
         if (context.Entry(entity).State == EntityState.Detached)
@@ -70,7 +71,7 @@ public class MarketPriceTableService(
         foreach (var line in entity.Lines.ToList())
         {
             var entry = context.Entry(line);
-            if (entry.State is not (EntityState.Detached or EntityState.Added))
+            if (entry.State == EntityState.Unchanged)
                 continue;
 
             entry.State = EntityState.Detached;

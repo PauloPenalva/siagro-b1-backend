@@ -12,7 +12,8 @@ namespace SiagroB1.Application.Tests.Market;
 public class MarketTradeTicketsControllerTests
 {
     private static MarketTradeTicketsController Controller(SiagroB1.Infra.UnitOfWork db, params string[] granted) =>
-        new(db.Context, TicketService(db, granted), new ManualTimeProvider(new DateTimeOffset(2026, 11, 6, 15, 0, 0, TimeSpan.Zero)))
+        new(db.Context, TicketService(db, granted), new ManualTimeProvider(new DateTimeOffset(2026, 11, 6, 15, 0, 0, TimeSpan.Zero)),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<MarketTradeTicketsController>.Instance)
         {
             ControllerContext = new ControllerContext
             {
@@ -47,5 +48,12 @@ public class MarketTradeTicketsControllerTests
 
         AssertText(await Controller(db).Approve(id, CancellationToken.None), 403, "permissão");
         AssertText(await Controller(db, PermissionCodes.MarketTicketApprove).Approve(999, CancellationToken.None), 404, "999");
+    }
+
+    [Fact]
+    public async Task Create_NullBody_PlainText400()
+    {
+        var db = await SeedTicketScenarioAsync();
+        AssertText(await Controller(db).Create(null, CancellationToken.None), 400, "Dados da boleta inválidos");
     }
 }

@@ -245,4 +245,114 @@ public class MarketPriceGridServiceTests
         Assert.Equal(fromGrid.Steps, row.Steps);
         Assert.Null(await service.GetRowAsync(9999, City, Today, CancellationToken.None));
     }
+
+    [Theory]
+    [InlineData("inactive")]
+    [InlineData("missing")]
+    [InlineData("wrongUnit")]
+    public async Task Grid_InvalidSpotInstrument_UsdLineInvalidSetup_BrlLineStillPriced(string problem)
+    {
+        var db = await SeedS1Async();
+        var corn = Line("CCMF27"); corn.Premium = 1.5m;
+        db.Context.MarketPriceTableLines.Add(corn);
+        var spot = await db.Context.MarketInstruments.SingleAsync(i => i.Code == "DOL COM");
+        var settings = await db.Context.MarketTradingSettings.SingleAsync();
+        switch (problem)
+        {
+            case "inactive": spot.Active = false; break;
+            case "missing": settings.SpotFxInstrumentCode = "NAO EXISTE"; break;
+            default: spot.QuoteUnit = MarketQuoteUnit.BrlPerBag; break;
+        }
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var rows = (await Service(db).GetGridAsync("26/27", City, Today, CancellationToken.None)).Rows;
+
+        var soy = rows.Single(r => r.InstrumentCode == "ZSF7");
+        Assert.Equal(MarketPriceStatus.InvalidSetup, soy.Status);
+        Assert.Null(soy.Price);
+        Assert.NotNull(rows.Single(r => r.InstrumentCode == "CCMF27").Price);
+    }
+
+    [Fact]
+    public async Task Grid_SpotWithoutUsableQuote_MissingFx()
+    {
+        var db = await SeedS1Async();
+        (await db.Context.MarketQuotes.SingleAsync(q => q.InstrumentCode == "DOL COM")).Last = 0;
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var row = (await Service(db).GetGridAsync("26/27", City, Today, CancellationToken.None)).Rows.Single();
+
+        Assert.Equal(MarketPriceStatus.MissingFx, row.Status);
+    }
+
+    [Fact]
+    public async Task Grid_FxTrace_CurveValueAndOldestFxStamp()
+    {
+        var db = await SeedS1Async();
+        var spot = await db.Context.MarketQuotes.SingleAsync(q => q.InstrumentCode == "DOL COM");
+        spot.QuotedAt = new DateTime(2026, 11, 5, 20, 0, 0);
+        spot.Source = MarketQuoteSource.Manual;
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var row = (await Service(db).GetGridAsync("26/27", City, Today, CancellationToken.None)).Rows.Single();
+
+        Assert.Equal(5.465m, row.CurveFx);
+        Assert.Equal(new DateTime(2026, 11, 5, 20, 0, 0, DateTimeKind.Utc), row.FxQuotedAt);
+        Assert.Equal(DateTimeKind.Utc, row.FxQuotedAt!.Value.Kind);
+        Assert.Equal(MarketQuoteSource.Manual, row.FxQuoteSource);
+    }
+
+    [Fact]
+    public async Task Grid_BrlLine_NoFxTrace()
+    {
+        var db = await SeedS1Async();
+        var corn = Line("CCMF27");
+        db.Context.MarketPriceTableLines.Add(corn);
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var row = (await Service(db).GetGridAsync("26/27", City, Today, CancellationToken.None)).Rows
+            .Single(r => r.InstrumentCode == "CCMF27");
+
+        Assert.Null(row.CurveFx);
+        Assert.Null(row.FxQuotedAt);
+        Assert.Null(row.FxQuoteSource);
+    }
+
+    [Fact]
+    public async Task Grid_LineWithoutDeliveryDates_InvalidSetup_NullDates()
+    {
+        var db = await SeedS1Async();
+        var line = await db.Context.MarketPriceTableLines.SingleAsync();
+        line.DeliveryStartDate = null;
+        line.DeliveryEndDate = null;
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var row = (await Service(db).GetGridAsync("26/27", City, Today, CancellationToken.None)).Rows.Single();
+
+        Assert.Equal(MarketPriceStatus.InvalidSetup, row.Status);
+        Assert.Null(row.DeliveryStartDate);
+        Assert.Null(row.DeliveryEndDate);
+    }
+
+    [Fact]
+    public async Task SpotFxInstrument_CannotBeDeactivatedOrDeleted()
+    {
+        var db = await SeedS1Async();
+        var spot = await db.Context.MarketInstruments.AsNoTracking().SingleAsync(i => i.Code == "DOL COM");
+        spot.Active = false;
+
+        var update = await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.BusinessException>(() =>
+            MarketTestHelpers.InstrumentService(db).UpdateAsync("DOL COM", spot));
+        Assert.Contains("dólar à vista", update.Message);
+        db.Context.ChangeTracker.Clear();
+        var delete = await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.BusinessException>(() =>
+            MarketTestHelpers.InstrumentService(db).DeleteAsync("DOL COM"));
+        Assert.Contains("dólar à vista", delete.Message);
+        Assert.True((await db.Context.MarketInstruments.AsNoTracking().SingleAsync(i => i.Code == "DOL COM")).Active);
+    }
 }

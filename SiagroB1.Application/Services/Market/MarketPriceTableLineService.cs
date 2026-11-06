@@ -26,7 +26,7 @@ public class MarketPriceTableLineService(
     {
         await ValidateAsync(entity);
         await StampHeaderAsync(entity.PriceTableId, userName);
-        var created = await base.CreateAsync(entity);
+        var created = await MarketPersistence.AddAndSaveAsync(context, entity);
         store.NotifyChanged(companyContext.CompanyCode);
         return created;
     }

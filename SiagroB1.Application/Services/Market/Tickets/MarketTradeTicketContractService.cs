@@ -11,8 +11,10 @@ namespace SiagroB1.Application.Services.Market.Tickets;
 /// <summary>
 /// Gera o contrato de compra de preço fixo da boleta e o leva até Aprovado, compondo os serviços existentes
 /// (Create → SendApproval → Approval). NÃO abre transação: o Create abre a dele no mesmo contexto e transação
-/// aninhada estoura no SQL Server. Por isso é retomável: a chave do contrato vai para a boleta logo após o Create,
-/// e cada chamada segue o status ATUAL do contrato no banco.
+/// aninhada estoura no SQL Server. A chave do contrato é PRÉ-ATRIBUÍDA e já está gravada na boleta antes daqui
+/// (no "pedido de vez" da aprovação): contrato inexistente com essa chave → cria com ela; existente → segue pelo
+/// status atual. Repetir a geração (em qualquer processo) reencontra o mesmo contrato ou bate na chave primária —
+/// nunca cria um segundo.
 /// </summary>
 public class MarketTradeTicketContractService(
     AppDbContext context,
@@ -20,28 +22,31 @@ public class MarketTradeTicketContractService(
     PurchaseContractsSendApprovalService sendApprovalService,
     PurchaseContractsApprovalService approvalService)
 {
+    /// <summary>Única unidade aceita nesta versão: a conversão da boleta para o contrato é fixa em kg.</summary>
+    public const string ContractUnitOfMeasure = "KG";
+
+    public const string ContractUnitMessage = "Nesta versão o contrato gerado pela boleta é sempre em KG.";
+
     public async Task GenerateAsync(MarketTradeTicket ticket, string approvedBy, CancellationToken ct)
     {
-        if (ticket.PurchaseContractKey is null)
+        var key = ticket.PurchaseContractKey
+                  ?? throw new InvalidOperationException("A chave do contrato deve ser gravada na boleta antes da geração.");
+
+        var existing = await context.PurchaseContracts.AsNoTracking()
+            .Where(c => c.Key == key).Select(c => new { c.Code }).FirstOrDefaultAsync(ct);
+        if (existing is null)
         {
             var settings = await context.MarketTradingSettings.AsNoTracking().FirstOrDefaultAsync(ct);
-            var contract = await createService.ExecuteAsync(BuildContract(ticket, settings), ticket.CreatedBy ?? approvedBy);
-            ticket.PurchaseContractKey = contract.Key;
+            var entity = BuildContract(ticket, settings);
+            entity.Key = key;
+            var contract = await createService.ExecuteAsync(entity, ticket.CreatedBy ?? approvedBy);
             ticket.PurchaseContractCode = contract.Code;
-            // Grava já: se um passo seguinte falhar, a próxima tentativa continua deste contrato, sem criar outro.
-            try
-            {
-                await context.SaveChangesAsync(ct);
-            }
-            catch (Exception e) when (e is not OperationCanceledException)
-            {
-                throw new BusinessException(
-                    $"O contrato {contract.Code} foi criado, mas não foi possível vinculá-lo à boleta nº {ticket.Id} ({e.Message}). " +
-                    "Exclua ou cancele esse contrato antes de aprovar a boleta de novo.");
-            }
+        }
+        else
+        {
+            ticket.PurchaseContractCode = existing.Code;
         }
 
-        var key = ticket.PurchaseContractKey.Value;
         // No máximo Draft → InApproval → Approved; o limite evita laço se algum serviço não mudar o status.
         for (var step = 0; step < 3; step++)
         {
@@ -59,7 +64,7 @@ public class MarketTradeTicketContractService(
                     break;
                 default:
                     throw new BusinessException(
-                        $"O contrato {ticket.PurchaseContractCode} gerado pela boleta nº {ticket.Id} não existe mais ou está " +
+                        $"O contrato {ticket.PurchaseContractCode} gerado pela boleta nº {ticket.Id} está " +
                         "cancelado, rejeitado ou encerrado; não pode ser usado.");
             }
         }
@@ -73,9 +78,11 @@ public class MarketTradeTicketContractService(
         MarketType = MarketType.Internal,
         CardCode = t.CardCode!,
         ItemCode = t.ItemCode!,
-        UnitOfMeasureCode = settings?.ContractUnitOfMeasureCode
-                            ?? throw new BusinessException("Informe a unidade de medida do contrato nos parâmetros do Mercado."),
-        FreightUmCode = settings.ContractFreightUmCode
+        UnitOfMeasureCode = string.Equals(settings?.ContractUnitOfMeasureCode?.Trim(), ContractUnitOfMeasure,
+            StringComparison.OrdinalIgnoreCase)
+            ? ContractUnitOfMeasure
+            : throw new BusinessException(ContractUnitMessage),
+        FreightUmCode = settings!.ContractFreightUmCode
                         ?? throw new BusinessException("Informe a unidade de medida do frete nos parâmetros do Mercado."),
         HarvestSeasonCode = t.HarvestSeasonCode,
         DeliveryLocationCode = t.WarehouseCode!,

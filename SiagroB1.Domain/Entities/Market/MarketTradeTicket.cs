@@ -89,6 +89,16 @@ public class MarketTradeTicket
 
     public MarketQuoteSource? QuoteSource { get; set; }
 
+    /// <summary>Valor do ponto da curva de dólar usado no cálculo (nulo em instrumento cotado em R$).</summary>
+    [Column(TypeName = "DECIMAL(18,6)")]
+    public decimal? CurveFx { get; set; }
+
+    /// <summary>Carimbo (UTC) do dólar MAIS ANTIGO entre o à vista e o da curva usados no cálculo.</summary>
+    public DateTime? FxQuotedAt { get; set; }
+
+    /// <summary>Origem da cotação do dólar mais antigo.</summary>
+    public MarketQuoteSource? FxQuoteSource { get; set; }
+
     [Column(TypeName = "DATE")]
     public DateTime? DeliveryStartDate { get; set; }
 

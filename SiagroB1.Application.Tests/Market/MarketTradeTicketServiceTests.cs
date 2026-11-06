@@ -332,4 +332,37 @@ public class MarketTradeTicketServiceTests
         try { await action(); return null; }
         catch (Exception e) { return e; }
     }
+
+    [Fact]
+    public async Task Create_RoundsVolumeAndPriceToColumnScale_BeforeDeviation()
+    {
+        var db = await SeedTicketScenarioAsync();
+
+        var ticket = await TicketService(db).CreateAsync(Input(volumeKg: 100_000.0004m, price: 135.004m), "comprador", Today, CancellationToken.None);
+
+        Assert.Equal(100_000.000m, ticket.VolumeKg);
+        Assert.Equal(135.00m, ticket.NegotiatedPrice);
+        Assert.Equal(-1.9394m, ticket.DeviationPercent);
+    }
+
+    [Theory]
+    [InlineData("SC")]
+    [InlineData("TON")]
+    public async Task CreateAndApprove_StoredContractUnitOtherThanKg_Rejected(string um)
+    {
+        var db = await SeedTicketScenarioAsync();
+        var ticket = await TicketService(db).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+        var settings = await db.Context.MarketTradingSettings.SingleAsync();
+        settings.ContractUnitOfMeasureCode = um;
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var create = await Assert.ThrowsAsync<BusinessException>(() =>
+            TicketService(db).CreateAsync(Input(), "comprador", Today, CancellationToken.None));
+        Assert.Equal("Nesta versão o contrato gerado pela boleta é sempre em KG.", create.Message);
+        var approve = await Assert.ThrowsAsync<BusinessException>(() =>
+            TicketService(db, Approve).ApproveAsync(ticket.Id, "gerente", CancellationToken.None));
+        Assert.Contains("sempre em KG", approve.Message);
+        Assert.Empty(db.Context.PurchaseContracts);
+    }
 }

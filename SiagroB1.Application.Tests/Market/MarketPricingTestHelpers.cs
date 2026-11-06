@@ -79,5 +79,7 @@ internal static class MarketPricingTestHelpers
         DestinationId = 1,
         PaymentDate = new DateTime(2027, 4, 15),
         ReceiptDate = new DateTime(2027, 3, 15),
+        DeliveryStartDate = new DateTime(2027, 2, 1),
+        DeliveryEndDate = new DateTime(2027, 3, 31),
     };
 }

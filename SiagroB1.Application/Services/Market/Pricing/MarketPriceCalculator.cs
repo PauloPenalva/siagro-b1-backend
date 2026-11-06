@@ -55,7 +55,7 @@ public static class MarketPriceCalculator
         decimal netFx = 1m;
         if (!isBrl)
         {
-            if (i.SpotFx is null || i.CurveFx is null || i.CurveDays is not > 0)
+            if (i.SpotFx is not > 0 || i.CurveFx is not > 0 || i.CurveDays is not > 0)
                 return Fail(MarketPriceStatus.MissingFx, steps);
 
             var curveDays = i.CurveDays.Value;
@@ -63,6 +63,9 @@ public static class MarketPriceCalculator
             var daysToPayment = i.PaymentDate.DayNumber - i.Today.DayNumber;
             netFx = Round(i.CurveFx.Value + (daysToPayment - curveDays) * slope - i.FxDiscount, 4);
             steps.Add(new("netFx", netFx, "BRL/USD"));
+            // Dólar líquido ≤ 0 (desconto/inclinação absurdos) não gera preço.
+            if (netFx <= 0)
+                return Fail(MarketPriceStatus.InvalidSetup, steps);
         }
 
         var port = isBrl
@@ -99,6 +102,9 @@ public static class MarketPriceCalculator
         steps.Add(new("ruralTax", p - afterTax, "BRL/sc"));
 
         var price = Round(afterTax, 2);
+        // Preço ≤ 0 (frete/descontos maiores que o preço) não é um preço de compra.
+        if (price <= 0)
+            return Fail(MarketPriceStatus.InvalidSetup, steps);
         steps.Add(new("price", price, "BRL/sc"));
 
         return new(MarketPriceStatus.Ok, price, netFx, port, freightPerBag, steps);

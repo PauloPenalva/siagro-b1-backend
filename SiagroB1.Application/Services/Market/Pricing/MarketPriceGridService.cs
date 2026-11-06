@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Commons.Market;
 using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra.Context;
@@ -8,19 +9,26 @@ namespace SiagroB1.Application.Services.Market.Pricing;
 
 /// <summary>
 /// Linha da grade "Ordem de Compra": preço de origem (R$/saca 60 kg) de uma linha da tabela de preços para a cidade,
-/// com tudo que o originou (cotação usada, dólar, frete e passos) para ser rastreável.
+/// com tudo que o originou (cotação usada, dólar, frete e passos) para ser rastreável. Datas ausentes saem nulas
+/// (nunca 0001-01-01). <c>FxQuotedAt</c>/<c>FxQuoteSource</c> são do dólar MAIS ANTIGO entre o à vista e o da curva.
 /// </summary>
 public sealed record MarketPriceGridRow(
     int LineId, int PriceTableId, string PriceTableDescription, string ItemCode, string ItemName, string LineDescription,
     string InstrumentCode, int DestinationId, string DestinationName,
-    DateOnly DeliveryStartDate, DateOnly DeliveryEndDate, DateOnly ReceiptDate, DateOnly PaymentDate,
+    DateOnly? DeliveryStartDate, DateOnly? DeliveryEndDate, DateOnly? ReceiptDate, DateOnly? PaymentDate,
     decimal? ExchangeQuote, decimal? ExchangeLast, decimal? ChangePercent, decimal Premium, decimal? SpotFx, decimal? NetFx,
     decimal? PortPrice, decimal? FreightPerTon, decimal? Price, MarketPriceStatus Status,
     DateTime? QuotedAt, MarketQuoteSource? QuoteSource, IReadOnlyList<MarketPriceStep> Steps,
-    string HarvestSeasonCode);
+    string HarvestSeasonCode, decimal? CurveFx = null, DateTime? FxQuotedAt = null, MarketQuoteSource? FxQuoteSource = null);
 
+/// <summary>Grade + estado da conexão CMA da empresa (preenchido pelo controller, igual ao SSE do terminal).</summary>
 public sealed record MarketPriceGrid(
-    string HarvestSeasonCode, string MunicipalityCode, DateTime GeneratedAt, IReadOnlyList<MarketPriceGridRow> Rows);
+    string HarvestSeasonCode, string MunicipalityCode, DateTime GeneratedAt, IReadOnlyList<MarketPriceGridRow> Rows)
+{
+    public CmaConnectionStatus? ConnectionStatus { get; init; }
+
+    public string? ConnectionMessage { get; init; }
+}
 
 /// <summary>
 /// Monta a grade de preços: lê linhas ativas (com instrumentos e destino), parâmetros, cotações e fretes vigentes
@@ -78,6 +86,17 @@ public class MarketPriceGridService(AppDbContext context, MarketFreightRateServi
         if (string.IsNullOrEmpty(spotCode))
             spotCode = null;
 
+        // Instrumento do dólar à vista: desativado, inexistente ou que não seja R$/US$ invalida as linhas em US$.
+        var spotValid = true;
+        if (spotCode is not null)
+        {
+            var spot = await context.MarketInstruments.AsNoTracking()
+                .Where(i => i.Code == spotCode)
+                .Select(i => new { i.Active, i.QuoteUnit })
+                .FirstOrDefaultAsync(ct);
+            spotValid = spot is { Active: true, QuoteUnit: MarketQuoteUnit.BrlPerUsd };
+        }
+
         // Consulta 3: cotações de tudo que a grade usa.
         var codes = lines.Select(l => l.InstrumentCode)
             .Concat(lines.Where(l => l.FxCurveInstrumentCode != null).Select(l => l.FxCurveInstrumentCode!))
@@ -93,37 +112,46 @@ public class MarketPriceGridService(AppDbContext context, MarketFreightRateServi
 
         MarketQuote? Quote(string? code) => code is not null && quotes.TryGetValue(code, out var q) ? q : null;
         // Dólar: sempre o último negócio; nulo ou ≤ 0 não serve.
-        decimal? FxLast(string? code) => Quote(code)?.Last is > 0 ? Quote(code)!.Last : null;
+        MarketQuote? Fx(string? code) => Quote(code) is { Last: > 0 } q ? q : null;
 
         return lines
             .OrderBy(l => l.ItemName, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(l => l.PriceTableId)
             .ThenBy(l => l.SortOrder)
             .ThenBy(l => l.PaymentDate)
-            .Select(l => BuildRow(l, Quote(l.InstrumentCode), FxLast(spotCode), FxLast(l.FxCurveInstrumentCode),
+            .Select(l => BuildRow(l, Quote(l.InstrumentCode), spotValid, Fx(spotCode), Fx(l.FxCurveInstrumentCode),
                 freight.TryGetValue(l.DestinationId, out var rate) ? rate : null, today))
             .ToList();
     }
 
     private static MarketPriceGridRow BuildRow(
-        LineData l, MarketQuote? quote, decimal? spotFx, decimal? curveFx, decimal? freightPerTon, DateOnly today)
+        LineData l, MarketQuote? quote, bool spotValid, MarketQuote? spotQuote, MarketQuote? curveQuote,
+        decimal? freightPerTon, DateOnly today)
     {
         var isUsd = l.QuoteUnit is MarketQuoteUnit.UsCentsPerBushel or MarketQuoteUnit.UsdPerTon;
         var invalid = l.InstrumentActive != true
             || l.DestinationActive != true
             || l.ReceiptDate is null || l.PaymentDate is null
-            || (isUsd && (l.CurveActive != true || l.CurveType != MarketInstrumentType.CurvePoint || l.CurveDays is not > 0));
+            || l.DeliveryStartDate is null || l.DeliveryEndDate is null
+            || (isUsd && (!spotValid || l.CurveActive != true || l.CurveType != MarketInstrumentType.CurvePoint
+                          || l.CurveDays is not > 0));
 
         var used = quote is null ? null : quote.Bid is > 0 ? quote.Bid : quote.Last;
         var receipt = ToDate(l.ReceiptDate);
         var payment = ToDate(l.PaymentDate);
+        var spotFx = spotQuote?.Last;
+        var curveFx = curveQuote?.Last;
+        // Idade do dólar: vale o carimbo mais antigo entre o à vista e o da curva (só para linhas em US$).
+        var oldestFx = isUsd
+            ? new[] { spotQuote, curveQuote }.Where(q => q is not null).MinBy(q => q!.QuotedAt)
+            : null;
 
         var result = invalid
             ? new MarketPriceResult(MarketPriceStatus.InvalidSetup, null, null, null, null, [])
             : MarketPriceCalculator.Calculate(new MarketPriceInputs(
                 used, l.QuoteUnit!.Value, l.TonFactor!.Value, l.Premium, l.ElevationCost,
                 spotFx, curveFx, l.CurveDays, l.FxDiscount,
-                today, receipt, payment,
+                today, receipt!.Value, payment!.Value,
                 l.DiscountValue, l.DiscountIsPercent, l.MarginPercent, l.DailyInterestPercent,
                 l.TechnicalLossPercent, l.RuralTaxPercent, freightPerTon, l.FreightCoefficientPercent));
 
@@ -134,8 +162,11 @@ public class MarketPriceGridService(AppDbContext context, MarketFreightRateServi
             used, quote?.Last, quote?.ChangePercent, l.Premium, isUsd ? spotFx : null, result.NetFx,
             result.PortPrice, freightPerTon, result.Price, result.Status,
             quote is null ? null : DateTime.SpecifyKind(quote.QuotedAt, DateTimeKind.Utc), quote?.Source, result.Steps,
-            l.HarvestSeasonCode);
+            l.HarvestSeasonCode,
+            isUsd ? curveFx : null,
+            oldestFx is null ? null : DateTime.SpecifyKind(oldestFx.QuotedAt, DateTimeKind.Utc),
+            oldestFx?.Source);
     }
 
-    private static DateOnly ToDate(DateTime? value) => value is null ? default : DateOnly.FromDateTime(value.Value);
+    private static DateOnly? ToDate(DateTime? value) => value is null ? null : DateOnly.FromDateTime(value.Value);
 }
