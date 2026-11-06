@@ -155,6 +155,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Market.Pricing.MarketPriceGridService>();
         services.AddScoped<SiagroB1.Application.Services.Market.Tickets.MarketTradeTicketContractService>();
         services.AddScoped<SiagroB1.Application.Services.Market.Tickets.MarketTradeTicketService>();
+        services.AddSingleton<SiagroB1.Application.Services.Market.Tickets.KeyedAsyncLock>();
         services.AddScoped<MarketDailyCloseJob>();
         services.AddScoped<SiagroB1.Application.Services.Market.CmaSettingsService>();
         services.AddSingleton<SiagroB1.Commons.Market.LiveQuoteStore>();

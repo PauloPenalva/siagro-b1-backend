@@ -58,7 +58,10 @@ internal static class MarketTradeTicketTestHelpers
         string card = "F0001", string warehouse = "01", int agent = 1) =>
         new(LineId, City, card, volumeKg, price, warehouse, agent, "0001", "OESTE", "obs");
 
-    public static MarketTradeTicketService TicketService(UnitOfWork db, params string[] granted)
+    public static MarketTradeTicketService TicketService(UnitOfWork db, params string[] granted) =>
+        TicketService(db, new KeyedAsyncLock(), granted);
+
+    public static MarketTradeTicketService TicketService(UnitOfWork db, KeyedAsyncLock locks, params string[] granted)
     {
         var permissions = new FakeUserPermissions(granted);
         return new MarketTradeTicketService(
@@ -67,7 +70,8 @@ internal static class MarketTradeTicketTestHelpers
             new FakeWarehouseService(new() { ["01"] = "ARM 01" }),
             new FakeAgentService(new() { [1] = "AGENTE" }),
             permissions, new MarketPermissionGuard(permissions),
-            new ManualTimeProvider(new DateTimeOffset(2026, 11, 6, 15, 0, 0, TimeSpan.Zero)));
+            new ManualTimeProvider(new DateTimeOffset(2026, 11, 6, 15, 0, 0, TimeSpan.Zero)),
+            locks, new FakeCompanyContext("0001"));
     }
 
     public static MarketTradeTicketContractService ContractService(UnitOfWork db) => new(

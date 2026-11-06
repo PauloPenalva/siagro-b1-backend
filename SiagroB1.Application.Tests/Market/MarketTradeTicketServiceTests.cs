@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Interfaces;
+using SiagroB1.Application.Services.Market.Tickets;
+using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using static SiagroB1.Application.Tests.Market.MarketTradeTicketTestHelpers;
@@ -275,5 +277,59 @@ public class MarketTradeTicketServiceTests
         var db = await SeedTicketScenarioAsync();
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             TicketService(db, Approve).ApproveAsync(42, "gerente", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Approve_Concurrent_OneContract_OneBusinessError()
+    {
+        var name = Guid.NewGuid().ToString();
+        var seed = await SeedTicketScenarioAsync(databaseName: name);
+        var ticket = await TicketService(seed).CreateAsync(Input(volumeKg: 1_500_000m), "comprador", Today, CancellationToken.None);
+        var locks = new KeyedAsyncLock();
+        var a = TicketService(TestDb.CreateUnitOfWork(name), locks, Approve, Board);
+        var b = TicketService(TestDb.CreateUnitOfWork(name), locks, Approve, Board);
+
+        var results = await Task.WhenAll(
+            Capture(() => a.ApproveAsync(ticket.Id, "diretor1", CancellationToken.None)),
+            Capture(() => b.ApproveAsync(ticket.Id, "diretor2", CancellationToken.None)));
+
+        Assert.Single(results, r => r is null);
+        Assert.IsType<BusinessException>(Assert.Single(results, r => r is not null));
+        var check = TestDb.CreateUnitOfWork(name);
+        Assert.Single(check.Context.PurchaseContracts);
+        Assert.Equal(MarketTradeTicketStatus.Approved, (await check.Context.MarketTradeTickets.SingleAsync()).Status);
+        Assert.Equal(0, locks.ActiveKeys);
+    }
+
+    [Fact]
+    public async Task Approve_LockReleasedAfterException()
+    {
+        var db = await SeedTicketScenarioAsync();
+        var ticket = await TicketService(db).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+        var locks = new KeyedAsyncLock();
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            TicketService(db, locks).ApproveAsync(ticket.Id, "x", CancellationToken.None));
+        var approved = await TicketService(db, locks, Approve).ApproveAsync(ticket.Id, "gerente", CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(MarketTradeTicketStatus.Approved, approved.Status);
+        Assert.Equal(0, locks.ActiveKeys);
+    }
+
+    [Fact]
+    public async Task Create_NotesOver500_Rejected()
+    {
+        var db = await SeedTicketScenarioAsync();
+        var e = await Assert.ThrowsAsync<BusinessException>(() => TicketService(db)
+            .CreateAsync(Input() with { Notes = new string('x', 501) }, "c", Today, CancellationToken.None));
+        Assert.Contains("500", e.Message);
+    }
+
+    private static async Task<Exception?> Capture(Func<Task> action)
+    {
+        await Task.Yield();
+        try { await action(); return null; }
+        catch (Exception e) { return e; }
     }
 }

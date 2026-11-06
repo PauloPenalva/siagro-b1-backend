@@ -7,6 +7,7 @@ using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Market.Tickets;
@@ -30,7 +31,9 @@ public class MarketTradeTicketService(
     IAgentService agents,
     IUserPermissions permissions,
     MarketPermissionGuard guard,
-    TimeProvider time)
+    TimeProvider time,
+    KeyedAsyncLock locks,
+    ICompanyContext companyContext)
 {
     public const string ConcurrencyMessage = "A boleta foi alterada por outro usuário. Atualize e tente de novo.";
 
@@ -49,6 +52,8 @@ public class MarketTradeTicketService(
             throw new BusinessException("O preço negociado deve ser maior que zero.");
         if (string.IsNullOrWhiteSpace(input.MunicipalityCode))
             throw new BusinessException("Informe a cidade.");
+        if (input.Notes?.Trim().Length > 500)
+            throw new BusinessException("As observações devem ter no máximo 500 caracteres.");
 
         var settings = await context.MarketTradingSettings.AsNoTracking().FirstOrDefaultAsync(ct);
         if (string.IsNullOrWhiteSpace(settings?.ContractUnitOfMeasureCode))
@@ -142,6 +147,7 @@ public class MarketTradeTicketService(
 
     public async Task<MarketTradeTicket> ApproveAsync(int id, string userName, CancellationToken ct)
     {
+        using var _ = await LockAsync(id, ct);
         var ticket = await LoadAsync(id, ct);
         switch (ticket.Status)
         {
@@ -198,6 +204,7 @@ public class MarketTradeTicketService(
 
     public async Task<MarketTradeTicket> RejectAsync(int id, string reason, string userName, CancellationToken ct)
     {
+        using var _ = await LockAsync(id, ct);
         var ticket = await LoadAsync(id, ct);
         await EnsureCurrentLevelAsync(ticket, userName);
         if (string.IsNullOrWhiteSpace(reason))
@@ -214,6 +221,7 @@ public class MarketTradeTicketService(
 
     public async Task<MarketTradeTicket> CancelAsync(int id, string userName, CancellationToken ct)
     {
+        using var _ = await LockAsync(id, ct);
         var ticket = await LoadAsync(id, ct);
         EnsureOpen(ticket);
         if (!string.Equals(ticket.CreatedBy, userName, StringComparison.OrdinalIgnoreCase))
@@ -264,9 +272,25 @@ public class MarketTradeTicketService(
         ticket.BoardApprovedAt = UtcNow;
     }
 
-    private async Task<MarketTradeTicket> LoadAsync(int id, CancellationToken ct) =>
-        await context.MarketTradeTickets.FirstOrDefaultAsync(t => t.Id == id, ct)
-        ?? throw new KeyNotFoundException($"Boleta {id} não encontrada.");
+    /// <summary>
+    /// Aprovar/rejeitar/cancelar a mesma boleta é serializado por empresa + id: a boleta fica Pending durante a geração
+    /// do contrato, então só o RowVersion não impede um segundo pedido simultâneo de criar outro contrato.
+    /// Exclusão no processo (um processo Web por cliente); o RowVersion segue como segunda defesa.
+    /// </summary>
+    private Task<IDisposable> LockAsync(int id, CancellationToken ct) =>
+        locks.AcquireAsync($"market-ticket:{companyContext.CompanyCode}:{id}", ct);
+
+    /// <summary>Sempre o estado do banco: uma instância rastreada antes do lock pode estar velha.</summary>
+    private async Task<MarketTradeTicket> LoadAsync(int id, CancellationToken ct)
+    {
+        var ticket = await context.MarketTradeTickets.FirstOrDefaultAsync(t => t.Id == id, ct)
+                     ?? throw new KeyNotFoundException($"Boleta {id} não encontrada.");
+        var entry = context.Entry(ticket);
+        await entry.ReloadAsync(ct);
+        if (entry.State == EntityState.Detached)
+            throw new KeyNotFoundException($"Boleta {id} não encontrada.");
+        return ticket;
+    }
 
     private async Task SaveAsync(CancellationToken ct)
     {
