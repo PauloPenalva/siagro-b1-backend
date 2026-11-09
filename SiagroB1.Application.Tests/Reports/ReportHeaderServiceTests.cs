@@ -1,4 +1,4 @@
-using FastReport;
+﻿using FastReport;
 using FastReport.Data;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Tests.Support;
@@ -217,7 +217,46 @@ public class ReportHeaderServiceTests : IDisposable
         Assert.Same(first, a.LogoBytes());   // mesma instância do cache, não relido
     }
 
-    private ReportHeaderService CreateService(string? companyName, string? logoPath, ICompanyContext? companyContext = null)
+    [Fact]
+    public void Logo_from_the_companies_screen_wins_over_the_files()
+    {
+        WriteLogo(Path.Combine("wwwroot", "images", "logo.png"));
+        var registered = Convert.FromBase64String(OnePixelPngBase64);
+        var service = CreateService("ACME", "wwwroot/images/logo.png", new FakeCompanyContext("0001"),
+            new FakeLogoSource(new() { ["0001"] = registered }));
+
+        Assert.Same(registered, service.LogoBytes());
+    }
+
+    [Fact]
+    public void Without_a_registered_logo_the_configured_file_is_used()
+    {
+        var file = WriteLogo(Path.Combine("wwwroot", "images", "logo.png"));
+        var service = CreateService("ACME", "wwwroot/images/logo.png", new FakeCompanyContext("0001"),
+            new FakeLogoSource(new()));
+
+        Assert.Equal(File.ReadAllBytes(file), service.LogoBytes());
+    }
+
+    [Fact]
+    public void Registered_logo_is_applied_to_the_report_picture()
+    {
+        var service = CreateService("ACME", null, new FakeCompanyContext("0001"),
+            new FakeLogoSource(new() { ["0001"] = Convert.FromBase64String(OnePixelPngBase64) }));
+        using var report = CreateReport(withLogoObject: true);
+
+        service.Apply(report);
+
+        Assert.NotNull(GetLogo(report)!.Image);
+    }
+
+    private sealed class FakeLogoSource(Dictionary<string, byte[]> logos) : ICompanyLogoSource
+    {
+        public byte[]? Get(string companyCode) => logos.GetValueOrDefault(companyCode);
+    }
+
+    private ReportHeaderService CreateService(string? companyName, string? logoPath, ICompanyContext? companyContext = null,
+        ICompanyLogoSource? logoSource = null)
     {
         var settings = new Dictionary<string, string?>();
         if (companyName is not null) settings["CompanyName"] = companyName;
@@ -228,7 +267,7 @@ public class ReportHeaderServiceTests : IDisposable
             .Build();
 
         return new ReportHeaderService(new TestWebHostEnvironment(_contentRoot), configuration,
-            new TestLogger<ReportHeaderService>(), companyContext ?? FakeCompanyContext.Unresolved());
+            new TestLogger<ReportHeaderService>(), companyContext ?? FakeCompanyContext.Unresolved(), logoSource);
     }
 
     private string WriteLogo(string relativePath)

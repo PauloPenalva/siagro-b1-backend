@@ -1,11 +1,11 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Companies;
 
-/// <summary>Logo da empresa para a home sem painel. Os relatórios continuam usando CompanyLogoPath.</summary>
+/// <summary>Logo da empresa: home sem painel e relatórios/DANFE/DACTE/DAMDFE (antes do CompanyLogoPath).</summary>
 public class CompanyLogoService(CommonDbContext db)
 {
     public const int MaxBytes = 1024 * 1024;
