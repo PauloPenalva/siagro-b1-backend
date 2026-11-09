@@ -267,6 +267,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CompaniesUpdateService>();
         services.AddScoped<ICompanyDatabaseProbe, CompanyDatabaseProbe>();
         services.AddScoped<CompaniesTestConnectionService>();
+        services.AddScoped<CompanyLogoService>();
 
         // doc numbers
         services.AddScoped<DocNumberSequenceService>();

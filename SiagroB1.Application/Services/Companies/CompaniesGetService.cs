@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Infra.Context;
 
@@ -23,5 +23,6 @@ public class CompaniesGetService(CommonDbContext db)
         CompanyName = c.CompanyName,
         ConnectionString = CompanyConnectionStrings.MaskPassword(c.ConnectionString),
         SapCompanyDb = c.SapCompanyDb,
+        ShowHomeDashboard = c.ShowHomeDashboard,
     };
 }

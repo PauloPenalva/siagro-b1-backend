@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities.Common;
 
 namespace SiagroB1.Infra.Context
@@ -20,6 +20,17 @@ namespace SiagroB1.Infra.Context
 
         /// <summary>Largura e ordem das colunas que cada usuário ajustou nas tabelas da UI.</summary>
         public DbSet<UserTableLayout> UserTableLayouts { get; set; }
+
+        /// <summary>Logo exibido na home sem painel. Tabela à parte para a imagem não viajar no OData de Companies.</summary>
+        public DbSet<CompanyLogo> CompanyLogos { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<CompanyLogo>()
+                .HasOne<Company>().WithOne().HasForeignKey<CompanyLogo>(l => l.CompanyCode).OnDelete(DeleteBehavior.Cascade);
+        }
 
     }
 }

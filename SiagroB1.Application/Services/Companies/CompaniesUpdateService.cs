@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities.Common;
@@ -36,6 +36,7 @@ public class CompaniesUpdateService(
         existing.CompanyName = name;
         existing.ConnectionString = connectionString;
         existing.SapCompanyDb = entity.SapCompanyDb;
+        existing.ShowHomeDashboard = entity.ShowHomeDashboard;
 
         try
         {
