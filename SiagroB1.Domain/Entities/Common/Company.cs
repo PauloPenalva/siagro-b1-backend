@@ -20,4 +20,7 @@ public class Company
     /// <summary>Reservado: banco da empresa no SAP B1. Não é usado hoje (o modo SAPB1 continua por deploy).</summary>
     [Column(TypeName = "VARCHAR(100)")]
     public string? SapCompanyDb { get; set; }
+
+    /// <summary>Home com o painel operacional. Desligado, a home mostra só o logo da empresa (ou o do Siagro).</summary>
+    public bool ShowHomeDashboard { get; set; } = true;
 }

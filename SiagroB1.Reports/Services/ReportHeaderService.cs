@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Drawing;
 using FastReport;
 using SiagroB1.Infra.Companies;
@@ -16,7 +16,8 @@ public class ReportHeaderService(
     IWebHostEnvironment env,
     IConfiguration configuration,
     ILogger<ReportHeaderService> logger,
-    ICompanyContext companyContext)
+    ICompanyContext companyContext,
+    ICompanyLogoSource? logoSource = null)
 {
     public const string CompanyNameParameter = "pCompanyName";
     public const string LogoObjectName = "picLogo";
@@ -62,11 +63,16 @@ public class ReportHeaderService(
         }
     }
 
-    /// <summary>Bytes do logo configurado (ou nulo) — para layouts que recebem a imagem crua, como o DANFE.</summary>
+    /// <summary>Bytes do logo (cadastro de Empresas ou arquivo; ou nulo) — para layouts que recebem a imagem crua, como o DANFE.</summary>
     public byte[]? LogoBytes() => LoadLogo();
 
+    /// <summary>Logo do cadastro de Empresas primeiro; sem ele, os arquivos (por empresa e depois CompanyLogoPath).</summary>
     private byte[]? LoadLogo()
     {
+        var code = companyContext.Current?.Code;
+        if (logoSource is not null && !string.IsNullOrWhiteSpace(code) && logoSource.Get(code) is { } registered)
+            return registered;
+
         var candidates = LogoCandidates().ToList();
         foreach (var fullPath in candidates)
         {

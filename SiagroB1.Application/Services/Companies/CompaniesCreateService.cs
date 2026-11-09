@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -62,6 +62,7 @@ public partial class CompaniesCreateService(
             CompanyName = entity.CompanyName,
             ConnectionString = CompanyConnectionStrings.MaskPassword(entity.ConnectionString),
             SapCompanyDb = entity.SapCompanyDb,
+            ShowHomeDashboard = entity.ShowHomeDashboard,
         };
     }
 }

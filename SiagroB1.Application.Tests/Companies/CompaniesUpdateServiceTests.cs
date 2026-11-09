@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.Companies;
 using SiagroB1.Application.Tests.Support;
@@ -73,5 +73,15 @@ public class CompaniesUpdateServiceTests
         await Create().ExecuteAsync("0002", incoming);
 
         Assert.Equal("0002", _db.Companies.Single().Code);
+    }
+
+    [Fact]
+    public async Task Show_home_dashboard_flag_is_saved()
+    {
+        var incoming = new Company { Code = "0002", CompanyName = "LM", ConnectionString = CompanyConnectionStrings.MaskPassword(Stored), ShowHomeDashboard = false };
+
+        await Create().ExecuteAsync("0002", incoming);
+
+        Assert.False(_db.Companies.Single().ShowHomeDashboard);
     }
 }

@@ -1,4 +1,4 @@
-using SiagroB1.Reports.ReportGenerators;
+﻿using SiagroB1.Reports.ReportGenerators;
 using SiagroB1.Reports.Services;
 
 namespace SiagroB1.Reports.DI;
@@ -24,6 +24,10 @@ public static class ServiceCollectionExtensions
             .AddClasses(classes => classes.Where(t => t.Name.EndsWith("Service")))
             .AsSelf()
             .WithScopedLifetime());
+
+        // Logo do cadastro de Empresas: troca na tela aparece nos relatórios em até 1 minuto.
+        services.AddSingleton(new CompanyLogoCache(TimeSpan.FromMinutes(1)));
+        services.AddScoped<ICompanyLogoSource, DbCompanyLogoSource>();
 
         services.AddScoped<StorageStatementReportGenerator>();
 

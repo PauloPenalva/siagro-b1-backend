@@ -38,9 +38,30 @@ namespace SiagroB1.Migrations.CommonContext
                     b.Property<string>("SapCompanyDb")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<bool>("ShowHomeDashboard")
+                        .HasColumnType("bit");
+
                     b.HasKey("Code");
 
                     b.ToTable("COMPANIES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.CompanyLogo", b =>
+                {
+                    b.Property<string>("CompanyCode")
+                        .HasColumnType("VARCHAR(4) NOT NULL");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.HasKey("CompanyCode");
+
+                    b.ToTable("COMPANY_LOGOS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.MenuItem", b =>
@@ -375,6 +396,15 @@ namespace SiagroB1.Migrations.CommonContext
                         .IsUnique();
 
                     b.ToTable("USER_TABLE_LAYOUTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.CompanyLogo", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Common.Company", null)
+                        .WithOne()
+                        .HasForeignKey("SiagroB1.Domain.Entities.Common.CompanyLogo", "CompanyCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.MenuItem", b =>
