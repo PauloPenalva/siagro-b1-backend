@@ -75,6 +75,21 @@ Conectado, o log do Client mostra `Balança TS01 conectada ao servidor.` e o do 
 O peso ao vivo (`GET /scales/{code}/live`, SSE) exige usuário autenticado — confira pela tela de
 pesagem no navegador, não por `curl`.
 
+## Instalador
+
+No PC da balança, use o assistente em vez de configurar à mão. Para gerar:
+
+```
+powershell -ExecutionPolicy Bypass -File installerbuild-client-installer.ps1
+```
+
+Sai `installer\out-client\SiagroB1-Client-Setup-<versão>.exe` (self-contained, pacote embutido). Executar
+como administrador: o assistente pede código(s) da balança, endereço do servidor, chave e pasta
+(padrão `C:\IdxSistemas\SiagroB1\Client`), tem **Testar conexão** (mesma lógica do diagnóstico abaixo),
+grava o `appsettings.json` e registra o serviço `siagrob1-client` (início automático, reinício em falha).
+Rodar de novo atualiza: os campos vêm preenchidos da instalação existente. **Desinstalar** remove só o
+serviço e mantém a pasta e a configuração. Código em `installer/SiagroB1.ClientInstaller`.
+
 ## Publicação
 
 ⚠️ **O publish sobrescreve o `appsettings.json`.** O arquivo do repositório traz apenas `Logging`, de
