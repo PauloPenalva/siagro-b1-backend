@@ -80,7 +80,7 @@ pesagem no navegador, não por `curl`.
 No PC da balança, use o assistente em vez de configurar à mão. Para gerar:
 
 ```
-powershell -ExecutionPolicy Bypass -File installerbuild-client-installer.ps1
+powershell -ExecutionPolicy Bypass -File installer\build-client-installer.ps1
 ```
 
 Sai `installer\out-client\SiagroB1-Client-Setup-<versão>.exe` (self-contained, pacote embutido). Executar
