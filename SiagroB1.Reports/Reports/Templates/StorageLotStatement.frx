@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="11/11/2026 10:00:00" ReportInfo.Modified="11/11/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="Rows" ReferenceName="Rows" DataType="System.Int32" Enabled="true">
+      <Column Name="Section" DataType="System.Int32"/>
+      <Column Name="Bold" DataType="System.Boolean" BindableControl="CheckBox"/>
+      <Column Name="SectionTitle" DataType="System.String"/>
+      <Column Name="Date" DataType="System.String"/>
+      <Column Name="Document" DataType="System.String"/>
+      <Column Name="Movement" DataType="System.String"/>
+      <Column Name="Detail1" DataType="System.String"/>
+      <Column Name="Detail2" DataType="System.String"/>
+      <Column Name="W1" DataType="System.String"/>
+      <Column Name="W2" DataType="System.String"/>
+      <Column Name="W3" DataType="System.String"/>
+      <Column Name="W4" DataType="System.String"/>
+      <Column Name="C1" DataType="System.String"/>
+      <Column Name="C2" DataType="System.String"/>
+      <Column Name="C3" DataType="System.String"/>
+      <Column Name="C4" DataType="System.String"/>
+      <Column Name="C5" DataType="System.String"/>
+      <Column Name="C6" DataType="System.String"/>
+      <Column Name="Q1" DataType="System.String"/>
+      <Column Name="Q2" DataType="System.String"/>
+      <Column Name="Q3" DataType="System.String"/>
+      <Column Name="HDate" DataType="System.String"/>
+      <Column Name="HDocument" DataType="System.String"/>
+      <Column Name="HMovement" DataType="System.String"/>
+      <Column Name="HDetail1" DataType="System.String"/>
+      <Column Name="HDetail2" DataType="System.String"/>
+      <Column Name="HW1" DataType="System.String"/>
+      <Column Name="HW2" DataType="System.String"/>
+      <Column Name="HW3" DataType="System.String"/>
+      <Column Name="HW4" DataType="System.String"/>
+      <Column Name="HC1" DataType="System.String"/>
+      <Column Name="HC2" DataType="System.String"/>
+      <Column Name="HC3" DataType="System.String"/>
+      <Column Name="HC4" DataType="System.String"/>
+      <Column Name="HC5" DataType="System.String"/>
+      <Column Name="HC6" DataType="System.String"/>
+      <Column Name="HQ1" DataType="System.String"/>
+      <Column Name="HQ2" DataType="System.String"/>
+      <Column Name="HQ3" DataType="System.String"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pTitle" DataType="System.String" AsString=""/>
+    <Parameter Name="pHeader" DataType="System.String" AsString=""/>
+    <Parameter Name="pSummaryTitle" DataType="System.String" AsString=""/>
+    <Parameter Name="pSummary" DataType="System.String" AsString=""/>
+    <Parameter Name="pEmptyText" DataType="System.String" AsString=""/>
+    <Parameter Name="pFooterNote" DataType="System.String" AsString=""/>
+    <Parameter Name="pRowCount" DataType="System.Int32" AsString="0"/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1084" Height="96" CanGrow="true" Border.Lines="Bottom">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="700" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="934" Top="2" Width="150" Height="18.9" Text="[Date]" Format="Date" Format.Format="g" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Left="0" Top="44" Width="1084" Height="26" Text="[pTitle]" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtHeader" Left="0" Top="74" Width="1084" Height="20" CanGrow="true" Text="[pHeader]" Font="Consolas, 8pt"/>
+    </PageHeaderBand>
+    <GroupHeaderBand Name="GroupHeader1" Width="1084" Height="44" Condition="[Rows.Section]" SortOrder="None" KeepWithData="true" RepeatOnEveryPage="true">
+      <TextObject Name="txtSectionTitle" Left="0" Top="6" Width="1084" Height="18" Text="[Rows.SectionTitle]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 9pt, style=Bold" Fill.Color="Gainsboro"/>
+      <LineObject Name="lnHeader" Left="0" Top="43" Width="1084" Height="0"/>
+      <TextObject Name="hdrDate" Left="0" Top="26" Width="62" Height="17" Text="[Rows.HDate]" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDocument" Left="64" Top="26" Width="60" Height="17" Text="[Rows.HDocument]" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrMovement" Left="126" Top="26" Width="104" Height="17" Text="[Rows.HMovement]" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDetail1" Left="232" Top="26" Width="50" Height="17" Text="[Rows.HDetail1]" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDetail2" Left="284" Top="26" Width="56" Height="17" Text="[Rows.HDetail2]" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrW1" Left="342" Top="26" Width="70" Height="17" Text="[Rows.HW1]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrW2" Left="414" Top="26" Width="62" Height="17" Text="[Rows.HW2]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrW3" Left="478" Top="26" Width="62" Height="17" Text="[Rows.HW3]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrW4" Left="542" Top="26" Width="62" Height="17" Text="[Rows.HW4]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrC1" Left="606" Top="26" Width="39" Height="17" Text="[Rows.HC1]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrC2" Left="647" Top="26" Width="39" Height="17" Text="[Rows.HC2]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrC3" Left="688" Top="26" Width="39" Height="17" Text="[Rows.HC3]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrC4" Left="729" Top="26" Width="39" Height="17" Text="[Rows.HC4]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrC5" Left="770" Top="26" Width="39" Height="17" Text="[Rows.HC5]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrC6" Left="811" Top="26" Width="39" Height="17" Text="[Rows.HC6]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrQ1" Left="852" Top="26" Width="76" Height="17" Text="[Rows.HQ1]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrQ2" Left="930" Top="26" Width="76" Height="17" Text="[Rows.HQ2]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrQ3" Left="1008" Top="26" Width="76" Height="17" Text="[Rows.HQ3]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <DataBand Name="Data1" Width="1084" Height="15" DataSource="Rows">
+        <TextObject Name="txtRowDate" Left="0" Width="62" Height="15" Text="[Rows.Date]" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowDocument" Left="64" Width="60" Height="15" Text="[Rows.Document]" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowMovement" Left="126" Width="104" Height="15" Text="[Rows.Movement]" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowDetail1" Left="232" Width="50" Height="15" Text="[Rows.Detail1]" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowDetail2" Left="284" Width="56" Height="15" Text="[Rows.Detail2]" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowW1" Left="342" Width="70" Height="15" Text="[Rows.W1]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowW2" Left="414" Width="62" Height="15" Text="[Rows.W2]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowW3" Left="478" Width="62" Height="15" Text="[Rows.W3]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowW4" Left="542" Width="62" Height="15" Text="[Rows.W4]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowC1" Left="606" Width="39" Height="15" Text="[Rows.C1]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowC2" Left="647" Width="39" Height="15" Text="[Rows.C2]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowC3" Left="688" Width="39" Height="15" Text="[Rows.C3]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowC4" Left="729" Width="39" Height="15" Text="[Rows.C4]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowC5" Left="770" Width="39" Height="15" Text="[Rows.C5]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowC6" Left="811" Width="39" Height="15" Text="[Rows.C6]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowQ1" Left="852" Width="76" Height="15" Text="[Rows.Q1]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowQ2" Left="930" Width="76" Height="15" Text="[Rows.Q2]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowQ3" Left="1008" Width="76" Height="15" Text="[Rows.Q3]" HorzAlign="Right" AutoShrink="FontSize" AutoShrinkMinSize="4" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[Rows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+      </DataBand>
+      <GroupFooterBand Name="GroupFooter1" Width="1084" Height="6"/>
+    </GroupHeaderBand>
+    <ReportSummaryBand Name="ReportSummary1" Width="1084" Height="60" CanGrow="true">
+      <TextObject Name="txtEmpty" Left="0" Top="4" Width="1084" Height="17" Text="[IIf([pRowCount] == 0, [pEmptyText], &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
+      <TextObject Name="lblSummary" Left="0" Top="24" Width="1084" Height="18" Text="[pSummaryTitle]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 9pt, style=Bold" Fill.Color="Gainsboro"/>
+      <TextObject Name="txtSummary" Left="200" Top="44" Width="700" Height="16" CanGrow="true" Text="[pSummary]" Font="Consolas, 8pt"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Width="1084" Height="20">
+      <TextObject Name="txtFooterNote" Left="0" Width="900" Height="17" Text="[pFooterNote]" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Italic"/>
+      <TextObject Name="txtPage" Left="934" Width="150" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>
