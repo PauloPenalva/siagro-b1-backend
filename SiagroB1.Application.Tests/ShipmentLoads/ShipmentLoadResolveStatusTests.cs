@@ -21,7 +21,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Planned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: decimal.Zero, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: decimal.Zero, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Open,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.PartiallyInvoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: 40_000m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: 90_000m, invoicedQuantity: 40_000m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Invoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: 90_000m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: 90_000m, invoicedQuantity: 90_000m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -62,7 +62,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Open,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 0.002m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: 0.002m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -75,7 +75,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Planned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 0.0005m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: 0.0005m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     // ─── Terceiro termo: mercadoria recusada e devolvida a um armazém ───
@@ -91,7 +91,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Returned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 90_000m, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 90_000m, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -104,7 +104,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Returned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 15_000m, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 15_000m, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -118,7 +118,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Invoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 40_000m, invoicedQuantity: 40_000m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: 40_000m, invoicedQuantity: 40_000m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -130,7 +130,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.PartiallyInvoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 40_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 15_000m, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: 40_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 15_000m, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -142,7 +142,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Returned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 14_999.9995m, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
+                totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 14_999.9995m, transshippedQuantity: decimal.Zero, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     // ─── Quarto termo: transbordo (GAC-1181) — o rótulo olha só o consumo COMERCIAL ───
@@ -159,7 +159,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Open,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 99_500m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: 50_000m, hasOpenTransshipment: false));
+                totalQuantity: 99_500m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: 50_000m, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -172,7 +172,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Invoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 99_500m, invoicedQuantity: 49_500m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: 50_000m, hasOpenTransshipment: false));
+                totalQuantity: 99_500m, invoicedQuantity: 49_500m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: 50_000m, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -185,6 +185,22 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Returned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 99_500m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 49_500m, transshippedQuantity: 50_000m, hasOpenTransshipment: false));
+                totalQuantity: 99_500m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 49_500m, transshippedQuantity: 50_000m, transitLossQuantity: decimal.Zero, hasOpenTransshipment: false));
+    }
+
+    // ─── Quinto termo: quebra de trajeto (GAC-1213) ───
+
+    [Theory]
+    [InlineData(40_000, 0, 0, 0, 40_000, ShipmentLoadStatus.TransitLoss)]        // perda total
+    [InlineData(40_000, 25_000, 0, 0, 15_000, ShipmentLoadStatus.TransitLoss)]   // mista: entregue + perdida
+    [InlineData(40_000, 0, 20_000, 0, 20_000, ShipmentLoadStatus.TransitLoss)]   // quebra vence Devolvida
+    [InlineData(40_000, 0, 0, 0, 10_000, ShipmentLoadStatus.PartiallyInvoiced)]  // saldo aberto: quebra conta como consumo
+    [InlineData(40_000, 40_000, 0, 0, 0, ShipmentLoadStatus.Invoiced)]           // sem quebra, nada muda
+    public void ResolveStatus_WithTransitLoss(
+        decimal total, decimal invoiced, decimal returned, decimal transshipped, decimal loss,
+        ShipmentLoadStatus expected)
+    {
+        Assert.Equal(expected, ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
+            total, invoiced, returned, transshipped, loss, hasOpenTransshipment: false));
     }
 }

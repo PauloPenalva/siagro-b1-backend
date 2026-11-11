@@ -56,8 +56,11 @@ public class ShipmentLoadsTransshipmentStartService(
         var transshipped = await ShipmentLoadsRecalculateTransshippedService
             .CalculateTransshippedAsync(db.Context, loadKey);
 
+        var transitLoss = await ShipmentLoadsRecalculateTransitLossService
+            .CalculateTransitLossAsync(db.Context, loadKey);
+
         var available = ShipmentLoad.CalculateAvailableQuantity(
-            load.TotalQuantity, invoiced, returned, transshipped, load.TransitLossQuantity);
+            load.TotalQuantity, invoiced, returned, transshipped, transitLoss);
 
         // ANTES do guard de saldo: como todo transbordo consome o saldo INTEIRO, o caso mais
         // comum de recusa é tentar iniciar outro sem ter registrado a entrada/saída do anterior —

@@ -118,8 +118,11 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
         var transshipped = await ShipmentLoadsRecalculateTransshippedService
             .CalculateTransshippedAsync(context, shipmentLoadKey);
 
+        var transitLoss = await ShipmentLoadsRecalculateTransitLossService
+            .CalculateTransitLossAsync(context, shipmentLoadKey);
+
         var available = ShipmentLoad.CalculateAvailableQuantity(
-            load.TotalQuantity, invoiced, returned, transshipped, load.TransitLossQuantity);
+            load.TotalQuantity, invoiced, returned, transshipped, transitLoss);
 
         if (quantity > available + Tolerance)
             throw new ApplicationException(

@@ -18,7 +18,7 @@ public class ShipmentLoadRefusalPendingStatusTests
         Assert.Equal(
             ShipmentLoadStatus.RefusalPending,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                total, invoiced, returned, transshipped, openTransshipment, hasPendingRefusal: true));
+                total, invoiced, returned, transshipped, 0m, openTransshipment, hasPendingRefusal: true));
     }
 
     [Fact]
@@ -26,7 +26,7 @@ public class ShipmentLoadRefusalPendingStatusTests
     {
         Assert.Equal(
             ShipmentLoadStatus.Invoiced,
-            ShipmentLoadsRecalculateInvoicedService.ResolveStatus(40_000m, 40_000m, 0m, 0m, false));
+            ShipmentLoadsRecalculateInvoicedService.ResolveStatus(40_000m, 40_000m, 0m, 0m, 0m, false));
     }
 
     private static async Task<(SiagroB1.Infra.UnitOfWork Db, ShipmentLoad Load, StorageTransaction Shipment)> SeedInvoicedLoadAsync()
