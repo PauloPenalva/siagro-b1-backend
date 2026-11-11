@@ -47,6 +47,21 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
     }
 
     /// <summary>
+    /// GAC-1212: a coluna "Quantidade" mostra o sinal do ledger — o que abate o contrato (Compra,
+    /// Compl.Qtd., Sobra Descarga) positivo e o que devolve saldo (Dev.Compra, Quebra Descarga)
+    /// negativo, como no contrato de venda. Antes a consulta invertia o sinal das devoluções e a
+    /// conferência do saldo exigia ler o tipo de cada linha.
+    /// </summary>
+    [Fact]
+    public void Main_query_shows_the_allocation_volume_with_its_ledger_sign()
+    {
+        var sql = StripComments(ReadSql("SQL"));
+
+        Assert.Contains("PA.Volume AS Volume", sql);
+        Assert.DoesNotContain("PA.Volume * -1", sql);
+    }
+
+    /// <summary>
     /// GAC-1214: a carga recusada para um armazém aparece no contrato como "Devolução", sem mexer no
     /// saldo. O romaneio 12 não tem alocação nem ShipmentReleaseKey — o elo com o contrato é a
     /// liberação de devolução (Origin = SalesReturn) que ele gerou. Romaneio cancelado não aparece.

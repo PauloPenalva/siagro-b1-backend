@@ -30,15 +30,10 @@ public class PurchaseContractsGetAllocationsByContractService(
         		 WHEN ST.TransactionType = 17 THEN 'Sobra Descarga'
         	END AS StorageTransactionTypeName,
         	PC.Code AS ContractNumber,
-        	CASE
-                WHEN ST.TransactionType = 8 THEN PA.Volume
-                WHEN ST.TransactionType = 9 THEN PA.Volume * -1
-                WHEN ST.TransactionType = 10 THEN PA.Volume
-                -- Troca nota: a alocação da quebra já é negativa; exibida positiva com o tipo dizendo
-                -- o sentido, como a Dev.Compra.
-                WHEN ST.TransactionType = 16 THEN PA.Volume * -1
-                WHEN ST.TransactionType = 17 THEN PA.Volume
-            END AS Volume,
+            -- GAC-1212: o sinal é o do ledger, como no contrato de venda. O que abate o contrato
+            -- (Compra, Compl.Qtd., Sobra Descarga) sai positivo; o que devolve saldo (Dev.Compra,
+            -- Quebra Descarga) já está gravado negativo e não é mais invertido.
+            PA.Volume AS Volume,
             ST.UnitOfMeasureCode AS  UnitOfMeasureCode,
             ST.WarehouseCode AS  WarehouseCode,
             ST.TruckCode AS TruckCode,
