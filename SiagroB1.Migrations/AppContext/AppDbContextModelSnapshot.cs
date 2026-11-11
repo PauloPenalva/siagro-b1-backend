@@ -8296,6 +8296,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("TotalQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
+                    b.Property<decimal>("TransitLossQuantity")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
                     b.Property<decimal>("TransshippedQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
@@ -8711,6 +8714,9 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TransitLossReason")
                         .HasColumnType("int");
 
                     b.HasKey("Key");
@@ -9969,6 +9975,9 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("VARCHAR(20)");
 
                     b.Property<int>("TransactionType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TransitLossReason")
                         .HasColumnType("int");
 
                     b.Property<string>("TruckCode")

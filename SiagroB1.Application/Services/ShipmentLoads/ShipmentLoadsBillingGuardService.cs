@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra.Context;
@@ -119,7 +119,7 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
             .CalculateTransshippedAsync(context, shipmentLoadKey);
 
         var available = ShipmentLoad.CalculateAvailableQuantity(
-            load.TotalQuantity, invoiced, returned, transshipped);
+            load.TotalQuantity, invoiced, returned, transshipped, load.TransitLossQuantity);
 
         if (quantity > available + Tolerance)
             throw new ApplicationException(

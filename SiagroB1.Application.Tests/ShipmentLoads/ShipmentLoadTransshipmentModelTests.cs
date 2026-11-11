@@ -55,6 +55,6 @@ public class ShipmentLoadTransshipmentModelTests
     public void CalculateAvailableQuantity_SubtractsTheFourTerms(
         decimal total, decimal invoiced, decimal returned, decimal transshipped, decimal expected)
     {
-        Assert.Equal(expected, ShipmentLoad.CalculateAvailableQuantity(total, invoiced, returned, transshipped));
+        Assert.Equal(expected, ShipmentLoad.CalculateAvailableQuantity(total, invoiced, returned, transshipped, 0));
     }
 }

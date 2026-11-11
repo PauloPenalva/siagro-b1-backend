@@ -22,6 +22,7 @@ public static class LogisticsReportText
         ShipmentLoadStatus.Open, ShipmentLoadStatus.PartiallyInvoiced, ShipmentLoadStatus.Invoiced,
         ShipmentLoadStatus.Planned, ShipmentLoadStatus.Returned, ShipmentLoadStatus.Completed,
         ShipmentLoadStatus.InTransshipment, ShipmentLoadStatus.Discharged, ShipmentLoadStatus.RefusalPending,
+        ShipmentLoadStatus.TransitLoss,
     ];
 
     private static readonly ReleaseStatus[] DefaultReleaseStatuses =
