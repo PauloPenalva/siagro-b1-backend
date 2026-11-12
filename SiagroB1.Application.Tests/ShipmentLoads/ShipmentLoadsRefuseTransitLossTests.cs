@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.SalesInvoices;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Tests.SalesContracts;
@@ -35,10 +36,14 @@ public class ShipmentLoadsRefuseTransitLossTests
             reason);
 
     /// <summary>
-    /// A perna de compra da carga: romaneio Compra (8) faturado, alocado no contrato de compra.
+    /// A perna de compra REAL da Saída da carga, como <c>ShippingTransactionsCreateService</c> a
+    /// deixa: Compra (8) confirmada na liberação de compra e alocada no contrato; a Saída (7) é a
+    /// cópia dela (mesma <c>ShipmentReleaseKey</c>); o par amarrado por um
+    /// <see cref="ShippingTransaction"/>. A carga vincula só a Saída.
     /// A quebra de trajeto não pode tocar em nada disso — o grão foi comprado e entregue.
     /// </summary>
-    private async Task<(PurchaseContract Contract, StorageTransaction Purchase)> SeedPurchaseLegAsync(decimal quantity)
+    private async Task<(PurchaseContract Contract, StorageTransaction Purchase, ShipmentRelease Release)>
+        SeedPurchaseLegAsync(ShipmentLoad load, decimal quantity)
     {
         var db = _fixture._db.Context;
 
@@ -79,9 +84,20 @@ public class ShipmentLoadsRefuseTransitLossTests
             GrossWeight = quantity,
             NetWeight = quantity,
             TransactionType = StorageTransactionType.Purchase,
-            TransactionStatus = StorageTransactionsStatus.Invoiced,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
             ShipmentReleaseKey = release.Key,
         };
+
+        // A Saída da carga é a cópia da Compra: carrega a mesma liberação de compra.
+        var sales = await db.StorageTransactions.SingleAsync(x =>
+            x.ShipmentLoadKey == load.Key && x.TransactionType == StorageTransactionType.SalesShipment);
+        sales.ShipmentReleaseKey = release.Key;
+
+        db.ShippingTransactions.Add(new ShippingTransaction
+        {
+            PurchaseStorageTransactionKey = purchase.Key,
+            SalesStorageTransactionKey = sales.Key,
+        });
 
         db.PurchaseContracts.Add(contract);
         db.ShipmentReleases.Add(release);
@@ -94,7 +110,7 @@ public class ShipmentLoadsRefuseTransitLossTests
         });
 
         await _fixture._db.SaveChangesAsync();
-        return (contract, purchase);
+        return (contract, purchase, release);
     }
 
     private async Task<(ShipmentLoad Load, SalesInvoice Invoice, SalesContract Contract, SalesShipmentRelease Release)>
@@ -116,7 +132,16 @@ public class ShipmentLoadsRefuseTransitLossTests
     {
         var db = _fixture._db.Context;
         var (load, invoice, salesContract, salesRelease) = await BilledLoadAsync();
-        var (purchaseContract, purchase) = await SeedPurchaseLegAsync(40_000m);
+        var (purchaseContract, purchase, purchaseRelease) = await SeedPurchaseLegAsync(load, 40_000m);
+        var legs = new ShipmentLoadsPurchaseLegsService(_fixture._db);
+        var shipped = new ShipmentReleasesRecalculateShippedService(db);
+
+        var legsBefore = await legs.ExecuteAsync(load.Key);
+        var purchaseStatusBefore = (await db.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == purchase.Key)).TransactionStatus;
+        var shippedBefore = await shipped.CalculateShippedAsync(purchaseRelease.Key, ReleaseOrigin.Standard);
+        Assert.Equal(purchase.Key.ToString(), Assert.Single(legsBefore).PurchaseStorageTransactionKey);
+        Assert.Equal(40_000m, shippedBefore);
 
         var purchaseAllocatedBefore = (await db.PurchaseContracts.AsNoTracking()
             .SingleAsync(x => x.Key == purchaseContract.Key)).AllocatedVolume;
@@ -167,8 +192,11 @@ public class ShipmentLoadsRefuseTransitLossTests
         Assert.Equal(Reason, movement.Reason);
 
         // A perna de compra intacta.
+        var legsAfter = await legs.ExecuteAsync(load.Key);
+        Assert.Equal(legsBefore.Single().PurchaseStorageTransactionKey, Assert.Single(legsAfter).PurchaseStorageTransactionKey);
         var purchaseAfter = await db.StorageTransactions.AsNoTracking().SingleAsync(x => x.Key == purchase.Key);
-        Assert.Equal(StorageTransactionsStatus.Invoiced, purchaseAfter.TransactionStatus);
+        Assert.Equal(purchaseStatusBefore, purchaseAfter.TransactionStatus);
+        Assert.Equal(shippedBefore, await shipped.CalculateShippedAsync(purchaseRelease.Key, ReleaseOrigin.Standard));
         Assert.Equal(purchaseAllocatedBefore, (await db.PurchaseContracts.AsNoTracking()
             .SingleAsync(x => x.Key == purchaseContract.Key)).AllocatedVolume);
         Assert.Equal(purchaseAllocationsBefore, await db.PurchaseContractsAllocations.AsNoTracking()
@@ -260,5 +288,40 @@ public class ShipmentLoadsRefuseTransitLossTests
         var refused = await _fixture.LoadAsync(load.Key);
         Assert.Equal(decimal.Zero, refused.TransitLossQuantity);
         Assert.Equal(40_000m, refused.AvailableQuantity);
+    }
+
+    [Fact]
+    public async Task LoadWithoutOriginWarehouse_IsRejectedBeforeAnyWrite()
+    {
+        var (load, invoice, _, _) = await BilledLoadAsync();
+        var tracked = await _fixture._db.Context.ShipmentLoads.SingleAsync(x => x.Key == load.Key);
+        tracked.WarehouseCode = null;
+        await _fixture._db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() => _fixture.Service()
+            .ExecuteAsync(TransitLossRequest(load, invoice, 40_000m), "tester"));
+
+        Assert.Equal(
+            $"A carga {load.Code} não tem armazém de origem informado; a quebra de trajeto não pode ser registrada.",
+            error.Message);
+        Assert.False(await _fixture._db.Context.SalesInvoices.AnyAsync(x => x.InvoiceType == SalesInvoiceType.Return));
+        Assert.Empty(await TransitLossEntriesAsync());
+    }
+
+    /// <summary>
+    /// Os efeitos também são chamados pela conclusão da recusa em dois tempos: sem o tipo da
+    /// quebra, recusam com a mensagem de negócio, não com NRE.
+    /// </summary>
+    [Fact]
+    public async Task Effects_WithoutReason_AreRejected()
+    {
+        var (load, invoice, _, _) = await BilledLoadAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() => _fixture.Effects().ApplyAsync(
+            new RefusalEffectsInput(load, RefusalDestination.TransitLoss, null, null, [invoice], 40_000m, Reason),
+            "tester"));
+
+        Assert.Equal("Informe o tipo da quebra de trajeto.", error.Message);
+        Assert.Empty(await TransitLossEntriesAsync());
     }
 }

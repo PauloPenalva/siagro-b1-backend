@@ -10,6 +10,10 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// </summary>
 public static class ShipmentLoadRefusalRules
 {
+    /// <summary>GAC-1213: o romaneio de quebra de trajeto grava o armazém de origem da carga (coluna NOT NULL).</summary>
+    public static string MissingOriginWarehouseMessage(ShipmentLoad load) =>
+        $"A carga {load.Code} não tem armazém de origem informado; a quebra de trajeto não pode ser registrada.";
+
     public static string PendingMessage(string? loadCode) =>
         $"A carga {loadCode} tem uma recusa aguardando NF-e de entrada: emita as NF-e ou cancele a recusa.";
 

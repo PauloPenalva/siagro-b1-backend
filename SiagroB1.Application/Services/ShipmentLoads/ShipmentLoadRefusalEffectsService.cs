@@ -72,7 +72,12 @@ public class ShipmentLoadRefusalEffectsService(
     private async Task RegisterTransitLossAsync(RefusalEffectsInput input, string userName)
     {
         var load = input.Load;
-        var reason = input.TransitLossReason!.Value;
+        // A conclusão da recusa em dois tempos também monta a entrada: não confiar em quem chama.
+        var reason = input.TransitLossReason
+                     ?? throw new ApplicationException("Informe o tipo da quebra de trajeto.");
+
+        if (string.IsNullOrWhiteSpace(load.WarehouseCode))
+            throw new ApplicationException(ShipmentLoadRefusalRules.MissingOriginWarehouseMessage(load));
         var reasonLabel = TransitLossReasonText.Describe(reason);
         var invoiceNumbers = FormatInvoiceNumbers(input.RefusedInvoices);
         var cardCodes = string.Join(", ", input.RefusedInvoices.Select(i => i.CardCode).Distinct());

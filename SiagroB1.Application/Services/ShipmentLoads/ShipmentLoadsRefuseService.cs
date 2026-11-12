@@ -354,6 +354,10 @@ public class ShipmentLoadsRefuseService(
 
             if (!string.IsNullOrWhiteSpace(request.DestinationWarehouseCode))
                 throw new ApplicationException("A quebra de trajeto não tem armazém de destino.");
+
+            // O romaneio 18 grava o armazém de ORIGEM (coluna NOT NULL): sem ele, falharia no SaveChanges.
+            if (string.IsNullOrWhiteSpace(load.WarehouseCode))
+                throw new ApplicationException(ShipmentLoadRefusalRules.MissingOriginWarehouseMessage(load));
         }
     }
 
