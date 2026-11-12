@@ -49,6 +49,10 @@ public class PurchaseContractsGetAllocationsByContractService(
             WRRS.Description AS ReasonDescription,
             COALESCE(DINV.TaxDocumentNumber, DINV.InvoiceNumber) AS DischargeInvoiceNumber,
             DLOAD.Code AS DischargeLoadCode,
+            -- GAC-1216: carga da entrega. O romaneio de compra não carrega ShipmentLoadKey: a carga é
+            -- a da perna de venda da Expedição; na troca de liberação (GAC-1177) a original sai da
+            -- carga e o elo é o documento da troca; na quebra/sobra de descarga, a nota conferida.
+            COALESCE(SLOAD.Code, CHGLOAD.Code, DLOAD.Code) AS LoadCode,
             ST.[Key] AS StorageTransactionKey,
             ST.ItemCode AS ItemCode,
             ST.NetWeight AS PhysicalQuantity,
@@ -84,6 +88,14 @@ public class PurchaseContractsGetAllocationsByContractService(
                ON DINV.[Key] = DITEM.SalesInvoiceKey
         LEFT JOIN SHIPMENT_LOADS DLOAD WITH (NOLOCK)
                ON DLOAD.[Key] = DINV.ShipmentLoadKey
+        -- GAC-1216: carga em que a perna de venda da Expedição foi montada.
+        LEFT JOIN SHIPMENT_LOADS SLOAD WITH (NOLOCK)
+               ON SLOAD.[Key] = SALES.ShipmentLoadKey
+        -- GAC-1216: troca de liberação — a que tirou este romaneio da carga ou a que o gerou.
+        LEFT JOIN SHIPPING_RELEASE_CHANGES CHG WITH (NOLOCK)
+               ON CHG.[Key] = COALESCE(ST.ReplacedByShippingReleaseChangeKey, ST.ShippingReleaseChangeKey)
+        LEFT JOIN SHIPMENT_LOADS CHGLOAD WITH (NOLOCK)
+               ON CHGLOAD.[Key] = CHG.ShipmentLoadKey
         -- Conciliação fiscal (spec 2026-10-13 §7): NFs do fornecedor vinculadas ao romaneio (NF cancelada não conta).
         -- ⚠️ Sem STRING_AGG aqui: dentro deste SELECT DISTINCT com 11 LEFT JOINs ele levou o plano de 0,3 s a mais de
         -- 40 s (CEAGUI, 13/10/2026). Os números das NFs vêm de LinksSql, uma consulta à parte.
@@ -194,6 +206,7 @@ public class PurchaseContractsGetAllocationsByContractService(
                 ReasonDescription = allocation.ReasonDescription,
                 DischargeInvoiceNumber = allocation.DischargeInvoiceNumber,
                 DischargeLoadCode = allocation.DischargeLoadCode,
+                LoadCode = allocation.LoadCode,
                 StorageTransactionKey = (Guid?)allocation.StorageTransactionKey,
                 ItemCode = (string?)allocation.ItemCode,
                 SupplierInvoiceNumbers = allocation.StorageTransactionKey is Guid txKey ? invoiceNumbers.GetValueOrDefault(txKey) : null,
@@ -224,6 +237,7 @@ public class PurchaseContractsGetAllocationsByContractService(
                 Origin = "LoadRefusal",
                 ReasonDescription = ret.LoadCode is string load ? $"Carga {load} recusada" : "Carga recusada",
                 DischargeLoadCode = ret.LoadCode,
+                LoadCode = ret.LoadCode,
                 StorageTransactionKey = (Guid?)ret.StorageTransactionKey,
                 ItemCode = (string?)ret.ItemCode,
                 FiscalStatus = null,

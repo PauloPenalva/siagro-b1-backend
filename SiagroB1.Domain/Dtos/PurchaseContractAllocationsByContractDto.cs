@@ -69,6 +69,13 @@ public class PurchaseContractAllocationsByContractDto
     [JsonPropertyName("DischargeLoadCode")]
     public string? DischargeLoadCode { get; set; }
 
+    /// <summary>
+    /// GAC-1216: código da carga da entrega, para a coluna "Carga". Vazio quando o romaneio não
+    /// passou por carga (compra de balança, entrada em armazenagem, perda de armazém).
+    /// </summary>
+    [JsonPropertyName("LoadCode")]
+    public string? LoadCode { get; set; }
+
     [JsonPropertyName("StorageTransactionKey")]
     public Guid? StorageTransactionKey { get; set; }
 

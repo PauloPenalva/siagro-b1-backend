@@ -45,7 +45,8 @@ public class SalesContractsGetAllocationsByContractService(
            A.PriceDifference AS PriceDifference,
            R.RowId AS SalesShipmentReleaseRowId,
            R.ReleaseDate AS SalesShipmentReleaseDate,
-           CP.Code AS CounterpartyContractCode
+           CP.Code AS CounterpartyContractCode,
+           L.Code AS LoadCode
         FROM SALES_CONTRACTS_ALLOCATIONS A
         INNER JOIN SALES_INVOICES_ITEMS INVI
           ON INVI.[Key] = A.SalesInvoiceItemKey
@@ -57,6 +58,8 @@ public class SalesContractsGetAllocationsByContractService(
           ON R.[Key] = A.SalesShipmentReleaseKey
         LEFT JOIN SALES_CONTRACTS CP
           ON CP.[Key] = A.CounterpartySalesContractKey
+        LEFT JOIN SHIPMENT_LOADS L
+          ON L.[Key] = INV.ShipmentLoadKey
         WHERE A.SalesContractKey = @SalesContractKey
         ORDER BY INV.InvoiceNumber, A.RowId
         """;
