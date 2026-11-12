@@ -211,6 +211,8 @@ public class ShipmentLoadsRefuseService(
             DestinationWarehouseCode = warehouse?.Code,
             DestinationWarehouseName = warehouse?.Name,
             Reason = request.Reason.Trim(),
+            // O tipo da quebra só vale para o próprio destino; nos outros nada é guardado.
+            TransitLossReason = request.Destination == RefusalDestination.TransitLoss ? request.TransitLossReason : null,
             CreatedBy = userName,
         };
 

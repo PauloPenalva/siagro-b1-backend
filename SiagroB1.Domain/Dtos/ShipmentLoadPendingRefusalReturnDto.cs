@@ -27,6 +27,10 @@ public class ShipmentLoadPendingRefusalReturnDto
     [JsonPropertyName("Reason")]
     public string Reason { get; set; } = "";
 
+    /// <summary>Tipo da quebra (nome do enum: Damage, Accident, Theft, Other); só no destino Quebra de trajeto.</summary>
+    [JsonPropertyName("TransitLossReason")]
+    public string? TransitLossReason { get; set; }
+
     /// <summary>Filial do documento de saída da devolução: a tela lista as séries dela ao emitir.</summary>
     [JsonPropertyName("BranchCode")]
     public string? BranchCode { get; set; }
