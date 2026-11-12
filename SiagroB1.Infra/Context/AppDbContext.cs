@@ -72,6 +72,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SalesShipmentRelease> SalesShipmentReleases { get; set; }
     public DbSet<StorageAddress> StorageAddresses { get; set; }
     public DbSet<StorageTransaction> StorageTransactions { get; set; }
+    public DbSet<StorageTransactionLoadLink> StorageTransactionLoadLinks { get; set; }
     public DbSet<StorageTransactionQualityInspection> StorageTransactionQualityInspections { get; set; }
     public DbSet<LogisticRegion> LogisticRegions { get; set; }
     public DbSet<CostCenter> CostCenters { get; set; }
@@ -853,6 +854,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany(x => x.RefusalReturns)
             .HasForeignKey(x => x.RefusedFromShipmentLoadKey)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // GAC-1216: a carga do romaneio é uma VIEW (criada por migration com SQL à mão), e não
+        // tabela — ToView tira a entidade das migrations geradas. A navegação 1:1 é o que deixa o
+        // OData filtrar/ordenar as listas por LoadLink/LoadCode com um LEFT JOIN.
+        modelBuilder.Entity<StorageTransactionLoadLink>()
+            .ToView("STORAGE_TRANSACTIONS_LOAD_LINKS");
+
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne(x => x.LoadLink)
+            .WithOne()
+            .HasForeignKey<StorageTransactionLoadLink>(x => x.StorageTransactionKey);
 
         // Mesma armadilha do par acima, agora com SALES_INVOICES: SalesInvoiceKey é o romaneio
         // FATURADO na nota (o que ela consumiu) e GeneratedByReturnInvoiceKey é a devolução ao

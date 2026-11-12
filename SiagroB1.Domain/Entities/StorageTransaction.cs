@@ -93,6 +93,13 @@ public class StorageTransaction : DocumentEntity
     public virtual ShipmentLoad? ShipmentLoad { get; set; }
 
     /// <summary>
+    /// GAC-1216: a carga em que este romaneio viajou, por qualquer dos vínculos (não só
+    /// <see cref="ShipmentLoadKey"/>). Só leitura, vem de uma view; nula quando ele não passou por
+    /// carga. É o que as listas usam para mostrar, filtrar e ordenar pela carga.
+    /// </summary>
+    public virtual StorageTransactionLoadLink? LoadLink { get; set; }
+
+    /// <summary>
     /// Carga de onde esta mercadoria foi RECUSADA e devolvida a um armazém. Preenchida só nas
     /// transações <see cref="StorageTransactionType.SalesShipmentReturn"/> geradas pela recusa
     /// de carga.

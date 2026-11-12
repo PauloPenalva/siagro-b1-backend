@@ -358,6 +358,9 @@ public static class ODataConfigurations
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(StorageAddress))
             .AddProperty(typeof(StorageAddress).GetProperty(nameof(StorageAddress.Balance)));
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
+        // GAC-1216: alvo da navegação StorageTransaction.LoadLink (a carga do romaneio, lida de uma
+        // view). Não tem controller: só é alcançado por $expand/$filter/$orderby a partir do romaneio.
+        modelBuilder.EntitySet<StorageTransactionLoadLink>("StorageTransactionsLoadLinks");
         modelBuilder.EntitySet<StorageEntryTransaction>("StorageEntryTransactions");
         var royaltyBalances = modelBuilder.EntitySet<RoyaltyBalanceRow>("RoyaltyTransactionBalances");
         royaltyBalances.EntityType.HasKey(x => x.StorageTransactionKey);
