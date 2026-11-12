@@ -47,21 +47,42 @@ public class SapUserSyncService(
 
     public async Task<SapUserSyncResult> ExecuteAsync(CancellationToken ct = default)
     {
-        var sapUsers = await sapDb.SapUsers.AsNoTracking().ToListAsync(ct);
+        // Usuários de grupos ignorados (instalação antiga do SAP) são tratados como se não
+        // existissem no OUSR: não são criados e, se já foram espelhados, caem na desativação.
+        var ignoredGroups = SapUserMapper.IgnoredGroups(configuration);
+        var sapUsers = (await sapDb.SapUsers.AsNoTracking().ToListAsync(ct))
+            .Where(u => !SapUserMapper.IsIgnored(u, ignoredGroups))
+            .ToList();
         var localUsers = await db.Users.ToListAsync(ct);
+
+        var sapNameKeys = sapUsers
+            .Select(u => SapUserMapper.NormalizeKey(SapUserMapper.Username(u)))
+            .ToHashSet();
+        var protectedUsernames = ProtectedUsernames();
 
         // Índices por chave normalizada, espelhando os índices únicos do banco.
         var usersByName = new Dictionary<string, User>();
         var emailOwners = new Dictionary<string, User>();
 
+        // E-mails de quem não está no SAP e será desativado nesta rodada. Não bloqueiam ninguém:
+        // se um usuário do SAP reclamar o endereço, o dono antigo o perde.
+        var releasableEmailOwners = new Dictionary<string, User>();
+
         foreach (var user in localUsers)
         {
-            usersByName.TryAdd(SapUserMapper.NormalizeKey(user.Username), user);
+            var localNameKey = SapUserMapper.NormalizeKey(user.Username);
+            usersByName.TryAdd(localNameKey, user);
 
-            if (!string.IsNullOrWhiteSpace(user.Email))
+            if (string.IsNullOrWhiteSpace(user.Email))
             {
-                emailOwners.TryAdd(SapUserMapper.NormalizeKey(user.Email), user);
+                continue;
             }
+
+            var isAbsentFromSap =
+                !sapNameKeys.Contains(localNameKey) && !protectedUsernames.Contains(localNameKey);
+
+            (isAbsentFromSap ? releasableEmailOwners : emailOwners)
+                .TryAdd(SapUserMapper.NormalizeKey(user.Email), user);
         }
 
         var handledNames = new HashSet<string>();
@@ -113,7 +134,18 @@ public class SapUserSyncService(
 
             if (!string.IsNullOrWhiteSpace(user.Email))
             {
-                emailOwners.TryAdd(SapUserMapper.NormalizeKey(user.Email), user);
+                var emailKey = SapUserMapper.NormalizeKey(user.Email);
+                emailOwners.TryAdd(emailKey, user);
+
+                // USERS.Email tem índice único: o dono antigo precisa largar o endereço na mesma
+                // gravação em que o usuário do SAP o recebe.
+                if (releasableEmailOwners.Remove(emailKey, out var formerOwner))
+                {
+                    formerOwner.Email = null;
+                    logger.LogInformation(
+                        "E-mail do usuário {FormerOwner}, que não existe no OUSR, passou para {Username}.",
+                        formerOwner.Username, username);
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(sapUser.Email) && string.IsNullOrEmpty(user.Email))
@@ -125,7 +157,7 @@ public class SapUserSyncService(
             }
         }
 
-        var deactivated = DeactivateUsersMissingFromSap(handledNames, localUsers);
+        var deactivated = DeactivateUsersMissingFromSap(handledNames, protectedUsernames, localUsers);
 
         await db.SaveChangesAsync(ct);
 
@@ -137,9 +169,9 @@ public class SapUserSyncService(
         return new SapUserSyncResult(created, updated, deactivated, emailsDiscarded, skipped);
     }
 
-    private int DeactivateUsersMissingFromSap(HashSet<string> sapUsernames, List<User> localUsers)
+    private int DeactivateUsersMissingFromSap(
+        HashSet<string> sapUsernames, HashSet<string> protectedUsernames, List<User> localUsers)
     {
-        var protectedUsernames = ProtectedUsernames();
         var deactivated = 0;
 
         foreach (var user in localUsers.Where(u => u.IsActive))

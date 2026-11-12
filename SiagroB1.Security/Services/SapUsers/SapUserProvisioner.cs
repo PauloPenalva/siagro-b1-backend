@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
@@ -14,6 +15,7 @@ namespace SiagroB1.Security.Services.SapUsers;
 public class SapUserProvisioner(
     CommonDbContext db,
     SapErpDbContext sapDb,
+    IConfiguration configuration,
     ILogger<SapUserProvisioner> logger) : ISapUserProvisioner
 {
     public async Task EnsureAsync(string usernameOrEmail, CancellationToken ct = default)
@@ -27,9 +29,17 @@ public class SapUserProvisioner(
 
         try
         {
-            var sapUser = await sapDb.SapUsers
+            // Mais de uma linha pode casar: um usuário de instalação antiga do SAP costuma ter o
+            // mesmo e-mail do usuário atual. O filtro de grupo é feito em memória para não
+            // depender de como o EF traduz a lista para o SQL Server do SAP.
+            var candidates = await sapDb.SapUsers
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.UserCode == identifier || u.Email == identifier, ct);
+                .Where(u => u.UserCode == identifier || u.Email == identifier)
+                .OrderBy(u => u.Id)
+                .ToListAsync(ct);
+
+            var ignoredGroups = SapUserMapper.IgnoredGroups(configuration);
+            var sapUser = candidates.FirstOrDefault(u => !SapUserMapper.IsIgnored(u, ignoredGroups));
 
             if (sapUser is null)
             {

@@ -29,9 +29,18 @@ public class SapUserSyncServiceTests
     }
 
     private static SapUserSyncService CreateService(
-        CommonDbContext common, SapErpDbContext sap, string[]? protectedUsernames = null)
+        CommonDbContext common, SapErpDbContext sap, string[]? protectedUsernames = null,
+        short[]? ignoredGroups = null)
     {
         var settings = new Dictionary<string, string?>();
+
+        if (ignoredGroups is not null)
+        {
+            for (var i = 0; i < ignoredGroups.Length; i++)
+            {
+                settings[$"SapUserSync:IgnoredGroups:{i}"] = ignoredGroups[i].ToString();
+            }
+        }
 
         if (protectedUsernames is not null)
         {
@@ -47,7 +56,8 @@ public class SapUserSyncServiceTests
     }
 
     private static void AddSapUser(
-        SapErpDbContext sap, short id, string code, string? name, string? email, string locked = "N")
+        SapErpDbContext sap, short id, string code, string? name, string? email, string locked = "N",
+        short? group = null)
     {
         sap.SapUsers.Add(new SapUser
         {
@@ -55,7 +65,8 @@ public class SapUserSyncServiceTests
             UserCode = code,
             UserName = name,
             Email = email,
-            Locked = locked
+            Locked = locked,
+            Group = group
         });
         sap.SaveChanges();
     }
@@ -227,11 +238,15 @@ public class SapUserSyncServiceTests
         Assert.Single(common.Users, u => u.Email == null);
     }
 
+    /// <summary>
+    /// O dono do e-mail aqui é um usuário local protegido (não vem do SAP e continua ativo): o
+    /// endereço é dele e o usuário do SAP fica sem.
+    /// </summary>
     [Fact]
-    public async Task ExecuteAsync_EmailAlreadyUsedByAnotherLocalUser_IsDiscarded()
+    public async Task ExecuteAsync_EmailAlreadyUsedByProtectedLocalUser_IsDiscarded()
     {
         var (common, sap) = CreateDbs();
-        common.Users.Add(new User { Username = "outro", FullName = "Outro", Email = "joao@empresa.com" });
+        common.Users.Add(new User { Username = "admin", FullName = "Administrator", Email = "joao@empresa.com", IsActive = true });
         common.SaveChanges();
         AddSapUser(sap, 1, "jsilva", "João", "joao@empresa.com");
 
@@ -239,7 +254,82 @@ public class SapUserSyncServiceTests
 
         Assert.Equal(1, result.EmailsDiscarded);
         Assert.Null(common.Users.Single(u => u.Username == "jsilva").Email);
-        Assert.Equal("joao@empresa.com", common.Users.Single(u => u.Username == "outro").Email);
+        Assert.Equal("joao@empresa.com", common.Users.Single(u => u.Username == "admin").Email);
+    }
+
+    /// <summary>
+    /// Quem não existe mais no SAP é desativado nesta mesma rodada - não pode continuar segurando
+    /// o e-mail de um usuário válido, que ficaria sem conseguir recuperar a senha.
+    /// </summary>
+    [Fact]
+    public async Task ExecuteAsync_EmailHeldByUserMissingFromOusr_IsHandedToTheSapUser()
+    {
+        var (common, sap) = CreateDbs();
+        common.Users.Add(new User { Username = "outro", FullName = "Outro", Email = "joao@empresa.com", IsActive = true });
+        common.SaveChanges();
+        AddSapUser(sap, 1, "jsilva", "João", "joao@empresa.com");
+
+        var result = await CreateService(common, sap).ExecuteAsync();
+
+        Assert.Equal(0, result.EmailsDiscarded);
+        Assert.Equal("joao@empresa.com", common.Users.Single(u => u.Username == "jsilva").Email);
+        var outro = common.Users.Single(u => u.Username == "outro");
+        Assert.Null(outro.Email);
+        Assert.False(outro.IsActive);
+    }
+
+    /// <summary>
+    /// GAC-1220: o OUSR guarda usuários de uma instalação antiga do SAP (GROUPS = 99), invisíveis
+    /// na aplicação do SAP. Eles não são usuários do sistema e não podem ser espelhados.
+    /// </summary>
+    [Fact]
+    public async Task ExecuteAsync_UserFromIgnoredGroup_IsNotCreated()
+    {
+        var (common, sap) = CreateDbs();
+        AddSapUser(sap, 1, "it001", "Yuji", "yuji@empresa.com", group: 99);
+        AddSapUser(sap, 2, "Yuji", "Yuji", null, group: 1);
+
+        var result = await CreateService(common, sap).ExecuteAsync();
+
+        Assert.Equal(1, result.Created);
+        Assert.Equal("Yuji", Assert.Single(common.Users).Username);
+    }
+
+    /// <summary>
+    /// O caso do chamado: "it001" (antigo) já foi espelhado numa rodada anterior e segura o e-mail
+    /// do "Yuji". Ao passar a ser ignorado, ele é desativado e o e-mail vai para o usuário válido.
+    /// </summary>
+    [Fact]
+    public async Task ExecuteAsync_AlreadyMirroredUserFromIgnoredGroup_IsDeactivatedAndReleasesTheEmail()
+    {
+        var (common, sap) = CreateDbs();
+        common.Users.Add(new User { Username = "it001", FullName = "Yuji", Email = "yuji@empresa.com", IsActive = true });
+        common.Users.Add(new User { Username = "Yuji", FullName = "Yuji", Email = null, IsActive = true });
+        common.SaveChanges();
+        AddSapUser(sap, 1, "it001", "Yuji", "yuji@empresa.com", group: 99);
+        AddSapUser(sap, 2, "Yuji", "Yuji", "yuji@empresa.com", group: 1);
+
+        var result = await CreateService(common, sap).ExecuteAsync();
+
+        Assert.Equal(1, result.Deactivated);
+        Assert.Equal(0, result.EmailsDiscarded);
+        var legacy = common.Users.Single(u => u.Username == "it001");
+        Assert.False(legacy.IsActive);
+        Assert.Null(legacy.Email);
+        Assert.Equal("yuji@empresa.com", common.Users.Single(u => u.Username == "Yuji").Email);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_HonorsConfiguredIgnoredGroups()
+    {
+        var (common, sap) = CreateDbs();
+        AddSapUser(sap, 1, "legado", "Legado", null, group: 50);
+        AddSapUser(sap, 2, "atual", "Atual", null, group: 99);
+
+        await CreateService(common, sap, ignoredGroups: [50]).ExecuteAsync();
+
+        // Lista configurada substitui o padrão: o grupo 99 deixa de ser ignorado.
+        Assert.Equal("atual", Assert.Single(common.Users).Username);
     }
 
     [Fact]
