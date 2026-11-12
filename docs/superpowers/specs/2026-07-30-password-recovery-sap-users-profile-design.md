@@ -98,6 +98,11 @@ Nunca são tocados `PasswordHash`, `IsAdmin`, tema, foto e perfis: do SAP vêm s
 situação. Ninguém é apagado. `SapUserSync:ProtectedUsernames` (padrão `["admin"]`) impede que a
 varredura desative a conta local de administração e tranque todo mundo para fora.
 
+`SapUserSync:IgnoredGroups` (padrão `[99]`, GAC-1220) lista os valores de `OUSR.GROUPS` que os
+dois caminhos tratam como inexistentes: são os usuários de uma instalação antiga do SAP, que a
+aplicação do SAP não mostra. Um já espelhado é desativado na varredura seguinte e, se segurava o
+e-mail de um usuário válido, perde o endereço para ele na mesma gravação.
+
 ### Perfil
 
 Colunas novas em `USERS`: `Theme`, `PhotoContent`, `PhotoContentType`. `UserProfileService` e os

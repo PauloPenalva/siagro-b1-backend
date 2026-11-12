@@ -38,4 +38,12 @@ public class SapUser
 
     [Column("SUPERUSER", TypeName = "CHAR(1)")]
     public string? SuperUser { get; set; }
+
+    /// <summary>
+    /// Grupo do usuário no SAP (<c>smallint</c>, como USERID). Na Yokotobi, <c>99</c> marca os
+    /// usuários herdados de uma instalação antiga do SAP: continuam no OUSR, mas não aparecem na
+    /// aplicação e não devem ser espelhados (GAC-1220).
+    /// </summary>
+    [Column("GROUPS")]
+    public short? Group { get; set; }
 }

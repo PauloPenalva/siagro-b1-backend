@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Entities.SAP;
 
@@ -21,6 +22,33 @@ public static class SapUserMapper
     public const int FullNameMaxLength = 100;
 
     public const int EmailMaxLength = 100;
+
+    /// <summary>
+    /// Grupos do OUSR que não são espelhados quando nada é configurado.
+    ///
+    /// <c>99</c> é o grupo dos usuários herdados de uma instalação antiga do SAP (GAC-1220): a
+    /// aplicação do SAP não os mostra, mas eles continuam na tabela - e seguravam o e-mail de
+    /// usuários válidos, que ficavam sem conseguir recuperar a senha.
+    /// </summary>
+    private static readonly short[] DefaultIgnoredGroups = [99];
+
+    /// <summary>
+    /// Grupos ignorados, de <c>SapUserSync:IgnoredGroups</c>. A lista configurada substitui o
+    /// padrão, como em <c>SapUserSync:ProtectedUsernames</c>.
+    /// </summary>
+    public static HashSet<short> IgnoredGroups(IConfiguration configuration)
+    {
+        var configured = configuration.GetSection("SapUserSync:IgnoredGroups").Get<short[]>();
+
+        return (configured is { Length: > 0 } ? configured : DefaultIgnoredGroups).ToHashSet();
+    }
+
+    /// <summary>
+    /// Usuário do OUSR que o SiagroB1 trata como inexistente. Os dois caminhos de sincronização
+    /// precisam perguntar aqui: filtrar só a varredura deixaria o login recriar o usuário.
+    /// </summary>
+    public static bool IsIgnored(SapUser source, HashSet<short> ignoredGroups) =>
+        source.Group is { } group && ignoredGroups.Contains(group);
 
     public static string Username(SapUser source) => source.UserCode.Trim();
 
