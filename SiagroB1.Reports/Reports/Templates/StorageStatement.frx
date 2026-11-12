@@ -93,7 +93,7 @@
       <TextObject Left="60" Width="40" Height="22" Text="Hora" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
       <TextObject Left="100" Width="70" Height="22" Text="Doc." Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
       <TextObject Left="170" Width="100" Height="22" Text="Tipo" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
-      <TextObject Left="270" Width="140" Height="22" Text="Cliente" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="270" Width="140" Height="22" Text="Depositante" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
       <TextObject Left="410" Width="60" Height="22" Text="Entrada" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
       <TextObject Left="470" Width="60" Height="22" Text="Saída" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
       <TextObject Left="530" Width="60" Height="22" Text="Saldo" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
