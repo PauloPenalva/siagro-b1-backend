@@ -167,6 +167,14 @@ public class SalesInvoice : DocumentEntity, INfeDocument, IAccountingAssignment
     public Guid? ShipmentLoadRefusalKey { get; set; }
 
     /// <summary>
+    /// Romaneio que a recusa de carga gerou para esta devolução (GAC-1213): tipo 12 (destino Armazém) ou tipo 18
+    /// (Quebra de trajeto). Todas as devoluções confirmadas da mesma recusa apontam o mesmo romaneio; é por ele que o
+    /// estorno acha a entrada e os irmãos. Nulo nos outros destinos e nos dados anteriores (o estorno cai na lista
+    /// "Documento(s)" do Comments). Nasce na recusa e nunca muda pela API (<c>SalesInvoiceNfeLock</c>).
+    /// </summary>
+    public Guid? RefusalStorageTransactionKey { get; set; }
+
+    /// <summary>
     /// Tipo do documento fiscal (spec 2026-10-06 D3). Só tem efeito no documento Normal da filial que emite NF-e pelo
     /// Siagro: <see cref="TaxDocumentKind.Nfe"/> sai pelo "Transmitir NF-e" depois de confirmado;
     /// <see cref="TaxDocumentKind.Other"/> (papel/talão) termina no Confirmar, com número e série digitados.

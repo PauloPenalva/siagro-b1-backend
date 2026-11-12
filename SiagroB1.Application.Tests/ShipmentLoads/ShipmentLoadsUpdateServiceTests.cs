@@ -241,6 +241,27 @@ public class ShipmentLoadsUpdateServiceTests
     }
 
     /// <summary>
+    /// GAC-1213: carga mista (parte em notas vivas, parte perdida na quebra de trajeto) segue
+    /// com documentos fiscais emitidos; os campos fiscais continuam travados.
+    /// </summary>
+    [Theory]
+    [InlineData("SOJA", "TON", "01", "unidade")]
+    [InlineData("SOJA", "KG", "02", "filial")]
+    public async Task Fiscal_fields_are_locked_on_a_transit_loss_load(
+        string item, string uom, string branch, string expected)
+    {
+        var load = Load(ShipmentLoadStatus.TransitLoss);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(
+                Input(load.Key, itemCode: item, unitOfMeasureCode: uom, branchCode: branch),
+                "tester"));
+
+        Assert.Contains(expected, error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// GAC-1171 (melhorias): a Concluída da carga Normal vem depois da Descarregada, e as notas
     /// dela continuam emitidas. Os campos fiscais seguem travados.
     /// </summary>

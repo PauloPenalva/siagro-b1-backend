@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra.Context;
@@ -85,6 +85,12 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
                 $"A carga {load.Code} foi recusada e sua mercadoria devolvida ao armazém. " +
                 "Não há mais o que faturar nela.");
 
+        // GAC-1213: mesma consequência da Devolvida — o saldo fechou com a mercadoria perdida.
+        if (load.Status == ShipmentLoadStatus.TransitLoss)
+            throw new ApplicationException(
+                $"A carga {load.Code} foi encerrada por quebra de trajeto. " +
+                "Não há mais o que faturar nela.");
+
         // GAC-1181: a mercadoria está no armazém intermediário e o saldo é zero. Recusar por
         // STATUS, e não pela comparação de saldo, pelo mesmo motivo do ramo Planned: a mensagem
         // de quantidade mandaria o usuário procurar um problema que não existe.
@@ -118,13 +124,17 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
         var transshipped = await ShipmentLoadsRecalculateTransshippedService
             .CalculateTransshippedAsync(context, shipmentLoadKey);
 
+        var transitLoss = await ShipmentLoadsRecalculateTransitLossService
+            .CalculateTransitLossAsync(context, shipmentLoadKey);
+
         var available = ShipmentLoad.CalculateAvailableQuantity(
-            load.TotalQuantity, invoiced, returned, transshipped);
+            load.TotalQuantity, invoiced, returned, transshipped, transitLoss);
 
         if (quantity > available + Tolerance)
             throw new ApplicationException(
                 $"Quantidade a faturar ({quantity:N3}) maior que o saldo da carga {load.Code} " +
                 $"({available:N3}). Total da carga: {load.TotalQuantity:N3}, já faturado: {invoiced:N3}" +
-                (returned > decimal.Zero ? $", devolvido ao armazém: {returned:N3}" : string.Empty) + ".");
+                (returned > decimal.Zero ? $", devolvido ao armazém: {returned:N3}" : string.Empty) +
+                (transitLoss > decimal.Zero ? $", quebra de trajeto: {transitLoss:N3}" : string.Empty) + ".");
     }
 }

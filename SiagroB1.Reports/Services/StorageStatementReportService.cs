@@ -18,9 +18,11 @@ public class StorageStatementReportService(IUnitOfWork db) : IStorageStatementRe
             .AsNoTracking()
             .Where(x => x.TransactionStatus != StorageTransactionsStatus.Cancelled)
             // Troca nota: quebra/sobra de descarga só acerta o contrato de compra — o grão nunca
-            // esteve no armazém do extrato.
+            // esteve no armazém do extrato. Quebra de trajeto (GAC-1213) idem: a mercadoria
+            // perdida na estrada nunca entrou em saldo de armazém.
             .Where(x => x.TransactionType != StorageTransactionType.PurchaseDischargeLoss &&
-                        x.TransactionType != StorageTransactionType.PurchaseDischargeGain)
+                        x.TransactionType != StorageTransactionType.PurchaseDischargeGain &&
+                        x.TransactionType != StorageTransactionType.TransitLoss)
             .Include(x => x.QualityInspections)
             .AsQueryable();
 

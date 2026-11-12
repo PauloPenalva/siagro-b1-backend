@@ -1122,6 +1122,7 @@ public class ShippingTransactionsChangeReleaseServiceTests
     [Theory]
     [InlineData(ShipmentLoadStatus.Cancelled)]
     [InlineData(ShipmentLoadStatus.Returned)]
+    [InlineData(ShipmentLoadStatus.TransitLoss)]
     [InlineData(ShipmentLoadStatus.Discharged)]
     [InlineData(ShipmentLoadStatus.Completed)]
     public async Task Rejects_WhenLoadIsClosed(ShipmentLoadStatus status)
@@ -1136,6 +1137,7 @@ public class ShippingTransactionsChangeReleaseServiceTests
             [new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester"));
 
         Assert.Contains("CG000001", ex.Message);
+        Assert.DoesNotContain("devolvida", ex.Message, StringComparison.OrdinalIgnoreCase);
         var sales = await _db.Context.StorageTransactions.AsNoTracking()
             .SingleAsync(x => x.Key == shipping.SalesStorageTransactionKey);
         Assert.Equal(r1.Key, sales.ShipmentReleaseKey);

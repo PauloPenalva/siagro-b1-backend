@@ -292,6 +292,23 @@ public class ShipmentLoadsByPeriodReportServiceTests
     private static ShipmentLoadsByPeriodReportService Service(IUnitOfWork db) =>
         new(db, new RecordingFastReportService());
 
+    /// <summary>GAC-1213: a situação 10 não pode sair como "TransitLoss" no PDF, e a quebra vai para o modelo.</summary>
+    [Fact]
+    public async Task BuildRows_LabelsATransitLossLoadAndCarriesTheLostQuantity()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var load = Load("CG000052", status: ShipmentLoadStatus.TransitLoss, total: 30_000m);
+        load.InvoicedQuantity = 30_000m;
+        load.TransitLossQuantity = 4_000m;
+        db.Context.ShipmentLoads.Add(load);
+        await Save(db);
+
+        var row = (await Service(db).BuildRowsAsync(Request())).Single();
+
+        Assert.Equal("Quebra de trajeto", row.Status);
+        Assert.Equal(4_000m, row.TransitLossQuantity);
+    }
+
     private static ShipmentLoadsByPeriodRequest Request() => new() { FromDate = Jul01, ToDate = Jul31 };
 
     private static async Task Save(IUnitOfWork db)

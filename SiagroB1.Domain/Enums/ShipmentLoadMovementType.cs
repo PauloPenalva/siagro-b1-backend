@@ -36,5 +36,6 @@ public enum ShipmentLoadMovementType
     TransshipmentLotExitAttached = 22, // Saída do lote vinculada (fase 2) — emite a liberação, não fecha o transbordo
     Discharged = 23,             // Carga marcada à mão como descarregada no destino (GAC-1171)
     DischargeUndone = 24,        // Marcação de descarregada desfeita — o status volta ao do recálculo
-    RefusalCancelled = 25        // Recusa aguardando NF-e cancelada — devoluções pendentes canceladas, carga destravada
+    RefusalCancelled = 25,       // Recusa aguardando NF-e cancelada — devoluções pendentes canceladas, carga destravada
+    TransitLoss = 26             // Quebra de trajeto registrada — o volume perdido sai do saldo da carga (GAC-1213)
 }

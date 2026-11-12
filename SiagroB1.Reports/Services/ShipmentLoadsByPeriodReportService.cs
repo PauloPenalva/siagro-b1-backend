@@ -122,6 +122,7 @@ public class ShipmentLoadsByPeriodReportService(IUnitOfWork db, IFastReportServi
         TotalQuantity = l.TotalQuantity,
         InvoicedQuantity = l.InvoicedQuantity,
         ReturnedQuantity = l.ReturnedToWarehouseQuantity,
+        TransitLossQuantity = l.TransitLossQuantity,
         TransshippedQuantity = l.TransshippedQuantity,
         DischargedQuantity = l.DischargedQuantity,
         BalanceQuantity = l.AvailableQuantity,

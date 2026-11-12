@@ -182,4 +182,82 @@ public class ShipmentLoadActionParametersTests
         Assert.Equal("Guid", remove.Parameters.Single(p => p.Name == "Key").Type.AsPrimitive().PrimitiveKind().ToString());
         Assert.Equal("String", remove.Parameters.Single(p => p.Name == "ContractType").Type.AsPrimitive().PrimitiveKind().ToString());
     }
+
+    // GAC-1213: destino da recusa e tipo da quebra de trajeto.
+
+    [Theory]
+    [InlineData("Rebilling", RefusalDestination.Rebilling)]
+    [InlineData("Warehouse", RefusalDestination.Warehouse)]
+    [InlineData("Transshipment", RefusalDestination.Transshipment)]
+    [InlineData("TransitLoss", RefusalDestination.TransitLoss)]
+    public void Reads_every_refusal_destination_string(string value, RefusalDestination expected)
+    {
+        Assert.Equal(expected, ShipmentLoadActionParameters.ParseRefusalDestination(value));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("3")]
+    [InlineData("transitloss")]
+    public void Rejects_a_missing_or_unknown_refusal_destination(string? value)
+    {
+        Assert.Null(ShipmentLoadActionParameters.ParseRefusalDestination(value));
+    }
+
+    [Theory]
+    [InlineData("Damage", TransitLossReason.Damage)]
+    [InlineData("Accident", TransitLossReason.Accident)]
+    [InlineData("Theft", TransitLossReason.Theft)]
+    [InlineData("Other", TransitLossReason.Other)]
+    [InlineData(" Theft ", TransitLossReason.Theft)]
+    public void Reads_the_transit_loss_reason_enum_name(string value, TransitLossReason expected)
+    {
+        Assert.True(ShipmentLoadActionParameters.TryParseTransitLossReason(value, out var reason));
+        Assert.Equal(expected, reason);
+    }
+
+    /// <summary>
+    /// Ausente não é inválido: os outros destinos não enviam o tipo (a tela manda null).
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Reports_an_absent_transit_loss_reason_as_absent_not_as_invalid(string? value)
+    {
+        Assert.True(ShipmentLoadActionParameters.TryParseTransitLossReason(value, out var reason));
+        Assert.Null(reason);
+    }
+
+    [Theory]
+    [InlineData("Fire")]
+    [InlineData("2")]
+    [InlineData("theft")]
+    public void Rejects_an_unknown_transit_loss_reason(string value)
+    {
+        Assert.False(ShipmentLoadActionParameters.TryParseTransitLossReason(value, out _));
+        Assert.Equal(
+            "Tipo de quebra de trajeto inválido.",
+            ShipmentLoadActionParameters.InvalidTransitLossReasonMessage);
+    }
+
+    /// <summary>
+    /// A ação chamada SEM o parâmetro novo (os outros destinos) tem de seguir funcionando: a
+    /// leitura do dicionário não pode assumir que a chave existe.
+    /// </summary>
+    [Fact]
+    public void Reads_the_transit_loss_reason_from_parameters_that_do_not_carry_it()
+    {
+        var without = new Dictionary<string, object> { ["Destination"] = "Rebilling" };
+        var withNull = new Dictionary<string, object> { ["TransitLossReason"] = null! };
+        var with = new Dictionary<string, object> { ["TransitLossReason"] = "Accident" };
+
+        Assert.True(ShipmentLoadActionParameters.TryReadTransitLossReason(without, out var a));
+        Assert.Null(a);
+        Assert.True(ShipmentLoadActionParameters.TryReadTransitLossReason(withNull, out var b));
+        Assert.Null(b);
+        Assert.True(ShipmentLoadActionParameters.TryReadTransitLossReason(with, out var c));
+        Assert.Equal(TransitLossReason.Accident, c);
+    }
 }

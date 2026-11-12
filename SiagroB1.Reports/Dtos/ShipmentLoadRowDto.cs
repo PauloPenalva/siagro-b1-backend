@@ -16,6 +16,12 @@ public class ShipmentLoadRowDto
     public decimal TotalQuantity { get; set; }
     public decimal InvoicedQuantity { get; set; }
     public decimal ReturnedQuantity { get; set; }
+
+    /// <summary>
+    /// GAC-1213: quebra de trajeto. Está no modelo, mas o <c>ShipmentLoadsByPeriod.frx</c> ainda não
+    /// tem coluna nem total para ela — exibi-la pede mexer no template, fora do escopo.
+    /// </summary>
+    public decimal TransitLossQuantity { get; set; }
     public decimal TransshippedQuantity { get; set; }
     public decimal DischargedQuantity { get; set; }
     public decimal BalanceQuantity { get; set; }

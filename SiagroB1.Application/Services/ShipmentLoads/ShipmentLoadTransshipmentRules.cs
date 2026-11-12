@@ -68,7 +68,7 @@ public static class ShipmentLoadTransshipmentRules
                 $"A carga {load.Code} já foi descarregada no destino. Exclua o ticket de descarga antes de iniciar o transbordo.");
 
         if (load.Status is ShipmentLoadStatus.Cancelled or ShipmentLoadStatus.Returned
-            or ShipmentLoadStatus.Completed)
+            or ShipmentLoadStatus.TransitLoss or ShipmentLoadStatus.Completed)
             throw new ApplicationException(
                 $"A carga {load.Code} está encerrada e não aceita transbordo.");
     }

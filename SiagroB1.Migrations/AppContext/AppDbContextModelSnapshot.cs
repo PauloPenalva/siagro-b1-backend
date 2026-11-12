@@ -7677,6 +7677,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int?>("PaymentConditionCode")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("RefusalStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("ReturnedQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
@@ -7753,6 +7756,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("CustodyStorageTransactionKey");
 
                     b.HasIndex("DocNumberKey");
+
+                    b.HasIndex("RefusalStorageTransactionKey");
 
                     b.HasIndex("SalesInvoiceOriginKey");
 
@@ -8296,6 +8301,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("TotalQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
+                    b.Property<decimal>("TransitLossQuantity")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
                     b.Property<decimal>("TransshippedQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
@@ -8711,6 +8719,9 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TransitLossReason")
                         .HasColumnType("int");
 
                     b.HasKey("Key");
@@ -9969,6 +9980,9 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("VARCHAR(20)");
 
                     b.Property<int>("TransactionType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TransitLossReason")
                         .HasColumnType("int");
 
                     b.Property<string>("TruckCode")
@@ -13407,6 +13421,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
                         .WithMany()
                         .HasForeignKey("DocNumberKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("RefusalStorageTransactionKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.SalesInvoice", "SalesInvoiceOrigin")

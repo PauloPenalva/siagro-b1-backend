@@ -31,6 +31,9 @@ public class ShipmentLoadRefusal
     [Column(TypeName = "VARCHAR(200)")]
     public string? DestinationWarehouseName { get; set; }
 
+    /// <summary>Motivo da perda; só preenchido quando o destino é <see cref="RefusalDestination.TransitLoss"/> (GAC-1213).</summary>
+    public TransitLossReason? TransitLossReason { get; set; }
+
     [Column(TypeName = "VARCHAR(500)")]
     public required string Reason { get; set; }
 

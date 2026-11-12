@@ -81,6 +81,7 @@ public static class ShipmentLoadChangeLogFields
         ShipmentLoadStatus.InTransshipment => "Em Transbordo",
         ShipmentLoadStatus.Discharged => "Descarregada",
         ShipmentLoadStatus.RefusalPending => "Recusa aguardando NF-e",
+        ShipmentLoadStatus.TransitLoss => "Quebra de trajeto",
         _ => status.ToString(),
     };
 

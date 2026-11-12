@@ -53,5 +53,10 @@ public class StorageTransactionsCopyService(
     {
         if (original.TransactionType is StorageTransactionType.WarehouseLoss or StorageTransactionType.WarehouseGain)
             throw new ApplicationException(resource["WAREHOUSE_RECONCILIATION_TRANSACTION_NOT_COPYABLE"].Value);
+
+        // GAC-1213: o romaneio de quebra de trajeto nasce da recusa da carga e se desfaz pelo
+        // estorno da devolução; uma cópia seria um registro solto, sem carga nem devolução donas.
+        if (original.TransactionType == StorageTransactionType.TransitLoss)
+            throw new ApplicationException(resource["TRANSIT_LOSS_TRANSACTION_NOT_COPYABLE"].Value);
     }
 }

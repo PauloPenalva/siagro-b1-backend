@@ -78,7 +78,7 @@ public class ShipmentLoadRefusalCompleteService(
             await effects.ApplyAsync(
                 new RefusalEffectsInput(
                     load, refusal.Destination, refusal.DestinationWarehouseCode, refusal.DestinationWarehouseName,
-                    origins, totalQuantity, refusal.Reason),
+                    origins, totalQuantity, refusal.Reason, refusal.TransitLossReason, returns),
                 userName);
         }
 

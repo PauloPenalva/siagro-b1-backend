@@ -68,6 +68,16 @@ public class ShipmentLoadsCompositionGuardService(AppDbContext context)
                 $"A carga {load.Code} teve {returned:N3} devolvido(s) ao armazém por recusa e sua " +
                 "composição não pode mais ser alterada.");
         }
+
+        var transitLoss = await ShipmentLoadsRecalculateTransitLossService
+            .CalculateTransitLossAsync(context, load.Key);
+
+        if (transitLoss > Tolerance)
+        {
+            throw new ApplicationException(
+                $"A carga {load.Code} teve {transitLoss:N3} perdido(s) em quebra de trajeto e sua " +
+                "composição não pode mais ser alterada.");
+        }
     }
 
     /// <summary>

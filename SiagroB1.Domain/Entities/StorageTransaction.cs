@@ -293,6 +293,9 @@ public class StorageTransaction : DocumentEntity
     [Column(TypeName = "VARCHAR(200)")]
     public string? RoyaltyOriginName { get; set; }
     
+    /// <summary>Motivo da perda; só preenchido no romaneio de Quebra de trajeto, tipo 18 (GAC-1213).</summary>
+    public TransitLossReason? TransitLossReason { get; set; }
+
     public FreightCalculationMethod FreightCalculationMethod { get; set; } = FreightCalculationMethod.Fixed;
 
     /// <summary>Valor da viagem (Fixo) ou R$ por saco de 60 kg (Saco).</summary>

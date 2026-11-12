@@ -30,6 +30,7 @@ public class ShipmentLoadsPendingRefusalService(IUnitOfWork db)
             DestinationWarehouseCode = refusal.DestinationWarehouseCode,
             DestinationWarehouseName = refusal.DestinationWarehouseName,
             Reason = refusal.Reason,
+            TransitLossReason = refusal.TransitLossReason?.ToString(),
             BranchCode = i.BranchCode,
             SalesInvoiceKey = i.Key.ToString(),
             InvoiceNumber = i.InvoiceNumber,

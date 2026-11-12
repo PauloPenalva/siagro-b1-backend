@@ -157,6 +157,14 @@ public class ShipmentLoad : DocumentEntity
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal TransshippedQuantity { get; set; }
 
+    /// <summary>
+    /// Persistido-derivado: Σ do peso dos romaneios de Quebra de trajeto da carga (GAC-1213) — o
+    /// quinto termo do saldo. Escritor único: <c>ShipmentLoadsRecalculateInvoicedService</c>, pelo
+    /// mesmo motivo dos outros termos (o status depende dele).
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal TransitLossQuantity { get; set; }
+
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
 
@@ -214,13 +222,14 @@ public class ShipmentLoad : DocumentEntity
     public virtual ICollection<StorageTransaction> RefusalReturns { get; } = [];
 
     /// <summary>
-    /// Saldo a faturar, derivado dos quatro persistidos. Carga cancelada não tem saldo.
+    /// Saldo a faturar, derivado dos cinco persistidos. Carga cancelada não tem saldo.
     /// </summary>
     [NotMapped]
     public decimal AvailableQuantity => Status == ShipmentLoadStatus.Cancelled
         ? decimal.Zero
         : CalculateAvailableQuantity(
-            TotalQuantity, InvoicedQuantity, ReturnedToWarehouseQuantity, TransshippedQuantity);
+            TotalQuantity, InvoicedQuantity, ReturnedToWarehouseQuantity, TransshippedQuantity,
+            TransitLossQuantity);
 
     /// <summary>
     /// Regra de arredondamento do saldo, compartilhada com quem precisa avaliá-lo antes de
@@ -231,7 +240,8 @@ public class ShipmentLoad : DocumentEntity
     /// <paramref name="invoicedQuantity"/> é o volume COMERCIALMENTE consumido pelas notas
     /// vivas, <paramref name="returnedToWarehouseQuantity"/> é o volume que saiu
     /// FISICAMENTE da carga de volta para um armazém, e <paramref name="transshippedQuantity"/>
-    /// é o volume que saiu para um transbordo (GAC-1181). Uma recusa que devolve mercadoria ao
+    /// é o volume que saiu para um transbordo (GAC-1181) e <paramref name="transitLossQuantity"/>
+    /// é o volume perdido no trajeto (GAC-1213). Uma recusa que devolve mercadoria ao
     /// armazém primeiro devolve o saldo comercial (a devolução confirmada abate a origem) e só
     /// então o retira pelo segundo termo — nunca o mesmo volume duas vezes.
     /// </remarks>
@@ -239,9 +249,10 @@ public class ShipmentLoad : DocumentEntity
         decimal totalQuantity,
         decimal invoicedQuantity,
         decimal returnedToWarehouseQuantity,
-        decimal transshippedQuantity) =>
+        decimal transshippedQuantity,
+        decimal transitLossQuantity) =>
         decimal.Round(
-            totalQuantity - invoicedQuantity - returnedToWarehouseQuantity - transshippedQuantity,
+            totalQuantity - invoicedQuantity - returnedToWarehouseQuantity - transshippedQuantity - transitLossQuantity,
             3, MidpointRounding.ToEven);
 
     [NotMapped]

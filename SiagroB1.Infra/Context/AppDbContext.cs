@@ -997,6 +997,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.ShipmentLoadRefusalKey)
             .OnDelete(DeleteBehavior.NoAction);
 
+        // GAC-1213: romaneio (12 ou 18) gerado pela recusa desta devolução. NoAction: histórico.
+        modelBuilder.Entity<SalesInvoice>()
+            .HasOne<StorageTransaction>()
+            .WithMany()
+            .HasForeignKey(x => x.RefusalStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
         modelBuilder.Entity<StorageTransaction>()
             .HasOne(x => x.ShipmentLoadTransshipment)
             .WithMany()

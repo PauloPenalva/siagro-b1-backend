@@ -117,6 +117,36 @@ public class ShipmentLoadsBillingGuardServiceTests
             () => Guard().EnsureCanBillAsync(Guid.NewGuid(), 1_000, Carrier));
     }
 
+    /// <summary>GAC-1213: o volume perdido em quebra de trajeto sai do saldo oferecido ao faturamento.</summary>
+    [Fact]
+    public async Task Does_not_offer_the_volume_lost_in_transit()
+    {
+        var load = Load();
+        _db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "RM000888",
+            CardCode = "C001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = "ARM99",
+            BranchCode = "01",
+            GrossWeight = 30_000m,
+            NetWeight = 30_000m,
+            TransactionType = StorageTransactionType.TransitLoss,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            RefusedFromShipmentLoadKey = load.Key,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        await Guard().EnsureCanBillAsync(load.Key, 60_000, Carrier);
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(load.Key, 60_001, Carrier));
+
+        // A mensagem de excesso explica o saldo com todos os termos — inclusive a perda.
+        Assert.Contains("quebra de trajeto", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task Decides_by_the_recalculated_balance_not_the_persisted_one()
     {
@@ -268,4 +298,21 @@ public class ShipmentLoadsBillingGuardServiceTests
         Assert.Contains("transbordo", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// GAC-1213: a carga encerrada por quebra de trajeto tem as mesmas consequências da Devolvida
+    /// — recusada por STATUS, com mensagem própria (não diz "devolvida ao armazém").
+    /// </summary>
+    [Fact]
+    public async Task A_load_closed_by_transit_loss_cannot_be_billed()
+    {
+        var load = Load(status: ShipmentLoadStatus.TransitLoss);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(load.Key, 10_000, Carrier));
+
+        Assert.Contains("CG000007", error.Message);
+        Assert.Contains("quebra de trajeto", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("devolvida", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

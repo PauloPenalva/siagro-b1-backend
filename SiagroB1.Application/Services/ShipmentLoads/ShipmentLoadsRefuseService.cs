@@ -23,7 +23,8 @@ public sealed record RefusalRequest(
     IReadOnlyList<RefusalLine> Lines,
     RefusalDestination Destination,
     string? DestinationWarehouseCode,
-    string Reason);
+    string Reason,
+    TransitLossReason? TransitLossReason = null);
 
 /// <summary>Resultado da recusa. <c>RefusalKey</c> só no modo em dois tempos (filial que emite NF-e pelo Siagro).</summary>
 public sealed record RefusalResult(ShipmentLoad Load, Guid? RefusalKey);
@@ -34,7 +35,7 @@ public sealed record RefusalResult(ShipmentLoad Load, Guid? RefusalKey);
 /// mercadoria a um armazém.
 /// </summary>
 /// <remarks>
-/// <b>Os três destinos e o que os separa</b> (os efeitos físicos de Warehouse e Transshipment são
+/// <b>Os quatro destinos e o que os separa</b> (os efeitos físicos de Warehouse, Transshipment e TransitLoss são
 /// aplicados por <see cref="ShipmentLoadRefusalEffectsService"/>):
 /// <list type="bullet">
 /// <item><c>Rebilling</c> — o caminhão segue viagem. As devoluções confirmadas devolvem o saldo
@@ -52,6 +53,11 @@ public sealed record RefusalResult(ShipmentLoad Load, Guid? RefusalKey);
 /// credita o armazém é o <c>ShipmentLoadsTransshipmentRegisterEntryService</c> (Task 5), depois,
 /// quando o caminhão for pesado lá — aqui NÃO nasce romaneio 12 nem liberação
 /// <c>SalesReturn</c>.</item>
+/// <item><c>TransitLoss</c> (GAC-1213) — a mercadoria se perdeu no caminho (avaria, sinistro,
+/// roubo). Além das devoluções, nasce um romaneio <see cref="StorageTransactionType.TransitLoss"/>
+/// confirmado, fora de todo saldo, que retira o volume da carga pelo quinto termo; a carga fecha
+/// em <see cref="ShipmentLoadStatus.TransitLoss"/>. Sem armazém de destino, sem liberação, e a
+/// perna de compra segue entregue.</item>
 /// </list>
 /// <para>
 /// <b>Tudo numa transação só, e por isso todos os serviços internos são chamados em
@@ -134,15 +140,19 @@ public class ShipmentLoadsRefuseService(
 
             await db.SaveChangesAsync();
 
+            var returns = new List<SalesInvoice>();
             foreach (var line in lines)
             {
-                await ReturnAsync(load, line, request.Reason, userName);
+                returns.Add(await ReturnAsync(load, line, request.Reason, userName));
             }
 
             await effects.ApplyAsync(
                 new RefusalEffectsInput(
                     load, request.Destination, warehouse?.Code, warehouse?.Name,
-                    lines.Select(l => l.Invoice).ToList(), totalQuantity, request.Reason),
+                    lines.Select(l => l.Invoice).ToList(), totalQuantity, request.Reason,
+                    // O tipo da quebra só vale para o próprio destino; nos outros é ignorado.
+                    request.Destination == RefusalDestination.TransitLoss ? request.TransitLossReason : null,
+                    returns),
                 userName);
 
             load.UpdatedAt = DateTime.Now;
@@ -203,6 +213,8 @@ public class ShipmentLoadsRefuseService(
             DestinationWarehouseCode = warehouse?.Code,
             DestinationWarehouseName = warehouse?.Name,
             Reason = request.Reason.Trim(),
+            // O tipo da quebra só vale para o próprio destino; nos outros nada é guardado.
+            TransitLossReason = request.Destination == RefusalDestination.TransitLoss ? request.TransitLossReason : null,
             CreatedBy = userName,
         };
 
@@ -258,7 +270,7 @@ public class ShipmentLoadsRefuseService(
     /// juntos, e diferidos: é a confirmação que devolve o saldo à carga, e deixá-la para depois
     /// significaria a carga não voltar a ficar disponível — que é o objetivo do fluxo.
     /// </summary>
-    private async Task ReturnAsync(ShipmentLoad load, ResolvedLine line, string reason, string userName)
+    private async Task<SalesInvoice> ReturnAsync(ShipmentLoad load, ResolvedLine line, string reason, string userName)
     {
         var returnInvoice = SalesInvoiceReturnFactory.CreateFrom(
             line.Invoice, userName, line.QuantitiesByOriginItemKey);
@@ -276,6 +288,8 @@ public class ShipmentLoadsRefuseService(
         await confirmService.ExecuteAsync(returnInvoice.Key, userName, CommitMode.Deferred);
 
         await db.SaveChangesAsync();
+
+        return returnInvoice;
     }
 
     /// <summary>
@@ -335,6 +349,21 @@ public class ShipmentLoadsRefuseService(
         {
             throw new ApplicationException(
                 "Informe o armazém de destino da mercadoria devolvida.");
+        }
+
+        // GAC-1213: a mercadoria se perdeu no caminho — não há armazém que a receba, e o tipo da
+        // quebra é o que o romaneio 18 e o relatório de perdas classificam.
+        if (request.Destination == RefusalDestination.TransitLoss)
+        {
+            if (request.TransitLossReason is null)
+                throw new ApplicationException("Informe o tipo da quebra de trajeto.");
+
+            if (!string.IsNullOrWhiteSpace(request.DestinationWarehouseCode))
+                throw new ApplicationException("A quebra de trajeto não tem armazém de destino.");
+
+            // O romaneio 18 grava o armazém de ORIGEM (coluna NOT NULL): sem ele, falharia no SaveChanges.
+            if (string.IsNullOrWhiteSpace(load.WarehouseCode))
+                throw new ApplicationException(ShipmentLoadRefusalRules.MissingOriginWarehouseMessage(load));
         }
     }
 

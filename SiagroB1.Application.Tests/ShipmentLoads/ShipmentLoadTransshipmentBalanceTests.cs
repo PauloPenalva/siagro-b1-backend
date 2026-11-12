@@ -36,7 +36,7 @@ public class ShipmentLoadTransshipmentBalanceTests
         bool hasOpen, ShipmentLoadStatus expected)
     {
         Assert.Equal(expected, ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-            total, invoiced, returned, transshipped, hasOpen));
+            total, invoiced, returned, transshipped, 0m, hasOpen));
     }
 
     /// <summary>
@@ -53,6 +53,7 @@ public class ShipmentLoadTransshipmentBalanceTests
                 invoicedQuantity: decimal.Zero,
                 returnedToWarehouseQuantity: decimal.Zero,
                 transshippedQuantity: decimal.Zero,
+                transitLossQuantity: decimal.Zero,
                 hasOpenTransshipment: true));
     }
 

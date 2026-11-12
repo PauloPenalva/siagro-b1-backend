@@ -36,5 +36,10 @@ public enum ShipmentLoadStatus
     /// (spec 2026-10-09). Vence todas as outras situações no recálculo e trava faturar, nova recusa, ticket,
     /// transbordo e campos fiscais.
     /// </summary>
-    RefusalPending = 9
+    RefusalPending = 9,
+
+    /// <summary>
+    /// Todo o saldo restante da carga foi perdido no trajeto (GAC-1213) — encerrada, sem saldo.
+    /// </summary>
+    TransitLoss = 10
 }

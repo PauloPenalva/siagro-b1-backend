@@ -37,4 +37,12 @@ public enum RefusalDestination
     /// LEGADO (<c>SalesInvoicesReturnService</c>) não tem carga para carregar um transbordo.
     /// </summary>
     Transshipment = 2,
+
+    /// <summary>
+    /// A mercadoria se perdeu no trajeto (avaria, acidente, roubo ou outro motivo — GAC-1213): não
+    /// volta a nenhum armazém nem a nenhum destino. A recusa devolve os documentos de saída como
+    /// nos outros destinos e o volume perdido sai do saldo da carga como
+    /// <see cref="ShipmentLoadStatus.TransitLoss"/>. Exclusivo do fluxo de CARGA.
+    /// </summary>
+    TransitLoss = 3,
 }

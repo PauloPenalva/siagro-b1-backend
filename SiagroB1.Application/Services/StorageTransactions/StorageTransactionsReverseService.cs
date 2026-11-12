@@ -56,8 +56,13 @@ public class StorageTransactionsReverseService(
                 .Select(x => x.Code)
                 .FirstOrDefaultAsync();
 
+            // GAC-1213: o romaneio 18 também nasce da recusa, mas não devolve nada a armazém.
+            var origin = doc.TransactionType == StorageTransactionType.TransitLoss
+                ? "a quebra de trajeto"
+                : "a devolução da recusa";
+
             throw new ApplicationException(
-                $"O romaneio {doc.Code} é a devolução da recusa da carga {refusedLoadCode} e " +
+                $"O romaneio {doc.Code} é {origin} da carga {refusedLoadCode} e " +
                 "não pode ser estornado por aqui.");
         }
 

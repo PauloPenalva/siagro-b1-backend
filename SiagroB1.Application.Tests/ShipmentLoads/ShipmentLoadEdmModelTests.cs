@@ -192,6 +192,38 @@ public class ShipmentLoadEdmModelTests
             action.Parameters.Single(p => p.Name == "DestinationWarehouseCode"));
     }
 
+    /// <summary>
+    /// GAC-1213: o motivo da quebra é opcional no EDM (os outros destinos não o enviam) e viaja
+    /// como string com o NOME do enum. Declarado obrigatório, a ação sem ele cai no 400 do reader.
+    /// </summary>
+    [Fact]
+    public void ShipmentLoadsRefuse_declares_the_transit_loss_reason_as_an_optional_string()
+    {
+        var action = Model()
+            .SchemaElements
+            .OfType<IEdmAction>()
+            .Single(a => a.Name == "ShipmentLoadsRefuse");
+
+        var parameter = action.Parameters.Single(p => p.Name == "TransitLossReason");
+
+        Assert.Equal("Edm.String", parameter.Type.Definition.FullTypeName());
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(parameter);
+    }
+
+    [Fact]
+    public void The_transit_loss_fields_are_exposed_to_the_screens()
+    {
+        Assert.Contains(
+            nameof(ShipmentLoad.TransitLossQuantity),
+            EntityType(nameof(ShipmentLoad)).Properties().Select(p => p.Name));
+        Assert.Contains(
+            nameof(StorageTransaction.TransitLossReason),
+            EntityType(nameof(StorageTransaction)).Properties().Select(p => p.Name));
+        Assert.Contains(
+            nameof(SalesInvoice.RefusalStorageTransactionKey),
+            EntityType(nameof(SalesInvoice)).Properties().Select(p => p.Name));
+    }
+
     [Fact]
     public void ShipmentLoadsGetRefusableDocuments_is_a_function_returning_a_collection()
     {

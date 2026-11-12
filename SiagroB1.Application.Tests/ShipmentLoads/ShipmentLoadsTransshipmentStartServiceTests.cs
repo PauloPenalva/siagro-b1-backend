@@ -163,6 +163,7 @@ public class ShipmentLoadsTransshipmentStartServiceTests
     [Theory]
     [InlineData(ShipmentLoadStatus.Cancelled, ShipmentLoadType.Normal)]
     [InlineData(ShipmentLoadStatus.Returned, ShipmentLoadType.Normal)]
+    [InlineData(ShipmentLoadStatus.TransitLoss, ShipmentLoadType.Normal)]
     [InlineData(ShipmentLoadStatus.Open, ShipmentLoadType.Removal)]
     public async Task Start_RefusesCancelledOrReturnedOrRemovalLoad(
         ShipmentLoadStatus status, ShipmentLoadType loadType)
@@ -170,8 +171,11 @@ public class ShipmentLoadsTransshipmentStartServiceTests
         var load = Load(status: status, totalQuantity: 30_000, loadType: loadType);
         await _db.Context.SaveChangesAsync();
 
-        await Assert.ThrowsAsync<ApplicationException>(
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
             () => Service().ExecuteAsync(load.Key, Warehouse, DateTime.Today, null, "tester"));
+
+        // A mensagem é genérica ("encerrada"): não diz "devolvida" para a carga de quebra de trajeto.
+        Assert.DoesNotContain("devolvida", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

@@ -8,7 +8,10 @@ using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
-/// <summary>O que a recusa precisa para aplicar o destino físico. <c>RefusedInvoices</c> são as notas de ORIGEM.</summary>
+/// <summary>
+/// O que a recusa precisa para aplicar o destino físico. <c>RefusedInvoices</c> são as notas de ORIGEM;
+/// <c>ReturnInvoices</c>, as devoluções desta recusa, que recebem o vínculo com o romaneio gerado.
+/// </summary>
 public sealed record RefusalEffectsInput(
     ShipmentLoad Load,
     RefusalDestination Destination,
@@ -16,7 +19,9 @@ public sealed record RefusalEffectsInput(
     string? WarehouseName,
     IReadOnlyList<SalesInvoice> RefusedInvoices,
     decimal TotalQuantity,
-    string Reason);
+    string Reason,
+    TransitLossReason? TransitLossReason = null,
+    IReadOnlyList<SalesInvoice>? ReturnInvoices = null);
 
 /// <summary>
 /// Efeitos físicos do destino da recusa — devolução ao armazém ou abertura do transbordo. Usado pela recusa síncrona
@@ -46,7 +51,104 @@ public class ShipmentLoadRefusalEffectsService(
             case RefusalDestination.Transshipment:
                 await OpenTransshipmentAsync(input, userName);
                 break;
+            case RefusalDestination.TransitLoss:
+                await RegisterTransitLossAsync(input, userName);
+                break;
         }
+    }
+
+    /// <summary>
+    /// Registra a mercadoria perdida no trajeto (GAC-1213): um romaneio
+    /// <see cref="StorageTransactionType.TransitLoss"/> confirmado, só de registro, que retira o
+    /// volume da carga pelo quinto termo do saldo.
+    /// </summary>
+    /// <remarks>
+    /// O romaneio 18 não entra em saldo nenhum (armazém, lote, embarcado da liberação) e não gera
+    /// liberação: nada volta à Expedição. <c>WarehouseCode</c> é o armazém de ORIGEM da carga só
+    /// porque a coluna é NOT NULL. Valem as mesmas três chaves proibidas do romaneio 12 (ver
+    /// <see cref="ReturnToWarehouseAsync"/>); o vínculo é <c>RefusedFromShipmentLoadKey</c>.
+    /// <para>
+    /// ⚠️ O estorno acha o romaneio da recusa pelo vínculo <c>SalesInvoice.RefusalStorageTransactionKey</c>
+    /// (gravado em <see cref="LinkReturns"/>), não pela lista de documentos. A lista
+    /// <c>Documento(s): ...</c> segue no Comments só como narrativa (e como chave do legado do
+    /// tipo 12, anterior ao vínculo); vem ANTES do motivo livre para que o corte em VARCHAR(500)
+    /// só coma o motivo.
+    /// </para>
+    /// </remarks>
+    private async Task RegisterTransitLossAsync(RefusalEffectsInput input, string userName)
+    {
+        var load = input.Load;
+        // A conclusão da recusa em dois tempos também monta a entrada: não confiar em quem chama.
+        var reason = input.TransitLossReason
+                     ?? throw new ApplicationException("Informe o tipo da quebra de trajeto.");
+
+        if (string.IsNullOrWhiteSpace(load.WarehouseCode))
+            throw new ApplicationException(ShipmentLoadRefusalRules.MissingOriginWarehouseMessage(load));
+        var reasonLabel = TransitLossReasonText.Describe(reason);
+        var invoiceNumbers = FormatInvoiceNumbers(input.RefusedInvoices);
+        var cardCodes = string.Join(", ", input.RefusedInvoices.Select(i => i.CardCode).Distinct());
+
+        var entry = new StorageTransaction
+        {
+            TransactionType = StorageTransactionType.TransitLoss,
+            TransactionStatus = StorageTransactionsStatus.Pending,
+            TransactionDate = DateTime.Now.Date,
+            BranchCode = load.BranchCode,
+            ItemCode = load.ItemCode,
+            UnitOfMeasureCode = load.UnitOfMeasureCode,
+            WarehouseCode = load.WarehouseCode!,
+            CardCode = input.RefusedInvoices[0].CardCode,
+            TruckCode = load.TruckCode,
+            TruckDriverCode = load.TruckDriverCode,
+            GrossWeight = input.TotalQuantity,
+            NetWeight = input.TotalQuantity,
+            RefusedFromShipmentLoadKey = load.Key,
+            TransitLossReason = reason,
+            Comments = Truncate(
+                $"Quebra de trajeto da carga {load.Code} ({reasonLabel}). " +
+                $"Documento(s): {invoiceNumbers}. Cliente(s): {cardCodes}. Motivo: {input.Reason}."),
+        };
+
+        await storageCreate.ExecuteAsync(
+            entry, userName, TransactionCode.ShipmentLoad, CommitMode.Deferred);
+
+        await db.SaveChangesAsync();
+
+        LinkReturns(input, entry);
+
+        await storageConfirm.ExecuteAsync(entry, userName, CommitMode.Deferred);
+
+        // DEPOIS do SaveChanges: o quinto termo do saldo é um somatório no SERVIDOR.
+        await db.SaveChangesAsync();
+
+        await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(
+            db.Context, load.Key, excludedInvoiceKeys: null);
+
+        movementLog.Register(
+            load.Key,
+            ShipmentLoadMovementType.TransitLoss,
+            -input.TotalQuantity,
+            load.AvailableQuantity,
+            $"Quebra de trajeto ({reasonLabel}) registrada pelo romaneio {entry.Code}: " +
+            $"{input.TotalQuantity:N3}.",
+            userName,
+            movementContext: new ShipmentLoadMovementContext(
+                CardCode: input.RefusedInvoices[0].CardCode,
+                CardName: input.RefusedInvoices[0].CardName,
+                DeliveryCardCode: input.RefusedInvoices[0].DeliveryCardCode,
+                DeliveryCardName: input.RefusedInvoices[0].DeliveryCardName,
+                Reason: input.Reason,
+                StorageTransactionKey: entry.Key));
+    }
+
+    /// <summary>
+    /// Grava em cada devolução da recusa o romaneio que ela gerou: é o vínculo que o estorno usa para achar a
+    /// entrada certa e os irmãos, sem depender do número do documento (que se repete em recusas parciais).
+    /// </summary>
+    private static void LinkReturns(RefusalEffectsInput input, StorageTransaction entry)
+    {
+        foreach (var returnInvoice in input.ReturnInvoices ?? [])
+            returnInvoice.RefusalStorageTransactionKey = entry.Key;
     }
 
     /// <summary>
@@ -106,6 +208,8 @@ public class ShipmentLoadRefusalEffectsService(
             entry, userName, TransactionCode.ShipmentLoad, CommitMode.Deferred);
 
         await db.SaveChangesAsync();
+
+        LinkReturns(input, entry);
 
         await storageConfirm.ExecuteAsync(entry, userName, CommitMode.Deferred);
 
@@ -263,8 +367,11 @@ public class ShipmentLoadRefusalEffectsService(
     private static string AppendComment(string? current, string addition)
     {
         var merged = string.IsNullOrWhiteSpace(current) ? addition : $"{current} {addition}";
-        return merged.Length <= 500 ? merged : merged[..500];
+        return Truncate(merged);
     }
+
+    /// <summary>Corta no VARCHAR(500) da coluna <c>Comments</c>.</summary>
+    private static string Truncate(string text) => text.Length <= 500 ? text : text[..500];
 
     /// <summary>
     /// Lista os documentos recusados para a narrativa do romaneio (<see cref="ReturnToWarehouseAsync"/>)

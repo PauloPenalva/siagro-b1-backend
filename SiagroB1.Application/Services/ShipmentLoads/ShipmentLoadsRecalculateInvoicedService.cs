@@ -130,6 +130,10 @@ public class ShipmentLoadsRecalculateInvoicedService(
         var transshipped = await ShipmentLoadsRecalculateTransshippedService
             .CalculateTransshippedAsync(context, shipmentLoadKey);
 
+        // O quinto termo (GAC-1213), mesmo motivo: o status depende dele.
+        var transitLoss = await ShipmentLoadsRecalculateTransitLossService
+            .CalculateTransitLossAsync(context, shipmentLoadKey);
+
         var hasOpenTransshipment = await ShipmentLoadsRecalculateTransshippedService
             .HasOpenTransshipmentAsync(context, shipmentLoadKey);
 
@@ -137,7 +141,7 @@ public class ShipmentLoadsRecalculateInvoicedService(
             .AnyAsync(x => x.ShipmentLoadKey == shipmentLoadKey && x.Status == ShipmentLoadRefusalStatus.Pending);
 
         var baseStatus = ResolveStatus(
-            load.TotalQuantity, invoiced, returned, transshipped, hasOpenTransshipment, hasPendingRefusal);
+            load.TotalQuantity, invoiced, returned, transshipped, transitLoss, hasOpenTransshipment, hasPendingRefusal);
 
         // Só o ramo Faturada usa a Conferência e os tickets: fora dele a consulta seria trabalho à toa.
         var closure = baseStatus == ShipmentLoadStatus.Invoiced
@@ -147,9 +151,11 @@ public class ShipmentLoadsRecalculateInvoicedService(
         load.InvoicedQuantity = invoiced;
         load.ReturnedToWarehouseQuantity = returned;
         load.TransshippedQuantity = transshipped;
+        load.TransitLossQuantity = transitLoss;
         load.Status = ResolveClosure(baseStatus, closure.AllDischarged, closure.AllDeliveriesClosed);
         load.UpdatedAt = DateTime.Now;
 
+        // TransitLoss (GAC-1213): a mercadoria saiu e foi perdida no trajeto; o romaneio não volta à Montagem.
         // Carga ENCERRADA (faturada, descarregada, concluída ou devolvida ao armazém) não
         // devolve romaneio para Confirmed, que é o filtro da tela de Montagem: a mercadoria já
         // saiu, por venda ou por devolução, e o romaneio não pode reaparecer como disponível
@@ -159,6 +165,7 @@ public class ShipmentLoadsRecalculateInvoicedService(
         // Confirmed o ofereceria à Montagem enquanto a recusa aguarda NF-e.
         var shipmentStatus = load.Status is ShipmentLoadStatus.Invoiced or ShipmentLoadStatus.Returned
             or ShipmentLoadStatus.Discharged or ShipmentLoadStatus.Completed or ShipmentLoadStatus.RefusalPending
+            or ShipmentLoadStatus.TransitLoss
             ? StorageTransactionsStatus.Invoiced
             : StorageTransactionsStatus.Confirmed;
 
@@ -236,8 +243,8 @@ public class ShipmentLoadsRecalculateInvoicedService(
     /// </para>
     /// </remarks>
     /// <remarks>
-    /// <b>O encerramento é decidido pelo SALDO (os quatro termos), o rótulo só pelo consumo
-    /// COMERCIAL (faturado + devolvido ao armazém)</b> — o transbordo fecha a carga, mas não é
+    /// <b>O encerramento é decidido pelo SALDO (os cinco termos), o rótulo só pelo consumo
+    /// COMERCIAL (faturado + devolvido ao armazém + perdido em trajeto)</b> — o transbordo fecha a carga, mas não é
     /// venda nem devolução, então não pode fazer a carga ler "Faturada Parcial" sozinho: depois
     /// que a saída do transbordo é vinculada e nada foi faturado ainda, <c>available</c> fica
     /// positivo (o comercial não tocou a carga) e o resultado é <c>Open</c>, não
@@ -270,6 +277,7 @@ public class ShipmentLoadsRecalculateInvoicedService(
         decimal invoicedQuantity,
         decimal returnedToWarehouseQuantity,
         decimal transshippedQuantity,
+        decimal transitLossQuantity,
         bool hasOpenTransshipment,
         bool hasPendingRefusal = false)
     {
@@ -287,16 +295,22 @@ public class ShipmentLoadsRecalculateInvoicedService(
         var available = totalQuantity
             - invoicedQuantity
             - returnedToWarehouseQuantity
-            - transshippedQuantity;
+            - transshippedQuantity
+            - transitLossQuantity;
 
         if (available <= Tolerance)
         {
+            // GAC-1213: a quebra de trajeto vence a Devolvida e a Faturada — esconder a perda
+            // na lista seria pior do que a carga mista aparecer como "Quebra de trajeto".
+            if (transitLossQuantity > Tolerance)
+                return ShipmentLoadStatus.TransitLoss;
+
             return returnedToWarehouseQuantity > Tolerance
                 ? ShipmentLoadStatus.Returned
                 : ShipmentLoadStatus.Invoiced;
         }
 
-        if (invoicedQuantity + returnedToWarehouseQuantity <= decimal.Zero)
+        if (invoicedQuantity + returnedToWarehouseQuantity + transitLossQuantity <= decimal.Zero)
             return ShipmentLoadStatus.Open;
 
         return ShipmentLoadStatus.PartiallyInvoiced;

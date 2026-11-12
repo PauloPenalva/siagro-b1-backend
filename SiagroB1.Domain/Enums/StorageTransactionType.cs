@@ -20,4 +20,5 @@ public enum StorageTransactionType
     TransshipmentReceipt = 15,    // Transbordo - Entrada em armazém intermediário (GAC-1181)
     PurchaseDischargeLoss = 16,  // Compra - Quebra de descarga (troca nota): gerada pela Conferência de Entregas
     PurchaseDischargeGain = 17,  // Compra - Sobra de descarga (troca nota): gerada pela Conferência de Entregas
+    TransitLoss = 18,            // Venda - Quebra de trajeto: volume perdido no caminho, gerado pela recusa da carga (GAC-1213)
 }
