@@ -22,4 +22,16 @@ public class StorageTransactionQualityInspection
     
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal LossValue { get; set; } = 0;
+
+    /// <summary>
+    /// % de tolerância da Tabela de Custos (<see cref="ProcessingCostQualityParameter.MaxLimitRate"/>)
+    /// que valeu na confirmação do romaneio (GAC-1197). Cópia, e não leitura da tabela, para a
+    /// tela mostrar o que entrou no cálculo mesmo que a tabela mude depois.
+    /// </summary>
+    /// <remarks>
+    /// Nulo = sem tolerância: atributo fora da tabela, umidade (que trabalha por faixa), romaneio
+    /// ainda não confirmado ou confirmado antes deste campo existir. Zero é tolerância de verdade.
+    /// </remarks>
+    [Column(TypeName = "DECIMAL(18,1)")]
+    public decimal? ToleranceRate { get; set; }
 }

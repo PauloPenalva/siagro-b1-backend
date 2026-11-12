@@ -351,6 +351,8 @@ public class StorageTransactionsConfirmedService(
             //?? throw new ApplicationException(resource["EXCEPTION_00004"]);
             ;
         
+        RecordAppliedTolerances(st, processingCost);
+
         if (processingCost == null)
             return;
         
@@ -442,6 +444,26 @@ public class StorageTransactionsConfirmedService(
         st.ReceiptServicePrice = grossWeight * processingCost?.ReceiptPrice ?? 0;
     }
     
+    /// <summary>
+    /// GAC-1197: grava em cada linha da classificação a tolerância da Tabela de Custos usada no
+    /// cálculo acima, para a tela do romaneio mostrá-la sem depender do estado atual da tabela.
+    /// </summary>
+    /// <remarks>
+    /// Regrava todas as linhas a cada confirmação (inclusive com nulo): um romaneio estornado e
+    /// reconfirmado, ou copiado de outro, não pode carregar a tolerância de um cálculo anterior.
+    /// Umidade fica nula — a secagem trabalha por faixa, não por tolerância.
+    /// </remarks>
+    private static void RecordAppliedTolerances(StorageTransaction st, ProcessingCost? processingCost)
+    {
+        foreach (var inspection in st.QualityInspections)
+        {
+            inspection.ToleranceRate = inspection.QualityAttrib?.Type is QualityAttribType.Cleaning or QualityAttribType.Quality
+                ? processingCost?.QualityParameters
+                    .FirstOrDefault(x => x.QualityAttribCode == inspection.QualityAttribCode)?.MaxLimitRate
+                : null;
+        }
+    }
+
     private async Task CalculateShipment(StorageTransaction st)
     {
         var processingCostCode = st.ProcessingCostCode;

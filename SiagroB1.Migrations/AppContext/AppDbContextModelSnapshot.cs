@@ -10070,6 +10070,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("StorageTransactionKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("ToleranceRate")
+                        .HasColumnType("DECIMAL(18,1)");
+
                     b.Property<decimal>("Value")
                         .HasColumnType("DECIMAL(18,1) DEFAULT 0");
 
