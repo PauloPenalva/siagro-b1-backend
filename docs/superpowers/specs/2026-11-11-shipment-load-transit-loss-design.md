@@ -119,10 +119,18 @@ pendente não deixa rastro de quebra.
 
 Estornar a confirmação de uma devolução nascida de recusa com quebra **cancela junto o romaneio
 18 daquela recusa** e recalcula a carga (o volume volta a constar como faturado), seguindo a
-mecânica por recusa já existente em `SalesInvoicesReverseConfirmService`
-(`ReclaimGoodsFromWarehouseAsync`: entrada achada pela lista de documentos, irmãos confirmados
-estornados juntos). Sem as partes de armazém: não há saldo de armazém a conferir nem liberação a
-cancelar. Cancelar o romaneio 18 direto pela tela de Romaneios continua recusado.
+mecânica por recusa já existente em `SalesInvoicesReverseConfirmService`.
+
+O estorno localiza o romaneio pelo vínculo `SalesInvoice.RefusalStorageTransactionKey`, gravado em
+toda devolução da recusa nos destinos Armazém e Quebra (fluxos síncrono e em dois tempos). Os
+irmãos são as devoluções confirmadas com a mesma chave, estornadas juntas. Motivo: duas recusas
+parciais da MESMA nota com destinos diferentes (ex.: parte quebra, parte armazém) não se
+distinguem pelo texto da lista de documentos do Comments. O legado sem vínculo segue pela lista do
+Comments e só resolve o tipo 12 (o romaneio 18 é novo e sempre tem o vínculo). Sem as partes de
+armazém: não há saldo de armazém a conferir nem liberação a cancelar. O histórico da carga recebe
+um movimento `TransitLoss` positivo (volume do romaneio cancelado, um por romaneio), registrado
+depois do recálculo para que o saldo posterior reflita a carga refeita. Cancelar o romaneio 18
+direto pela tela de Romaneios continua recusado; copiá-lo também.
 
 ### 4.6 Telas (frontend)
 
@@ -152,6 +160,10 @@ Uma migration em `AppDbContext`, `AddShipmentLoadTransitLoss`:
 - `STORAGE_TRANSACTIONS.TransitLossReason INT NULL`;
 - `SHIPMENT_LOAD_REFUSALS.TransitLossReason INT NULL`.
 
+Segunda migration em `AppDbContext`, `AddSalesInvoiceRefusalEntryLink`: coluna anulável
+`SALES_INVOICES.RefusalStorageTransactionKey` + índice + FK para `STORAGE_TRANSACTIONS` com
+`NoAction`, sem backfill (ver §4.5).
+
 Sem backfill. Sem migration de menu (nenhuma tela nova).
 
 ## 5. Fora do escopo
@@ -163,6 +175,21 @@ Sem backfill. Sem migration de menu (nenhuma tela nova).
 - Exibir a quebra por contrato nas Entregas/Extrato do contrato de compra. A nota de carga não
   liga romaneio a documento, então atribuir a perda a um contrato seria rateio arbitrário; a
   compra simplesmente continua entregue (decisão minha — revisar se o usuário quiser o rateio).
+
+## 5.1 Limitações conhecidas (11–12/11/2026)
+
+- **Filial que emite NF-e pelo Siagro:** depois de concluída a recusa (NF-e de entrada
+  autorizadas), a quebra não tem estorno pela tela: a regra herdada da recusa em dois tempos
+  recusa estornar devolução com NF-e. A janela é cancelar a recusa enquanto Pendente. Decisão
+  pendente do usuário.
+- **PDF Cargas por Período** não ganhou coluna da quebra: o modelo de dados a carrega, mas o
+  template `.frx` não foi alterado. Item da §4.7 não entregue.
+- **Reconfirmar uma devolução depois do estorno** a deixa como "segue viagem" (o volume volta a
+  ficar faturável), igual ao destino Armazém.
+- **Recusas ao armazém anteriores à migration** `AddSalesInvoiceRefusalEntryLink` não têm o
+  vínculo e mantêm a ambiguidade antiga.
+- **Trava de campos fiscais** não cobre a carga Devolvida (lacuna anterior ao branch); a carga com
+  quebra (`TransitLoss`) passou a ser coberta.
 
 ## 6. O que seria um fracasso mesmo "funcionando"
 
