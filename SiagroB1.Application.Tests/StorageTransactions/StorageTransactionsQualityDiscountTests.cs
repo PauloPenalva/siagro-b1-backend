@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
+using SiagroB1.Application.Services.StorageTransactions.Factories;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
@@ -141,5 +142,81 @@ public class StorageTransactionsQualityDiscountTests
 
         Assert.Equal(140m, transaction.CleaningDiscount + transaction.OthersDicount);
         Assert.Equal(9_860m, transaction.NetWeight);
+    }
+
+    /// <summary>
+    /// GAC-1197: a tolerância aplicada fica gravada na linha da classificação, para a tela mostrar
+    /// o que valeu no cálculo mesmo que a Tabela de Custos mude depois. Vale também para o
+    /// atributo informativo (% de quebra zerada), que tem tolerância mas não desconta.
+    /// </summary>
+    [Theory]
+    [InlineData(QualityAttribType.Quality, 1)]
+    [InlineData(QualityAttribType.Cleaning, 1)]
+    [InlineData(QualityAttribType.Quality, 0)]
+    public async Task Confirming_records_the_tolerance_applied_to_the_inspection(
+        QualityAttribType attribType, decimal excessDiscountRate)
+    {
+        var transaction = await SeedAsync(attribType, 1.5m, excessDiscountRate, 3m);
+
+        await Service().ExecuteAsync(transaction, "tester");
+
+        Assert.Equal(1.5m, transaction.QualityInspections.Single().ToleranceRate);
+    }
+
+    /// <summary>
+    /// Atributo fora da Tabela de Custos não tem tolerância: fica nulo (em branco na tela), e não
+    /// zero — zero é uma tolerância de verdade.
+    /// </summary>
+    [Fact]
+    public async Task Inspection_without_parameter_in_the_cost_table_has_no_tolerance()
+    {
+        var transaction = await SeedAsync(QualityAttribType.Quality, 1.5m, 1m, 3m);
+        var other = new QualityAttrib { Code = "FN", Name = "FN", Type = QualityAttribType.Quality };
+        _db.Context.Set<QualityAttrib>().Add(other);
+        // Add no DbSet, e não na coleção: com Key preenchida, o EF trataria a linha nova como
+        // Modified e o SaveChanges falharia.
+        _db.Context.Set<StorageTransactionQualityInspection>().Add(new StorageTransactionQualityInspection
+        {
+            Key = Guid.NewGuid(),
+            StorageTransactionKey = transaction.Key,
+            QualityAttribCode = other.Code,
+            QualityAttrib = other,
+            Value = 254m,
+            ToleranceRate = 9m,
+        });
+        await _db.SaveChangesAsync();
+
+        await Service().ExecuteAsync(transaction, "tester");
+
+        Assert.Null(transaction.QualityInspections.Single(x => x.QualityAttribCode == "FN").ToleranceRate);
+    }
+
+    /// <summary>
+    /// Umidade trabalha por faixa da tabela de secagem, não por tolerância.
+    /// </summary>
+    [Fact]
+    public async Task Drying_inspection_has_no_tolerance()
+    {
+        var transaction = await SeedAsync(QualityAttribType.Drying, 1.5m, 1m, 3m);
+
+        await Service().ExecuteAsync(transaction, "tester");
+
+        Assert.Null(transaction.QualityInspections.Single().ToleranceRate);
+    }
+
+    /// <summary>
+    /// A cópia do romaneio (estorno, trocas) leva a tolerância gravada junto com o valor.
+    /// </summary>
+    [Fact]
+    public void Copy_keeps_the_recorded_tolerance()
+    {
+        var original = new StorageTransactionQualityInspection
+        {
+            QualityAttribCode = "PH", Value = 3m, ToleranceRate = 1.5m,
+        };
+
+        var copy = StorageTransactionQualityInspectionCopyFactory.CreateFrom(original, null!);
+
+        Assert.Equal(1.5m, copy.ToleranceRate);
     }
 }

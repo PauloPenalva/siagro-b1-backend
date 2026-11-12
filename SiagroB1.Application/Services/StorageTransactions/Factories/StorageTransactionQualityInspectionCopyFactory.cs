@@ -13,7 +13,8 @@ public static class StorageTransactionQualityInspectionCopyFactory
             StorageTransaction = parent,
             QualityAttribCode = original.QualityAttribCode,
             Value = original.Value,
-            LossValue =  original.LossValue
+            LossValue =  original.LossValue,
+            ToleranceRate = original.ToleranceRate
         };
     }
 }
