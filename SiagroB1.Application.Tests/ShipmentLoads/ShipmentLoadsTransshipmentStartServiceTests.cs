@@ -163,6 +163,7 @@ public class ShipmentLoadsTransshipmentStartServiceTests
     [Theory]
     [InlineData(ShipmentLoadStatus.Cancelled, ShipmentLoadType.Normal)]
     [InlineData(ShipmentLoadStatus.Returned, ShipmentLoadType.Normal)]
+    [InlineData(ShipmentLoadStatus.TransitLoss, ShipmentLoadType.Normal)]
     [InlineData(ShipmentLoadStatus.Open, ShipmentLoadType.Removal)]
     public async Task Start_RefusesCancelledOrReturnedOrRemovalLoad(
         ShipmentLoadStatus status, ShipmentLoadType loadType)

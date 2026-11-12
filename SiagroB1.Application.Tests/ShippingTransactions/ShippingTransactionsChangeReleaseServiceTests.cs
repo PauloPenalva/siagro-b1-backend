@@ -1122,6 +1122,7 @@ public class ShippingTransactionsChangeReleaseServiceTests
     [Theory]
     [InlineData(ShipmentLoadStatus.Cancelled)]
     [InlineData(ShipmentLoadStatus.Returned)]
+    [InlineData(ShipmentLoadStatus.TransitLoss)]
     [InlineData(ShipmentLoadStatus.Discharged)]
     [InlineData(ShipmentLoadStatus.Completed)]
     public async Task Rejects_WhenLoadIsClosed(ShipmentLoadStatus status)
