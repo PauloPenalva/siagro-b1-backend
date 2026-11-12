@@ -70,6 +70,11 @@ public class StorageTransactionsConfirmedService(
             case StorageTransactionType.TransshipmentReceipt:
                 await ExecuteTransshipmentReceiptTransactionAsync(st, userName, commitMode);
                 break;
+            // GAC-1213: sem este case cairia no default, que trata como COMPRA e deixaria a
+            // quebra alocável a contrato (AvaiableVolumeToAllocate = NetWeight).
+            case StorageTransactionType.TransitLoss:
+                await ExecuteTransitLossTransactionAsync(st, userName, commitMode);
+                break;
             // Perda/Sobra de armazém nascem Confirmadas pela aprovação da Conferência de Saldo.
             // Sem este case caíam no default, que trata como COMPRA: aplicava descontos e
             // tornava o volume alocável a contrato.
@@ -157,6 +162,34 @@ public class StorageTransactionsConfirmedService(
         }
     }
     
+    /// <summary>
+    /// Quebra de trajeto (GAC-1213): só registra a perda da carga recusada. Fica fora de TODO
+    /// saldo — armazém, lote, liberação e contrato.
+    /// </summary>
+    /// <remarks>
+    /// Não consulta nada: só muda o próprio romaneio. Em <c>Deferred</c> (o caso da recusa) quem
+    /// persiste é o chamador. <c>NetWeight = GrossWeight</c> e volume
+    /// alocável zero: não há tabela de custos nem contrato a abater.
+    /// </remarks>
+    private async Task ExecuteTransitLossTransactionAsync(
+        StorageTransaction st, string userName, CommitMode commitMode = CommitMode.Auto)
+    {
+        if (st.TransactionStatus != StorageTransactionsStatus.Pending)
+        {
+            //Apenas romaneios pendentes podem ser confirmados.
+            throw new ApplicationException(resource["EXCEPTION_00005"]);
+        }
+
+        st.TransactionStatus = StorageTransactionsStatus.Confirmed;
+        st.NetWeight = st.GrossWeight;
+        st.AvaiableVolumeToAllocate = decimal.Zero;
+        st.UpdatedBy = userName;
+        st.UpdatedAt = DateTime.Now;
+
+        if (commitMode == CommitMode.Auto)
+            await db.SaveChangesAsync();
+    }
+
     /// <summary>
     /// Entrada do transbordo (GAC-1181): crédito em nível de ARMAZÉM, sem lote e sem descontos.
     /// </summary>

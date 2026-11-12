@@ -53,6 +53,7 @@ public class ShipmentLoadTransshipmentBalanceTests
                 invoicedQuantity: decimal.Zero,
                 returnedToWarehouseQuantity: decimal.Zero,
                 transshippedQuantity: decimal.Zero,
+                transitLossQuantity: decimal.Zero,
                 hasOpenTransshipment: true));
     }
 
