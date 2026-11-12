@@ -10054,6 +10054,24 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("STORAGE_TRANSACTIONS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransactionLoadLink", b =>
+                {
+                    b.Property<Guid>("StorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LoadCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ShipmentLoadKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("StorageTransactionKey");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("STORAGE_TRANSACTIONS_LOAD_LINKS", (string)null);
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransactionQualityInspection", b =>
                 {
                     b.Property<Guid>("Key")
@@ -14119,6 +14137,15 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("TruckDriver");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransactionLoadLink", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", null)
+                        .WithOne("LoadLink")
+                        .HasForeignKey("SiagroB1.Domain.Entities.StorageTransactionLoadLink", "StorageTransactionKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransactionQualityInspection", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.QualityAttrib", "QualityAttrib")
@@ -14785,6 +14812,8 @@ namespace SiagroB1.Migrations.AppContext
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
                 {
+                    b.Navigation("LoadLink");
+
                     b.Navigation("QualityInspections");
                 });
 

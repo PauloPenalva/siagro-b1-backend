@@ -11,13 +11,15 @@ public class SalesContractsAllocationsController(
     )
     : ODataController
 {
-    [EnableQuery]
+    // GAC-1216: MaxExpansionDepth = 3 porque a coluna "Carga" da lista expande
+    // SalesInvoiceItem/SalesInvoice/ShipmentLoad; com o padrão (2) a tela inteira responde 400.
+    [EnableQuery(MaxExpansionDepth = 3)]
     public ActionResult<IEnumerable<SalesContractAllocation>> Get()
     {
         return Ok(allocationGetService.QueryAll());
     }
 
-    [EnableQuery]
+    [EnableQuery(MaxExpansionDepth = 3)]
     public async Task<ActionResult<SalesContractAllocation>> Get([FromRoute] Guid key)
     {
         var item = await allocationGetService.GetByIdAsync(key);
