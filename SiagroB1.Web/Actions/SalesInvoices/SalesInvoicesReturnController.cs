@@ -102,6 +102,9 @@ public class SalesInvoicesReturnController(
     {
         "Rebilling" => RefusalDestination.Rebilling,
         "Warehouse" => RefusalDestination.Warehouse,
+        // Reconhecido só para o serviço recusá-lo com a mensagem certa: como "destino desconhecido"
+        // o usuário leria "Informe o destino", que não explica nada.
+        "TransitLoss" => RefusalDestination.TransitLoss,
         _ => null,
     };
 

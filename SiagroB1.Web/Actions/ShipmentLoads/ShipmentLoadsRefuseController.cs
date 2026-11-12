@@ -61,11 +61,19 @@ public class ShipmentLoadsRefuseController(
                     "A lista de documentos e a de quantidades têm tamanhos diferentes.");
             }
 
-            var destination = ParseDestination(Text(parameters, "Destination"));
+            var destination = ShipmentLoadActionParameters.ParseRefusalDestination(
+                Text(parameters, "Destination"));
 
             if (destination == null)
             {
                 return BadRequest("Informe o destino da mercadoria recusada.");
+            }
+
+            // Opcional no EDM: os outros destinos não o enviam (ou mandam null). O serviço exige o
+            // tipo só para a quebra de trajeto e descarta o que vier com outro destino.
+            if (!ShipmentLoadActionParameters.TryReadTransitLossReason(parameters, out var transitLossReason))
+            {
+                return BadRequest(ShipmentLoadActionParameters.InvalidTransitLossReasonMessage);
             }
 
             var request = new RefusalRequest(
@@ -75,7 +83,8 @@ public class ShipmentLoadsRefuseController(
                     .ToList(),
                 Destination: destination.Value,
                 DestinationWarehouseCode: Text(parameters, "DestinationWarehouseCode"),
-                Reason: Text(parameters, "Reason") ?? string.Empty);
+                Reason: Text(parameters, "Reason") ?? string.Empty,
+                TransitLossReason: transitLossReason);
 
             var userName = User.Identity?.Name ?? "Unknown";
 
@@ -90,6 +99,7 @@ public class ShipmentLoadsRefuseController(
                 load.TotalQuantity,
                 load.InvoicedQuantity,
                 load.ReturnedToWarehouseQuantity,
+                load.TransitLossQuantity,
                 load.AvailableQuantity,
                 // Só na filial que emite NF-e pelo Siagro: a recusa fica Pendente até as NF-e de entrada.
                 RefusalKey = result.RefusalKey,
@@ -113,14 +123,6 @@ public class ShipmentLoadsRefuseController(
             return BadRequest(e.Message);
         }
     }
-
-    private static RefusalDestination? ParseDestination(string? value) => value switch
-    {
-        "Rebilling" => RefusalDestination.Rebilling,
-        "Warehouse" => RefusalDestination.Warehouse,
-        "Transshipment" => RefusalDestination.Transshipment,
-        _ => null,
-    };
 
     private static string? Text(ODataActionParameters parameters, string name)
     {

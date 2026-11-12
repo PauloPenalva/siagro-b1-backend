@@ -520,6 +520,23 @@ public class SalesInvoicesReturnServiceTests
         Assert.Contains("motivo", error.Message);
     }
 
+    /// <summary>GAC-1213: a quebra de trajeto só nasce da recusa de carga; o retorno legado não a conhece.</summary>
+    [Fact]
+    public async Task A_transit_loss_return_is_refused_before_any_write()
+    {
+        var (invoice, r1, _) = await SeedAsync();
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Service().ExecuteAsync(
+                Request(invoice, [r1.Key], RefusalDestination.TransitLoss), "tester"));
+
+        Assert.Equal("A quebra de trajeto só pode ser registrada pela recusa de carga.", error.Message);
+        Assert.DoesNotContain(
+            await _db.Context.SalesInvoices.AsNoTracking().ToListAsync(),
+            x => x.InvoiceType == SalesInvoiceType.Return);
+        Assert.Equal(StorageTransactionsStatus.Invoiced, (await ShipmentAsync(r1.Key)).TransactionStatus);
+    }
+
     [Fact]
     public async Task A_warehouse_return_without_a_warehouse_is_refused()
     {

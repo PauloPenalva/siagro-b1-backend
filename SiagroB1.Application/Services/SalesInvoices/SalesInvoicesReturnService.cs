@@ -114,6 +114,14 @@ public class SalesInvoicesReturnService(
 
     public async Task<SalesInvoice> ExecuteAsync(SalesInvoiceReturnRequest request, string userName)
     {
+        // GAC-1213: a quebra de trajeto é da recusa de CARGA. Aqui ela cairia no ramo "segue viagem"
+        // (tudo que não é Warehouse) e liberaria os romaneios para refaturar a mercadoria perdida.
+        if (request.Destination == RefusalDestination.TransitLoss)
+        {
+            throw new ApplicationException(
+                "A quebra de trajeto só pode ser registrada pela recusa de carga.");
+        }
+
         var originInvoice = await db.Context.SalesInvoices
                                 .Include(x => x.SalesTransactions)
                                 .Include(x => x.Items)

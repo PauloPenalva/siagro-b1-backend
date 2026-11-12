@@ -23,6 +23,7 @@ public static class StorageStatementReportHelper
         StorageTransactionType.WarehouseGain => "Sobra Armazém",
         StorageTransactionType.PurchaseDischargeLoss => "Quebra Descarga",
         StorageTransactionType.PurchaseDischargeGain => "Sobra Descarga",
+        StorageTransactionType.TransitLoss => "Quebra de trajeto",
         _ => "Outros"
     };
 

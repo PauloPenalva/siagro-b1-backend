@@ -153,7 +153,7 @@ public class StorageTransactionTransitLossTests
         var error = await Assert.ThrowsAnyAsync<Exception>(
             () => Cancel().ExecuteAsync(entry.Key, "tester", TransactionCode.ShipmentLoad));
 
-        Assert.Contains("recusa da carga", error.Message);
+        Assert.Contains("quebra de trajeto da carga", error.Message);
     }
 
     [Fact]
@@ -164,6 +164,6 @@ public class StorageTransactionTransitLossTests
         var error = await Assert.ThrowsAnyAsync<Exception>(
             () => Reverse().ExecuteAsync(entry.Key, "tester", TransactionCode.ShipmentLoad));
 
-        Assert.Contains("recusa da carga", error.Message);
+        Assert.Contains("quebra de trajeto da carga", error.Message);
     }
 }

@@ -99,6 +99,71 @@ public static class ShipmentLoadActionParameters
         }
     }
 
+    /// <summary>
+    /// GAC-1213: <c>Destination</c> da recusa chega como string. Nome desconhecido (ou número solto)
+    /// devolve <c>null</c> — quem chama traduz em "Informe o destino".
+    /// </summary>
+    public static RefusalDestination? ParseRefusalDestination(string? value) => value switch
+    {
+        "Rebilling" => RefusalDestination.Rebilling,
+        "Warehouse" => RefusalDestination.Warehouse,
+        "Transshipment" => RefusalDestination.Transshipment,
+        "TransitLoss" => RefusalDestination.TransitLoss,
+        _ => null,
+    };
+
+    public const string InvalidTransitLossReasonMessage = "Tipo de quebra de trajeto inválido.";
+
+    /// <summary>
+    /// GAC-1213: <c>TransitLossReason</c> chega como NOME do enum ("Damage" | "Accident" | "Theft" |
+    /// "Other"). Ausente ou em branco é válido (true com nulo): só o destino quebra o exige, e quem
+    /// cobra é o serviço. Número solto e nome desconhecido são recusados — <c>Enum.TryParse</c>
+    /// aceitaria "2" como Theft.
+    /// </summary>
+    public static bool TryParseTransitLossReason(object? value, out TransitLossReason? reason)
+    {
+        reason = null;
+
+        if (value is null)
+            return true;
+
+        if (value is not string text)
+            return false;
+
+        switch (text.Trim())
+        {
+            case "":
+                return true;
+            case "Damage":
+                reason = TransitLossReason.Damage;
+                return true;
+            case "Accident":
+                reason = TransitLossReason.Accident;
+                return true;
+            case "Theft":
+                reason = TransitLossReason.Theft;
+                return true;
+            case "Other":
+                reason = TransitLossReason.Other;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Lê o parâmetro opcional do dicionário da ação: a chave pode faltar (chamada dos outros
+    /// destinos) ou vir nula (o frontend sempre envia).
+    /// </summary>
+    public static bool TryReadTransitLossReason(
+        IDictionary<string, object> parameters, out TransitLossReason? reason)
+    {
+        reason = null;
+
+        return !parameters.TryGetValue("TransitLossReason", out var value) ||
+               TryParseTransitLossReason(value, out reason);
+    }
+
     public const string InvalidContractTypeMessage =
         "Tipo de contrato inválido. Informe Purchase ou Sales.";
 
