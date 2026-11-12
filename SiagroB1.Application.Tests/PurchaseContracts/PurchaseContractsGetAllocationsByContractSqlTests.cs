@@ -42,8 +42,25 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
     public void Main_query_references_all_expected_tables()
     {
         var sql = StripComments(ReadSql("SQL"));
-        // 1 FROM + 12 LEFT JOIN + 3 do 1o OUTER APPLY (PFR, PII, PI) + PA2 = 17 referências.
-        Assert.Equal(17, TableReference.Matches(sql).Count);
+        // 1 FROM + 15 LEFT JOIN + 3 do 1o OUTER APPLY (PFR, PII, PI) + PA2 = 20 referências.
+        Assert.Equal(20, TableReference.Matches(sql).Count);
+    }
+
+    /// <summary>
+    /// GAC-1216: a coluna "Carga" da aba Entregas. O romaneio de compra não carrega ShipmentLoadKey —
+    /// a carga é a da perna de venda da Expedição. Quando a liberação da carga foi trocada
+    /// (GAC-1177) a perna original sai da carga, e o elo passa a ser o documento da troca; os
+    /// romaneios de quebra/sobra de descarga chegam à carga pela nota conferida.
+    /// </summary>
+    [Fact]
+    public void Main_query_resolves_the_load_code_of_each_delivery()
+    {
+        var sql = StripComments(ReadSql("SQL"));
+
+        Assert.Contains("COALESCE(SLOAD.Code, CHGLOAD.Code, DLOAD.Code) AS LoadCode", sql);
+        Assert.Contains("SLOAD.[Key] = SALES.ShipmentLoadKey", sql);
+        Assert.Contains("CHG.[Key] = COALESCE(ST.ReplacedByShippingReleaseChangeKey, ST.ShippingReleaseChangeKey)", sql);
+        Assert.Contains("CHGLOAD.[Key] = CHG.ShipmentLoadKey", sql);
     }
 
     /// <summary>

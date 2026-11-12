@@ -68,6 +68,10 @@ public class SalesContractsGetAllocationsByContractDto
     [JsonPropertyName("CounterpartyContractCode")]
     public string? CounterpartyContractCode { get; set; }
 
+    /// <summary>GAC-1216: código da carga do documento de saída; vazio quando ele não tem carga.</summary>
+    [JsonPropertyName("LoadCode")]
+    public string? LoadCode { get; set; }
+
     /// <summary>Justificativa do ajuste, preenchida nas linhas de origem "Conciliação".</summary>
     [JsonPropertyName("ReconciliationReason")]
     public string? ReconciliationReason { get; set; }
