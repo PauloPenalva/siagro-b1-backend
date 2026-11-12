@@ -6,6 +6,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
+using SiagroB1.Application.Services.MasterData;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;
 
@@ -62,12 +63,22 @@ public class PurchaseContractsUpdateService(
             // SaveAsync changes
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;
-            existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
-            existingEntity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            // GAC-1196: cadastro inativo no SAP só barra quando o código MUDOU nesta edição — o
+            // contrato que já o usava segue editável. O "antes" sai do OriginalValues (PATCH chega mutado).
+            existingEntity.CardName = InactiveRecordGuard.Partner(
+                await businessPartnerService.GetByIdAsync(entity.CardCode),
+                InactiveRecordGuard.Original<string>(entry, nameof(PurchaseContract.CardCode)), "O fornecedor")?.CardName;
+            existingEntity.ItemName = InactiveRecordGuard.Item(
+                await itemService.GetByIdAsync(entity.ItemCode),
+                InactiveRecordGuard.Original<string>(entry, nameof(PurchaseContract.ItemCode)))?.ItemName;
             // Precisa ser `existingEntity`: o SetValues acima já copiou `entity`, então
             // gravar em `entity` aqui não chega ao registro rastreado e a coluna fica velha.
-            existingEntity.DeliveryLocationName = (await warehouseService.GetByIdAsync(entity.DeliveryLocationCode))?.Name;
-            existingEntity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
+            existingEntity.DeliveryLocationName = InactiveRecordGuard.Warehouse(
+                await warehouseService.GetByIdAsync(entity.DeliveryLocationCode),
+                InactiveRecordGuard.Original<string>(entry, nameof(PurchaseContract.DeliveryLocationCode)), "O local de entrega")?.Name;
+            existingEntity.AgentName = InactiveRecordGuard.Agent(
+                await agentService.GetByIdAsync((int) entity.AgentCode),
+                InactiveRecordGuard.Original<int?>(entry, nameof(PurchaseContract.AgentCode)))?.Name;
 
             // O diff tem de sair AQUI: depois do SaveChanges o EF sincroniza OriginalValues com
             // o que foi gravado e a comparação sai vazia. Sem campo notificável alterado não há

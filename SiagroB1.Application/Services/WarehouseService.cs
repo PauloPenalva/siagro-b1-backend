@@ -40,6 +40,7 @@ public class WarehouseService(AppDbContext context, ILogger<WarehouseService> lo
                 FName = x.CardFName,
                 TaxId = x.TaxId,
                 Notes = x.Notes,
+                Inactive = false,
                 // Mesma regra do LoadWarehousesAsync: primeiro endereço de ENTREGA pelo nome.
                 City = x.Addresses
                     .Where(a => a.AdresType == "S")

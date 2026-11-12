@@ -28,6 +28,11 @@ public class WarehouseService(
 
     public IQueryable<WarehouseModel> QueryAll()
     {
+        // GAC-1196: armazém é parceiro (QryGroup23), então herda o Ativo/Inativo do OCRD.
+        var inactiveCodes = context.BusinessPartners
+            .Where(SapRecordActivity.IsInactive<Domain.Entities.SAP.BusinessPartner>(DateTime.Today))
+            .Select(p => p.CardCode);
+
         return context.BusinessPartners
             .AsNoTracking()
             .Where(x => x.QryGroup23 == "Y")
@@ -38,6 +43,7 @@ public class WarehouseService(
                 TaxId =  x.TaxId,
                 FName = x.CardFName,
                 Notes = x.Notes,
+                Inactive = inactiveCodes.Contains(x.CardCode),
                 // Primeiro endereço de ENTREGA pelo nome, como no LoadWarehousesAsync. Subconsulta
                 // traduzível: a coluna Cidade/UF da tela de armazéns ordena e filtra por ela.
                 City = x.Addresses
@@ -95,16 +101,7 @@ public class WarehouseService(
     {
         try
         {
-            return await context.BusinessPartners
-                .Where(x => x.QryGroup23 == "Y")
-                .Select(x => new WarehouseModel
-                {
-                    Code = x.CardCode,
-                    Name = x.CardName,
-                    TaxId =  x.TaxId,
-                })
-                .FirstOrDefaultAsync(x => x.Code == code);
-                
+            return await QueryAll().FirstOrDefaultAsync(x => x.Code == code);
         }
         catch (Exception ex)
         {

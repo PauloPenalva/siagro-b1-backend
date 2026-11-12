@@ -31,7 +31,8 @@ public class AgentService(SapErpDbContext context, ILogger<AgentService> logger)
             .Select(x => new AgentModel()
             {
                 Code = x.Code,
-                Inactive = x.Inactive,
+                // GAC-1196: Locked (travado) OU desmarcado como ativo no SAP (OSLP.Active = 'N').
+                    Inactive = x.Inactive == "Y" || x.Active == "N" ? "Y" : "N",
                 Name = x.Name,
             })
             .AsNoTracking();
@@ -43,7 +44,8 @@ public class AgentService(SapErpDbContext context, ILogger<AgentService> logger)
             .Select(x => new AgentModel()
             {
                 Code = x.Code,
-                Inactive = x.Inactive,
+                // GAC-1196: Locked (travado) OU desmarcado como ativo no SAP (OSLP.Active = 'N').
+                    Inactive = x.Inactive == "Y" || x.Active == "N" ? "Y" : "N",
                 Name = x.Name,
             })
            .ToListAsync();
@@ -57,7 +59,8 @@ public class AgentService(SapErpDbContext context, ILogger<AgentService> logger)
                 .Select(x => new AgentModel()
                 {
                     Code = x.Code,
-                    Inactive = x.Inactive,
+                    // GAC-1196: Locked (travado) OU desmarcado como ativo no SAP (OSLP.Active = 'N').
+                    Inactive = x.Inactive == "Y" || x.Active == "N" ? "Y" : "N",
                     Name = x.Name,
                 })
                 .FirstOrDefaultAsync(x => x.Code == code);

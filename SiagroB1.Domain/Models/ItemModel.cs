@@ -17,6 +17,12 @@ public class ItemModel
     
     public string? Enabled { get; set; }
 
+    /// <summary>
+    /// Cadastro inativo no SAP (GAC-1196): não pode ser ESCOLHIDO em registro novo nem numa troca,
+    /// mas continua resolvendo nos documentos que já o usam. Sempre false em STANDALONE.
+    /// </summary>
+    public bool Inactive { get; set; }
+
     /// <summary>Origem da mercadoria (0 a 8). Nula em SAPB1 — o produto vem do OITM e a NF-e é do SAP.</summary>
     public byte? GoodsOrigin { get; set; }
 

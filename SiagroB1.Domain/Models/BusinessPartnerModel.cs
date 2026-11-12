@@ -24,6 +24,12 @@ public class BusinessPartnerModel
     
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// Cadastro inativo no SAP (GAC-1196): não pode ser ESCOLHIDO em registro novo nem numa troca,
+    /// mas continua resolvendo nos documentos que já o usam. Sempre false em STANDALONE.
+    /// </summary>
+    public bool Inactive { get; set; }
+
     public string? StateRegistration { get; set; }
 
     public StateRegistrationIndicator? StateRegistrationIndicator { get; set; }

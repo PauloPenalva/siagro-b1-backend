@@ -3,6 +3,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
+using SiagroB1.Application.Services.MasterData;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;
 
@@ -21,7 +22,10 @@ public class PurchaseContractsBrokersUpdateService(
             context.Entry(existingEntity).CurrentValues.SetValues(associationEntity);
             // Depois do SetValues e em `existingEntity`, senão a gravação se perde.
             existingEntity.CardName =
-                (await businessPartnerService.GetByIdAsync(associationEntity.CardCode))?.CardName;
+                InactiveRecordGuard.Partner(
+                    await businessPartnerService.GetByIdAsync(associationEntity.CardCode),
+                    InactiveRecordGuard.Original<string>(context.Entry(existingEntity), nameof(PurchaseContractBroker.CardCode)),
+                    "O corretor")?.CardName;
 
             await context.SaveChangesAsync();
             
@@ -49,7 +53,10 @@ public class PurchaseContractsBrokersUpdateService(
             context.Entry(existingEntity).CurrentValues.SetValues(associationEntity);
             // Depois do SetValues e em `existingEntity`, senão a gravação se perde.
             existingEntity.CardName =
-                (await businessPartnerService.GetByIdAsync(associationEntity.CardCode))?.CardName;
+                InactiveRecordGuard.Partner(
+                    await businessPartnerService.GetByIdAsync(associationEntity.CardCode),
+                    InactiveRecordGuard.Original<string>(context.Entry(existingEntity), nameof(PurchaseContractBroker.CardCode)),
+                    "O corretor")?.CardName;
 
             await context.SaveChangesAsync();
             

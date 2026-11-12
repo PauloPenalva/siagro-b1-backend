@@ -6,6 +6,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Application.Services.MasterData;
 
 namespace SiagroB1.Application.Services.SalesContracts;
 
@@ -47,19 +48,19 @@ public class SalesContractsCreateService(
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
             // Uma leitura só do parceiro para as três colunas desnormalizadas.
-            var partner = await businessPartnerService.GetByIdAsync(entity.CardCode);
+            var partner = InactiveRecordGuard.Partner(await businessPartnerService.GetByIdAsync(entity.CardCode), label: "O cliente");
             entity.CardName = partner?.CardName;
             entity.CardFName = partner?.CardFName;
             entity.CardTaxId = partner?.TaxId;
-            entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
-            entity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
+            entity.ItemName = InactiveRecordGuard.Item(await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            entity.AgentName = InactiveRecordGuard.Agent(await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
             entity.Status = ContractStatus.Draft;
 
             foreach (var location in entity.DeliveryLocations)
             {
                 location.SalesContract = entity;
                 location.CardName =
-                    (await businessPartnerService.GetByIdAsync(location.CardCode))?.CardName;
+                    InactiveRecordGuard.Partner(await businessPartnerService.GetByIdAsync(location.CardCode), label: "O local de entrega")?.CardName;
             }
 
             if (entity.Type == ContractType.Fixed)
