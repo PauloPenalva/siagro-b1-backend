@@ -106,6 +106,35 @@ public class SalesInvoicesReverseConfirmTransitLossTests
             .ContractAsync(_fixture._db, contract.Key)).AllocatedVolume);
     }
 
+    /// <summary>
+    /// A quebra desfeita aparece no histórico da carga: movimento positivo com o volume do
+    /// romaneio cancelado, um por romaneio (não por devolução irmã), com saldo já recalculado.
+    /// </summary>
+    [Fact]
+    public async Task Reversing_the_loss_registers_one_positive_transit_loss_movement_per_entry()
+    {
+        var (load, _, invoices) = await BilledLoadAsync(30_000m, 10_000m);
+        await RefuseAsync(load, RefusalDestination.TransitLoss, (invoices[0], 30_000m), (invoices[1], 10_000m));
+        var first = await ReturnOfAsync(invoices[0]);
+        var entry = Assert.Single(await TransitLossEntriesAsync());
+
+        await Reverse().ExecuteAsync(first.Key, "tester");
+
+        var movements = await _fixture._db.Context.ShipmentLoadMovements.AsNoTracking()
+            .Where(x => x.ShipmentLoadKey == load.Key && x.MovementType == ShipmentLoadMovementType.TransitLoss)
+            .OrderBy(x => x.Quantity)
+            .ToListAsync();
+        Assert.Equal(2, movements.Count);
+
+        var undone = movements.Last();
+        Assert.Equal(40_000m, undone.Quantity);
+        Assert.Equal(entry.Key, undone.StorageTransactionKey);
+        Assert.Equal((await _fixture.LoadAsync(load.Key)).AvailableQuantity, undone.BalanceAfter);
+        Assert.Contains("Quebra de trajeto desfeita", undone.Description);
+        Assert.Contains(entry.Code!, undone.Description);
+        Assert.Contains(first.InvoiceNumber!, undone.Description);
+    }
+
     [Fact]
     public async Task Reversing_one_return_of_a_two_document_loss_reverses_the_sibling_too()
     {

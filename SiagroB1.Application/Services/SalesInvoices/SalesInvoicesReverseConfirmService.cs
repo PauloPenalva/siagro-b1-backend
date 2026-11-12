@@ -28,8 +28,10 @@ public class SalesInvoicesReverseConfirmService(
     FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
     FinancialDocumentsSalesNoContractService? salesNoContract = null,
     FiscalStockPeriodGuard? periodGuard = null,
-    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null,
+    ShipmentLoadsMovementLogService? movementLog = null)
 {
+    private readonly ShipmentLoadsMovementLogService _movementLog = movementLog ?? new ShipmentLoadsMovementLogService(db.Context);
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
     public async Task ExecuteAsync(Guid key, string userName)
@@ -78,6 +80,11 @@ public class SalesInvoicesReverseConfirmService(
             // Retornos da MESMA recusa estornados junto com este (ver ReclaimGoodsFromWarehouseAsync).
             var siblings = new List<SalesInvoice>();
 
+            // Romaneio 18 cancelado neste estorno (GAC-1213): o movimento "quebra desfeita" é
+            // registrado depois do recálculo do saldo, para o BalanceAfter refletir a carga já refeita.
+            StorageTransaction? cancelledLoss = null;
+            Guid? cancelledLossLoadKey = null;
+
             if (invoice.InvoiceType == SalesInvoiceType.Return)
             {
                 /*
@@ -110,7 +117,11 @@ public class SalesInvoicesReverseConfirmService(
                         siblings = await FindRefusalSiblingsAsync(shipmentLoadKey.Value, invoice, entry);
 
                         if (entry.TransactionType == StorageTransactionType.TransitLoss)
+                        {
                             CancelTransitLoss(entry, invoice, siblings, userName);
+                            cancelledLoss = entry;
+                            cancelledLossLoadKey = shipmentLoadKey;
+                        }
                         else
                             await ReclaimGoodsFromWarehouseAsync(
                                 shipmentLoadKey.Value, entry, invoice, siblings, userName);
@@ -170,6 +181,26 @@ public class SalesInvoicesReverseConfirmService(
                 }
 
                 await UndoConfirmationAsync(doc, userName);
+            }
+
+            if (cancelledLoss is not null && cancelledLossLoadKey is { } lossLoadKey)
+            {
+                var load = await db.Context.ShipmentLoads.FirstOrDefaultAsync(x => x.Key == lossLoadKey);
+                if (load is not null)
+                {
+                    var volume = cancelledLoss.NetWeight;
+                    _movementLog.Register(
+                        lossLoadKey,
+                        ShipmentLoadMovementType.TransitLoss,
+                        decimal.Round(volume, 3, MidpointRounding.ToEven),
+                        load.AvailableQuantity,
+                        $"Quebra de trajeto desfeita pelo estorno da devolução {invoice.InvoiceNumber}: " +
+                        $"{volume:N3}. Romaneio {cancelledLoss.Code} cancelado.",
+                        userName,
+                        movementContext: new ShipmentLoadMovementContext(
+                            StorageTransactionKey: cancelledLoss.Key));
+                    await db.SaveChangesAsync();
+                }
             }
 
             await db.CommitAsync();

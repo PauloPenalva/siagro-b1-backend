@@ -68,9 +68,11 @@ public class ShipmentLoadRefusalEffectsService(
     /// porque a coluna é NOT NULL. Valem as mesmas três chaves proibidas do romaneio 12 (ver
     /// <see cref="ReturnToWarehouseAsync"/>); o vínculo é <c>RefusedFromShipmentLoadKey</c>.
     /// <para>
-    /// ⚠️ A lista <c>Documento(s): ...</c> vem ANTES do motivo livre: é por ela que o estorno acha a
-    /// entrada da recusa (<c>RefusalEntryDocuments</c>), e o corte em VARCHAR(500) só pode comer o
-    /// motivo, nunca a lista.
+    /// ⚠️ O estorno acha o romaneio da recusa pelo vínculo <c>SalesInvoice.RefusalStorageTransactionKey</c>
+    /// (gravado em <see cref="LinkReturns"/>), não pela lista de documentos. A lista
+    /// <c>Documento(s): ...</c> segue no Comments só como narrativa (e como chave do legado do
+    /// tipo 12, anterior ao vínculo); vem ANTES do motivo livre para que o corte em VARCHAR(500)
+    /// só coma o motivo.
     /// </para>
     /// </remarks>
     private async Task RegisterTransitLossAsync(RefusalEffectsInput input, string userName)
@@ -140,6 +142,16 @@ public class ShipmentLoadRefusalEffectsService(
     }
 
     /// <summary>
+    /// Grava em cada devolução da recusa o romaneio que ela gerou: é o vínculo que o estorno usa para achar a
+    /// entrada certa e os irmãos, sem depender do número do documento (que se repete em recusas parciais).
+    /// </summary>
+    private static void LinkReturns(RefusalEffectsInput input, StorageTransaction entry)
+    {
+        foreach (var returnInvoice in input.ReturnInvoices ?? [])
+            returnInvoice.RefusalStorageTransactionKey = entry.Key;
+    }
+
+    /// <summary>
     /// Descarrega a mercadoria recusada no armazém escolhido e retira o volume da carga.
     /// </summary>
     /// <remarks>
@@ -164,16 +176,6 @@ public class ShipmentLoadRefusalEffectsService(
     /// <c>SiagroB1.Reports/Services/StorageAddressReportService</c> — endereçar a devolução exige
     /// acertar os seis de forma consistente. É esse o checklist, se um dia for preciso.
     /// </remarks>
-    /// <summary>
-    /// Grava em cada devolução da recusa o romaneio que ela gerou: é o vínculo que o estorno usa para achar a
-    /// entrada certa e os irmãos, sem depender do número do documento (que se repete em recusas parciais).
-    /// </summary>
-    private static void LinkReturns(RefusalEffectsInput input, StorageTransaction entry)
-    {
-        foreach (var returnInvoice in input.ReturnInvoices ?? [])
-            returnInvoice.RefusalStorageTransactionKey = entry.Key;
-    }
-
     private async Task ReturnToWarehouseAsync(RefusalEffectsInput input, string userName)
     {
         var load = input.Load;

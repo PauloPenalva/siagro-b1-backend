@@ -291,6 +291,9 @@
     <data name="WAREHOUSE_RECONCILIATION_TRANSACTION_NOT_COPYABLE" xml:space="preserve">
         <value>Romaneio de perda/sobra de armazém é gerado pela Conferência de Saldo de Armazém e não pode ser copiado.</value>
     </data>
+    <data name="TRANSIT_LOSS_TRANSACTION_NOT_COPYABLE" xml:space="preserve">
+        <value>O romaneio de quebra de trajeto é gerado pela recusa da carga e não pode ser copiado.</value>
+    </data>
     <data name="WAREHOUSE_RECONCILIATION_ATTACHMENTS_LOCKED" xml:space="preserve">
         <value>Anexos só podem ser incluídos ou removidos enquanto a conferência está em rascunho ou em aprovação.</value>
     </data>

@@ -128,6 +128,22 @@ public class WarehouseAdjustmentTransactionGuardsTests
         Assert.Equal(1, await _db.Context.StorageTransactions.CountAsync());
     }
 
+    /// <summary>GAC-1213: o romaneio de quebra de trajeto nasce da recusa da carga; copiar criaria um solto.</summary>
+    [Fact]
+    public async Task Copy_refuses_transit_loss_transactions()
+    {
+        var transaction = await SeedAsync(StorageTransactionType.TransitLoss, StorageTransactionsStatus.Confirmed);
+
+        var byKey = await Assert.ThrowsAsync<ApplicationException>(
+            () => CopyService().ExecuteAsync(transaction.Key, "tester"));
+        var byEntity = await Assert.ThrowsAsync<ApplicationException>(
+            () => CopyService().ExecuteAsync(transaction, "tester"));
+
+        Assert.Equal("TRANSIT_LOSS_TRANSACTION_NOT_COPYABLE", byKey.Message);
+        Assert.Equal("TRANSIT_LOSS_TRANSACTION_NOT_COPYABLE", byEntity.Message);
+        Assert.Equal(1, await _db.Context.StorageTransactions.CountAsync());
+    }
+
     [Theory]
     [InlineData(StorageTransactionType.WarehouseLoss)]
     [InlineData(StorageTransactionType.WarehouseGain)]

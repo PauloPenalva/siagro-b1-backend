@@ -74,6 +74,18 @@ public class StorageStatementReportServiceTests
         Assert.Equal(15m, header.Single().TotalSaida);
     }
 
+    /// <summary>GAC-1213: a quebra de trajeto não passou pelo armazém do extrato; não vira linha zerada.</summary>
+    [Fact]
+    public async Task Transit_loss_is_left_out_of_the_statement()
+    {
+        await SeedAsync(StorageTransactionType.TransitLoss, 40m);
+
+        var (rows, _) = await new StorageStatementReportService(_db)
+            .GetReportAsync(new StorageStatementReportFilter(), CancellationToken.None);
+
+        Assert.Empty(rows);
+    }
+
     [Fact]
     public async Task Purchase_still_uses_the_shared_label_instead_of_the_raw_enum_name()
     {
