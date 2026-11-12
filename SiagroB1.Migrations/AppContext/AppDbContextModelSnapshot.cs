@@ -7677,6 +7677,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int?>("PaymentConditionCode")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("RefusalStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("ReturnedQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
@@ -7753,6 +7756,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("CustodyStorageTransactionKey");
 
                     b.HasIndex("DocNumberKey");
+
+                    b.HasIndex("RefusalStorageTransactionKey");
 
                     b.HasIndex("SalesInvoiceOriginKey");
 
@@ -13416,6 +13421,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
                         .WithMany()
                         .HasForeignKey("DocNumberKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("RefusalStorageTransactionKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.SalesInvoice", "SalesInvoiceOrigin")

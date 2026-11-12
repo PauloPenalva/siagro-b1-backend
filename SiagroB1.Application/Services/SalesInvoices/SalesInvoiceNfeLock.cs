@@ -99,6 +99,8 @@ public static class SalesInvoiceNfeLock
         // O vínculo com a recusa de carga nasce na recusa e nunca muda pela API.
         entry.Property(nameof(SalesInvoice.ShipmentLoadRefusalKey)).CurrentValue =
             entry.OriginalValues[nameof(SalesInvoice.ShipmentLoadRefusalKey)];
+        entry.Property(nameof(SalesInvoice.RefusalStorageTransactionKey)).CurrentValue =
+            entry.OriginalValues[nameof(SalesInvoice.RefusalStorageTransactionKey)];
     }
 
     /// <summary>A criação nunca nasce emitida, venha o que vier no corpo.</summary>
@@ -117,6 +119,7 @@ public static class SalesInvoiceNfeLock
         invoice.NfeCancellationReason = null;
         invoice.NfeCancellationError = null;
         invoice.ShipmentLoadRefusalKey = null;
+        invoice.RefusalStorageTransactionKey = null;
     }
 
     /// <summary>Chamado DEPOIS do SetValues da linha. A Conferência de entregas mexe em campos fora do XML e passa.</summary>

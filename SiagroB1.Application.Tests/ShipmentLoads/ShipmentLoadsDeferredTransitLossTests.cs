@@ -173,4 +173,18 @@ public class ShipmentLoadsDeferredTransitLossTests
 
         Assert.Null(row.TransitLossReason);
     }
+    /// <summary>A conclusão em dois tempos grava em toda devolução da recusa o romaneio 18 que ela gerou.</summary>
+    [Fact]
+    public async Task Completion_links_every_return_to_the_transit_loss_entry()
+    {
+        var (s, returns) = await RefuseAsync(2, 10_000m);
+        await ConfirmAsync(s, returns[0]);
+        await ConfirmAsync(s, returns[1]);
+
+        var entry = Assert.Single(await TransitLossEntriesAsync(s));
+        var links = await s.Db.Context.SalesInvoices.AsNoTracking()
+            .Where(i => returns.Contains(i.Key)).Select(i => i.RefusalStorageTransactionKey).ToListAsync();
+        Assert.Equal(2, links.Count);
+        Assert.All(links, l => Assert.Equal(entry.Key, l));
+    }
 }

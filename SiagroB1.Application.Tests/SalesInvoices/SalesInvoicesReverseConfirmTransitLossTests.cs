@@ -3,6 +3,7 @@ using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.ShipmentReleases;
+using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Tests.SalesContracts;
 using SiagroB1.Application.Tests.ShipmentLoads;
 using SiagroB1.Application.Tests.Support;
@@ -145,6 +146,124 @@ public class SalesInvoicesReverseConfirmTransitLossTests
         Assert.Equal(InvoiceStatus.Confirmed, await StatusOfAsync(firstReturn.Key));
         Assert.Equal(InvoiceStatus.Pending, await StatusOfAsync(secondReturn.Key));
         Assert.Equal(15_000m, (await _fixture.LoadAsync(load.Key)).TransitLossQuantity);
+    }
+
+    private Task RefuseToWarehouseAsync(ShipmentLoad load, SalesInvoice invoice, decimal quantity) =>
+        _fixture.Service().ExecuteAsync(
+            ShipmentLoadsRefuseServiceTests.Request(
+                load, invoice, quantity, RefusalDestination.Warehouse,
+                ShipmentLoadsRefuseServiceTests.DestinationWarehouse),
+            "tester");
+
+    private Task<StorageTransaction> EntryAsync(StorageTransactionType type) =>
+        _fixture._db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.TransactionType == type && x.RefusedFromShipmentLoadKey != null);
+
+    private Task<SalesInvoice> ReturnLinkedToAsync(StorageTransaction entry) =>
+        _fixture._db.Context.SalesInvoices.AsNoTracking()
+            .SingleAsync(x => x.RefusalStorageTransactionKey == entry.Key);
+
+    /// <summary>
+    /// Mesmo documento recusado em parcelas para destinos diferentes (Review Focus 2): 15 t de
+    /// quebra e 25 t ao armazém. As duas entradas listam o mesmo número; só o vínculo as separa.
+    /// </summary>
+    private async Task<(ShipmentLoad Load, StorageTransaction Loss, StorageTransaction Warehouse,
+        SalesInvoice LossReturn, SalesInvoice WarehouseReturn)> SameInvoiceLossThenWarehouseAsync()
+    {
+        var (load, _, invoices) = await BilledLoadAsync(40_000m);
+        await RefuseAsync(load, RefusalDestination.TransitLoss, (invoices[0], 15_000m));
+        await RefuseToWarehouseAsync(load, invoices[0], 25_000m);
+
+        var loss = await EntryAsync(StorageTransactionType.TransitLoss);
+        var warehouse = await EntryAsync(StorageTransactionType.SalesShipmentReturn);
+        return (load, loss, warehouse, await ReturnLinkedToAsync(loss), await ReturnLinkedToAsync(warehouse));
+    }
+
+    private Task<List<ShipmentRelease>> ReturnReleasesAsync(StorageTransaction entry) =>
+        _fixture._db.Context.ShipmentReleases.AsNoTracking()
+            .Where(x => x.GeneratedByStorageTransactionKey == entry.Key).ToListAsync();
+
+    [Fact]
+    public async Task Same_invoice_reversing_the_loss_return_leaves_the_warehouse_refusal_alone()
+    {
+        var (load, loss, warehouse, lossReturn, warehouseReturn) = await SameInvoiceLossThenWarehouseAsync();
+        var balanceBefore = await StorageTransactionsWarehouseBalanceService.CalculateAsync(
+            _fixture._db.Context, warehouse.WarehouseCode, warehouse.ItemCode);
+        var releasesBefore = (await ReturnReleasesAsync(warehouse)).Select(r => r.Status).ToList();
+
+        await Reverse().ExecuteAsync(lossReturn.Key, "tester");
+
+        Assert.Equal(StorageTransactionsStatus.Cancelled,
+            (await EntryAsync(StorageTransactionType.TransitLoss)).TransactionStatus);
+        Assert.Equal(StorageTransactionsStatus.Confirmed,
+            (await EntryAsync(StorageTransactionType.SalesShipmentReturn)).TransactionStatus);
+        Assert.Equal(InvoiceStatus.Pending, await StatusOfAsync(lossReturn.Key));
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusOfAsync(warehouseReturn.Key));
+        Assert.Equal(balanceBefore, await StorageTransactionsWarehouseBalanceService.CalculateAsync(
+            _fixture._db.Context, warehouse.WarehouseCode, warehouse.ItemCode));
+        Assert.Equal(releasesBefore, (await ReturnReleasesAsync(warehouse)).Select(r => r.Status).ToList());
+
+        var reloaded = await _fixture.LoadAsync(load.Key);
+        Assert.Equal(decimal.Zero, reloaded.TransitLossQuantity);
+        Assert.Equal(25_000m, reloaded.ReturnedToWarehouseQuantity);
+    }
+
+    [Fact]
+    public async Task Same_invoice_reversing_the_warehouse_return_leaves_the_loss_alone()
+    {
+        var (load, _, _, lossReturn, warehouseReturn) = await SameInvoiceLossThenWarehouseAsync();
+
+        await Reverse().ExecuteAsync(warehouseReturn.Key, "tester");
+
+        Assert.Equal(StorageTransactionsStatus.Confirmed,
+            (await EntryAsync(StorageTransactionType.TransitLoss)).TransactionStatus);
+        Assert.Equal(StorageTransactionsStatus.Cancelled,
+            (await EntryAsync(StorageTransactionType.SalesShipmentReturn)).TransactionStatus);
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusOfAsync(lossReturn.Key));
+        Assert.Equal(InvoiceStatus.Pending, await StatusOfAsync(warehouseReturn.Key));
+        Assert.Equal(15_000m, (await _fixture.LoadAsync(load.Key)).TransitLossQuantity);
+    }
+
+    [Fact]
+    public async Task Sync_refusals_link_every_return_to_the_entry_and_rebilling_links_none()
+    {
+        var (load, _, invoices) = await BilledLoadAsync(20_000m, 10_000m, 10_000m);
+        await RefuseAsync(load, RefusalDestination.TransitLoss, (invoices[0], 5_000m), (invoices[1], 5_000m));
+        await _fixture.Service().ExecuteAsync(
+            new RefusalRequest(load.Key,
+                [new RefusalLine(invoices[0].Key, 5_000m), new RefusalLine(invoices[2].Key, 5_000m)],
+                RefusalDestination.Warehouse, ShipmentLoadsRefuseServiceTests.DestinationWarehouse, "Qualidade"),
+            "tester");
+        await RefuseAsync(load, RefusalDestination.Rebilling, (invoices[1], 5_000m));
+
+        var loss = await EntryAsync(StorageTransactionType.TransitLoss);
+        var warehouse = await EntryAsync(StorageTransactionType.SalesShipmentReturn);
+        var returns = await _fixture._db.Context.SalesInvoices.AsNoTracking()
+            .Where(x => x.InvoiceType == SalesInvoiceType.Return).ToListAsync();
+
+        Assert.Equal(2, returns.Count(r => r.RefusalStorageTransactionKey == loss.Key));
+        Assert.Equal(2, returns.Count(r => r.RefusalStorageTransactionKey == warehouse.Key));
+        Assert.Single(returns, r => r.RefusalStorageTransactionKey == null);
+    }
+
+    /// <summary>Devolução anterior ao vínculo: a entrada de armazém ainda é achada pela lista do Comments.</summary>
+    [Fact]
+    public async Task Legacy_warehouse_return_without_link_still_reverses_through_the_comments()
+    {
+        var (load, _, invoices) = await BilledLoadAsync(40_000m);
+        await RefuseToWarehouseAsync(load, invoices[0], 40_000m);
+        var returnInvoice = await ReturnOfAsync(invoices[0]);
+
+        var tracked = await _fixture._db.Context.SalesInvoices.SingleAsync(x => x.Key == returnInvoice.Key);
+        tracked.RefusalStorageTransactionKey = null;
+        await _fixture._db.SaveChangesAsync();
+        _fixture._db.Context.ChangeTracker.Clear();
+
+        await Reverse().ExecuteAsync(returnInvoice.Key, "tester");
+
+        Assert.Equal(StorageTransactionsStatus.Cancelled,
+            (await EntryAsync(StorageTransactionType.SalesShipmentReturn)).TransactionStatus);
+        Assert.Equal(InvoiceStatus.Pending, await StatusOfAsync(returnInvoice.Key));
     }
 
     [Fact]

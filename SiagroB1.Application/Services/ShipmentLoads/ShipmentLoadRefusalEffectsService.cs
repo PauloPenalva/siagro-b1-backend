@@ -8,7 +8,10 @@ using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
-/// <summary>O que a recusa precisa para aplicar o destino físico. <c>RefusedInvoices</c> são as notas de ORIGEM.</summary>
+/// <summary>
+/// O que a recusa precisa para aplicar o destino físico. <c>RefusedInvoices</c> são as notas de ORIGEM;
+/// <c>ReturnInvoices</c>, as devoluções desta recusa, que recebem o vínculo com o romaneio gerado.
+/// </summary>
 public sealed record RefusalEffectsInput(
     ShipmentLoad Load,
     RefusalDestination Destination,
@@ -17,7 +20,8 @@ public sealed record RefusalEffectsInput(
     IReadOnlyList<SalesInvoice> RefusedInvoices,
     decimal TotalQuantity,
     string Reason,
-    TransitLossReason? TransitLossReason = null);
+    TransitLossReason? TransitLossReason = null,
+    IReadOnlyList<SalesInvoice>? ReturnInvoices = null);
 
 /// <summary>
 /// Efeitos físicos do destino da recusa — devolução ao armazém ou abertura do transbordo. Usado pela recusa síncrona
@@ -108,6 +112,8 @@ public class ShipmentLoadRefusalEffectsService(
 
         await db.SaveChangesAsync();
 
+        LinkReturns(input, entry);
+
         await storageConfirm.ExecuteAsync(entry, userName, CommitMode.Deferred);
 
         // DEPOIS do SaveChanges: o quinto termo do saldo é um somatório no SERVIDOR.
@@ -158,6 +164,16 @@ public class ShipmentLoadRefusalEffectsService(
     /// <c>SiagroB1.Reports/Services/StorageAddressReportService</c> — endereçar a devolução exige
     /// acertar os seis de forma consistente. É esse o checklist, se um dia for preciso.
     /// </remarks>
+    /// <summary>
+    /// Grava em cada devolução da recusa o romaneio que ela gerou: é o vínculo que o estorno usa para achar a
+    /// entrada certa e os irmãos, sem depender do número do documento (que se repete em recusas parciais).
+    /// </summary>
+    private static void LinkReturns(RefusalEffectsInput input, StorageTransaction entry)
+    {
+        foreach (var returnInvoice in input.ReturnInvoices ?? [])
+            returnInvoice.RefusalStorageTransactionKey = entry.Key;
+    }
+
     private async Task ReturnToWarehouseAsync(RefusalEffectsInput input, string userName)
     {
         var load = input.Load;
@@ -190,6 +206,8 @@ public class ShipmentLoadRefusalEffectsService(
             entry, userName, TransactionCode.ShipmentLoad, CommitMode.Deferred);
 
         await db.SaveChangesAsync();
+
+        LinkReturns(input, entry);
 
         await storageConfirm.ExecuteAsync(entry, userName, CommitMode.Deferred);
 

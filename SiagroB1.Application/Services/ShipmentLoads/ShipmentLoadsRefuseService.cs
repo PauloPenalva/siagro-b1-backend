@@ -140,9 +140,10 @@ public class ShipmentLoadsRefuseService(
 
             await db.SaveChangesAsync();
 
+            var returns = new List<SalesInvoice>();
             foreach (var line in lines)
             {
-                await ReturnAsync(load, line, request.Reason, userName);
+                returns.Add(await ReturnAsync(load, line, request.Reason, userName));
             }
 
             await effects.ApplyAsync(
@@ -150,7 +151,8 @@ public class ShipmentLoadsRefuseService(
                     load, request.Destination, warehouse?.Code, warehouse?.Name,
                     lines.Select(l => l.Invoice).ToList(), totalQuantity, request.Reason,
                     // O tipo da quebra só vale para o próprio destino; nos outros é ignorado.
-                    request.Destination == RefusalDestination.TransitLoss ? request.TransitLossReason : null),
+                    request.Destination == RefusalDestination.TransitLoss ? request.TransitLossReason : null,
+                    returns),
                 userName);
 
             load.UpdatedAt = DateTime.Now;
@@ -268,7 +270,7 @@ public class ShipmentLoadsRefuseService(
     /// juntos, e diferidos: é a confirmação que devolve o saldo à carga, e deixá-la para depois
     /// significaria a carga não voltar a ficar disponível — que é o objetivo do fluxo.
     /// </summary>
-    private async Task ReturnAsync(ShipmentLoad load, ResolvedLine line, string reason, string userName)
+    private async Task<SalesInvoice> ReturnAsync(ShipmentLoad load, ResolvedLine line, string reason, string userName)
     {
         var returnInvoice = SalesInvoiceReturnFactory.CreateFrom(
             line.Invoice, userName, line.QuantitiesByOriginItemKey);
@@ -286,6 +288,8 @@ public class ShipmentLoadsRefuseService(
         await confirmService.ExecuteAsync(returnInvoice.Key, userName, CommitMode.Deferred);
 
         await db.SaveChangesAsync();
+
+        return returnInvoice;
     }
 
     /// <summary>
