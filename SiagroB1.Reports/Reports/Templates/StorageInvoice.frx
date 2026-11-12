@@ -56,7 +56,7 @@
       <TextObject Name="Text3" Left="122.85" Top="37.8" Width="160.65" Height="18.9" Text="[Invoice.InvoiceNumber]" Font="Arial, 9pt"/>
       <TextObject Name="Text4" Left="415.8" Top="37.8" Width="113.4" Height="18.9" Text="Fechamento:" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="Text5" Left="529.2" Top="37.8" Width="189" Height="18.9" Text="[Invoice.ClosingDate]" Format="Date" Format.Format="d" HorzAlign="Right" Font="Arial, 9pt"/>
-      <TextObject Name="Text6" Top="66.15" Width="94.5" Height="18.9" Text="Cliente:" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="Text6" Top="66.15" Width="94.5" Height="18.9" Text="Depositante:" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="Text7" Left="94.5" Top="66.15" Width="623.7" Height="18.9" Text="[Invoice.CardCode] - [Invoice.CardName]" Font="Arial, 9pt"/>
       <TextObject Name="Text8" Top="88.05" Width="94.5" Height="18.9" Text="Lote:" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="Text9" Left="94.5" Top="88.05" Width="264.6" Height="18.9" Text="[Invoice.StorageAddressCode]" Font="Arial, 9pt"/>

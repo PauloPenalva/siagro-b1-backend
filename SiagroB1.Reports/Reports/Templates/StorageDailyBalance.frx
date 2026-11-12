@@ -34,13 +34,13 @@
       <TextObject Name="Text1" Top="51.45" Width="718.2" Height="37.8" Text="Saldo Diário" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
       <TextObject Name="Text57" Top="89.25" Width="56.7" Height="18.9" Text="Lote: " HorzAlign="Right" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text58" Top="108.15" Width="56.7" Height="18.9" Text="Produto: " HorzAlign="Right" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
-      <TextObject Name="Text59" Left="217.35" Top="108.15" Width="56.7" Height="18.9" Text="Cliente: " HorzAlign="Right" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
+      <TextObject Name="Text59" Left="217.35" Top="108.15" Width="85.05" Height="18.9" Text="Depositante: " HorzAlign="Right" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text60" Left="217.35" Top="89.25" Width="56.7" Height="18.9" Text="De:" HorzAlign="Right" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text61" Left="396.9" Top="89.25" Width="56.7" Height="18.9" Text="Até: " HorzAlign="Right" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text64" Left="274.05" Top="89.25" Width="94.5" Height="18.9" Text="[FromDate]" Format="Date" Format.Format="d" VertAlign="Bottom" Font="Consolas, 8pt, style=Italic"/>
       <TextObject Name="Text65" Left="453.6" Top="89.25" Width="94.5" Height="18.9" Text="[ToDate]" Format="Date" Format.Format="d" VertAlign="Bottom" Font="Consolas, 8pt, style=Italic"/>
       <TextObject Name="Text66" Left="56.7" Top="89.25" Width="160.65" Height="18.9" Text="[StorageAddressCode]" VertAlign="Bottom" Font="Consolas, 8pt, style=Italic"/>
-      <TextObject Name="Text67" Left="274.05" Top="108.15" Width="444.15" Height="18.9" Text="[Customer]" VertAlign="Bottom" Font="Consolas, 8pt, style=Italic"/>
+      <TextObject Name="Text67" Left="302.4" Top="108.15" Width="415.8" Height="18.9" Text="[Customer]" VertAlign="Bottom" Font="Consolas, 8pt, style=Italic"/>
       <TextObject Name="Text68" Left="56.7" Top="108.15" Width="160.65" Height="18.9" Text="[Item]" VertAlign="Bottom" Font="Consolas, 8pt, style=Italic"/>
     </PageHeaderBand>
     <ColumnHeaderBand Name="ColumnHeader1" Top="130.25" Width="718.2" Height="18.9">

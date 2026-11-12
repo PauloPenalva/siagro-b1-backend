@@ -70,7 +70,7 @@
       <TextObject Name="F4V" Left="720" Top="58" Width="90" Height="16" Text="[pCreationDateFrom]" Font="Arial, 8pt"/>
       <TextObject Name="F5L" Left="815" Top="58" Width="25" Height="16" Text="até" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="F5V" Left="845" Top="58" Width="90" Height="16" Text="[pCreationDateTo]" Font="Arial, 8pt"/>
-      <TextObject Name="F6L" Top="76" Width="80" Height="16" Text="Cliente:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F6L" Top="76" Width="80" Height="16" Text="Depositante:" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="F6V" Left="82" Top="76" Width="260" Height="16" Text="[pCardCode]" Font="Arial, 8pt"/>
       <TextObject Name="F7L" Left="350" Top="76" Width="80" Height="16" Text="Produto:" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="F7V" Left="432" Top="76" Width="260" Height="16" Text="[pItemCode]" Font="Arial, 8pt"/>
@@ -91,8 +91,8 @@
       <TextObject Name="H2" Left="60" Width="70" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Código" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="H3" Left="130" Width="78" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Criação" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="H4" Left="208" Width="210" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Descrição" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
-      <TextObject Name="H5" Left="418" Width="70" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Cliente" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
-      <TextObject Name="H6" Left="488" Width="110" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Nome Cliente" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H5" Left="418" Width="70" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Depositante" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H6" Left="488" Width="110" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Nome Depositante" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="H7" Left="598" Width="70" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Produto" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="H8" Left="668" Width="110" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Nome Produto" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="H9" Left="778" Width="60" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Armaz." HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
