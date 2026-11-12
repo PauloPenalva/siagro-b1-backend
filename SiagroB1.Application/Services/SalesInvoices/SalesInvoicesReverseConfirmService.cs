@@ -106,6 +106,13 @@ public class SalesInvoicesReverseConfirmService(
                         invoice,
                         userName);
 
+                    // Uma recusa tem um destino só: no máximo uma das duas entradas lista a origem.
+                    if (siblings.Count == 0)
+                        siblings = await ReclaimTransitLossAsync(
+                            shipmentLoadKey.Value,
+                            invoice,
+                            userName);
+
                     // Os irmãos passam pelas mesmas travas do documento estornado.
                     foreach (var sibling in siblings)
                     {
@@ -478,33 +485,16 @@ public class SalesInvoicesReverseConfirmService(
     /// </para>
     /// </remarks>
     /// <returns>
-    /// Os outros retornos CONFIRMADOS da mesma recusa, que o chamador estorna junto. Antes a
+    /// <c>null</c> quando a recusa não teve entrada de armazém; senão, os outros retornos
+    /// CONFIRMADOS da mesma recusa, que o chamador estorna junto. Antes a
     /// trava exigia que eles já estivessem estornados, mas cada um exigia o outro — uma recusa
     /// de dois documentos ao armazém nunca saía (CG001844, 9639/9640).
     /// </returns>
-    private async Task<List<SalesInvoice>> ReclaimGoodsFromWarehouseAsync(
+    private async Task<List<SalesInvoice>?> ReclaimGoodsFromWarehouseAsync(
         Guid shipmentLoadKey, SalesInvoice returnInvoice, string userName)
     {
-        var entries = await db.Context.StorageTransactions
-            .Where(x => x.RefusedFromShipmentLoadKey == shipmentLoadKey &&
-                        x.TransactionType == StorageTransactionType.SalesShipmentReturn &&
-                        x.TransactionStatus != StorageTransactionsStatus.Cancelled)
-            .ToListAsync();
-
-        // Uma carga pode ter várias recusas (ex.: CG001844 — a primeira "segue viagem", a
-        // segunda "volta ao armazém"). O único vínculo gravado entre a entrada e os documentos
-        // da recusa é a lista "Documento(s): ..." no Comments (ShipmentLoadsRefuseService).
-        // A entrada certa é a que lista a ORIGEM deste retorno; sem lista legível, vale a regra
-        // antiga (uma entrada por carga).
-        var originNumber = await db.Context.SalesInvoices
-            .Where(x => x.Key == returnInvoice.SalesInvoiceOriginKey)
-            .Select(x => x.InvoiceNumber)
-            .FirstOrDefaultAsync();
-
-        var entry = entries.FirstOrDefault(e =>
-                        originNumber != null &&
-                        RefusalEntryDocuments.Parse(e.Comments)?.Contains(originNumber) == true)
-                    ?? entries.FirstOrDefault(e => RefusalEntryDocuments.Parse(e.Comments) is null);
+        var entry = await FindRefusalEntryAsync(
+            shipmentLoadKey, returnInvoice, StorageTransactionType.SalesShipmentReturn, allowUnlisted: true);
 
         // Retorno de recusa sem destino armazém ("segue viagem"): não há crédito a desfazer.
         if (entry is null)
@@ -523,26 +513,7 @@ public class SalesInvoicesReverseConfirmService(
             .Select(x => x.Code)
             .FirstOrDefaultAsync();
 
-        // Só os retornos da MESMA recusa sustentam a entrada: os de outra recusa da carga não.
-        var candidates = await db.Context.SalesInvoices
-            .Include(x => x.Items)
-            .Where(x => x.ShipmentLoadKey == shipmentLoadKey &&
-                        x.InvoiceType == SalesInvoiceType.Return &&
-                        x.InvoiceStatus == InvoiceStatus.Confirmed &&
-                        x.Key != returnInvoice.Key)
-            .ToListAsync();
-
-        var originNumbers = await db.Context.SalesInvoices
-            .Where(o => candidates.Select(c => c.SalesInvoiceOriginKey).Contains(o.Key))
-            .Select(o => new { o.Key, o.InvoiceNumber })
-            .ToDictionaryAsync(o => o.Key, o => o.InvoiceNumber);
-
-        var siblings = candidates
-            .Where(x => entryDocuments is null ||
-                        (x.SalesInvoiceOriginKey is { } ok &&
-                         originNumbers.TryGetValue(ok, out var number) &&
-                         number != null && entryDocuments.Contains(number)))
-            .ToList();
+        var siblings = await FindRefusalSiblingsAsync(shipmentLoadKey, returnInvoice, entryDocuments);
 
         var warehouseBalance = await StorageTransactionsWarehouseBalanceService.CalculateAsync(
             db.Context, entry.WarehouseCode, entry.ItemCode);
@@ -569,6 +540,104 @@ public class SalesInvoicesReverseConfirmService(
             $"{userName} em {DateTime.Now:dd/MM/yyyy HH:mm}: crédito no armazém desfeito.";
 
         return siblings;
+    }
+
+    /// <summary>
+    /// Desfaz a quebra de trajeto (GAC-1213) de uma devolução nascida de recusa com destino
+    /// <see cref="RefusalDestination.TransitLoss"/>: cancela o romaneio 18 daquela recusa.
+    /// </summary>
+    /// <remarks>
+    /// Sem conferência de saldo de armazém e sem liberação a cancelar: a quebra não creditou nada
+    /// em lugar nenhum. O romaneio é cancelado à mão, como em <see cref="ReclaimGoodsFromWarehouseAsync"/>
+    /// — os serviços de cancelamento/estorno de romaneio recusam entradas de recusa de propósito.
+    /// <c>TransitLossQuantity</c> e a situação da carga são recalculados pelo gancho de saldo em
+    /// <see cref="UndoConfirmationAsync"/>, depois do SaveChanges (a soma é feita no servidor).
+    /// </remarks>
+    /// <returns>Os outros retornos CONFIRMADOS da mesma recusa, que o chamador estorna junto.</returns>
+    private async Task<List<SalesInvoice>> ReclaimTransitLossAsync(
+        Guid shipmentLoadKey, SalesInvoice returnInvoice, string userName)
+    {
+        // O romaneio 18 sempre grava a lista "Documento(s)": sem a regra antiga de entrada sem lista.
+        var entry = await FindRefusalEntryAsync(
+            shipmentLoadKey, returnInvoice, StorageTransactionType.TransitLoss, allowUnlisted: false);
+
+        if (entry is null)
+            return [];
+
+        var siblings = await FindRefusalSiblingsAsync(
+            shipmentLoadKey, returnInvoice, RefusalEntryDocuments.Parse(entry.Comments));
+
+        entry.TransactionStatus = StorageTransactionsStatus.Cancelled;
+        entry.CanceledAt = DateTime.Now;
+        entry.CanceledBy = userName;
+        entry.UpdatedAt = DateTime.Now;
+        entry.UpdatedBy = userName;
+        entry.Comments =
+            $"{entry.Comments} Estorno da devolução " +
+            string.Join(", ", siblings.Select(x => x.InvoiceNumber).Prepend(returnInvoice.InvoiceNumber)) +
+            $" por {userName} em {DateTime.Now:dd/MM/yyyy HH:mm}: quebra de trajeto desfeita.";
+
+        return siblings;
+    }
+
+    /// <summary>
+    /// A entrada (do tipo informado) da recusa que gerou este retorno, ou <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// Uma carga pode ter várias recusas (ex.: CG001844 — a primeira "segue viagem", a segunda
+    /// "volta ao armazém"). O único vínculo gravado entre a entrada e os documentos da recusa é a
+    /// lista "Documento(s): ..." no Comments (ShipmentLoadsRefuseService). A entrada certa é a que
+    /// lista a ORIGEM deste retorno; com <paramref name="allowUnlisted"/>, uma entrada sem lista
+    /// legível (dado antigo) vale pela regra antiga (uma entrada por carga).
+    /// </remarks>
+    private async Task<StorageTransaction?> FindRefusalEntryAsync(
+        Guid shipmentLoadKey, SalesInvoice returnInvoice, StorageTransactionType type, bool allowUnlisted)
+    {
+        var entries = await db.Context.StorageTransactions
+            .Where(x => x.RefusedFromShipmentLoadKey == shipmentLoadKey &&
+                        x.TransactionType == type &&
+                        x.TransactionStatus != StorageTransactionsStatus.Cancelled)
+            .ToListAsync();
+
+        var originNumber = await db.Context.SalesInvoices
+            .Where(x => x.Key == returnInvoice.SalesInvoiceOriginKey)
+            .Select(x => x.InvoiceNumber)
+            .FirstOrDefaultAsync();
+
+        return entries.FirstOrDefault(e =>
+                   originNumber != null &&
+                   RefusalEntryDocuments.Parse(e.Comments)?.Contains(originNumber) == true)
+               ?? (allowUnlisted
+                   ? entries.FirstOrDefault(e => RefusalEntryDocuments.Parse(e.Comments) is null)
+                   : null);
+    }
+
+    /// <summary>
+    /// Os outros retornos CONFIRMADOS da carga cuja origem está na lista da entrada — os da MESMA
+    /// recusa. Sem lista (dado antigo), todos os retornos confirmados da carga contam.
+    /// </summary>
+    private async Task<List<SalesInvoice>> FindRefusalSiblingsAsync(
+        Guid shipmentLoadKey, SalesInvoice returnInvoice, IReadOnlySet<string>? entryDocuments)
+    {
+        var candidates = await db.Context.SalesInvoices
+            .Include(x => x.Items)
+            .Where(x => x.ShipmentLoadKey == shipmentLoadKey &&
+                        x.InvoiceType == SalesInvoiceType.Return &&
+                        x.InvoiceStatus == InvoiceStatus.Confirmed &&
+                        x.Key != returnInvoice.Key)
+            .ToListAsync();
+
+        var originNumbers = await db.Context.SalesInvoices
+            .Where(o => candidates.Select(c => c.SalesInvoiceOriginKey).Contains(o.Key))
+            .Select(o => new { o.Key, o.InvoiceNumber })
+            .ToDictionaryAsync(o => o.Key, o => o.InvoiceNumber);
+
+        return candidates
+            .Where(x => entryDocuments is null ||
+                        (x.SalesInvoiceOriginKey is { } ok &&
+                         originNumbers.TryGetValue(ok, out var number) &&
+                         number != null && entryDocuments.Contains(number)))
+            .ToList();
     }
 
     /*
