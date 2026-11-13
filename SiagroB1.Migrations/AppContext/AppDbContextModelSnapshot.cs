@@ -8636,11 +8636,16 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid>("ShipmentLoadKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ShipmentReleaseKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Key");
 
                     b.HasIndex("ContractKey");
 
-                    b.HasIndex("ShipmentLoadKey", "ContractKey")
+                    b.HasIndex("ShipmentReleaseKey");
+
+                    b.HasIndex("ShipmentLoadKey", "ContractKey", "ShipmentReleaseKey")
                         .IsUnique();
 
                     b.ToTable("SHIPMENT_LOADS_PLANNED_PURCHASE_CONTRACTS");
@@ -8668,6 +8673,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal?>("PlannedQuantity")
                         .HasColumnType("DECIMAL(18,3)");
 
+                    b.Property<Guid?>("SalesShipmentReleaseKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ShipmentLoadKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -8675,7 +8683,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasIndex("ContractKey");
 
-                    b.HasIndex("ShipmentLoadKey", "ContractKey")
+                    b.HasIndex("SalesShipmentReleaseKey");
+
+                    b.HasIndex("ShipmentLoadKey", "ContractKey", "SalesShipmentReleaseKey")
                         .IsUnique();
 
                     b.ToTable("SHIPMENT_LOADS_PLANNED_SALES_CONTRACTS");
@@ -13719,9 +13729,16 @@ namespace SiagroB1.Migrations.AppContext
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("SiagroB1.Domain.Entities.ShipmentRelease", "ShipmentRelease")
+                        .WithMany()
+                        .HasForeignKey("ShipmentReleaseKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("Contract");
 
                     b.Navigation("ShipmentLoad");
+
+                    b.Navigation("ShipmentRelease");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadPlannedSalesContract", b =>
@@ -13732,6 +13749,11 @@ namespace SiagroB1.Migrations.AppContext
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("SiagroB1.Domain.Entities.SalesShipmentRelease", "SalesShipmentRelease")
+                        .WithMany()
+                        .HasForeignKey("SalesShipmentReleaseKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("SiagroB1.Domain.Entities.ShipmentLoad", "ShipmentLoad")
                         .WithMany("PlannedSalesContracts")
                         .HasForeignKey("ShipmentLoadKey")
@@ -13739,6 +13761,8 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired();
 
                     b.Navigation("Contract");
+
+                    b.Navigation("SalesShipmentRelease");
 
                     b.Navigation("ShipmentLoad");
                 });

@@ -175,7 +175,7 @@ public class ShipmentLoadActionParametersTests
         Assert.Equal("Double", quantity.Type.AsPrimitive().PrimitiveKind().ToString());
         Assert.True(quantity.Type.IsNullable);
         Assert.Equal("String", add.Parameters.Single(p => p.Name == "ContractType").Type.AsPrimitive().PrimitiveKind().ToString());
-        Assert.Equal("Guid", add.Parameters.Single(p => p.Name == "ContractKey").Type.AsPrimitive().PrimitiveKind().ToString());
+        Assert.Equal("Guid", add.Parameters.Single(p => p.Name == "ReleaseKey").Type.AsPrimitive().PrimitiveKind().ToString());
 
         var remove = model.SchemaElements.OfType<Microsoft.OData.Edm.IEdmAction>()
             .Single(a => a.Name == "ShipmentLoadsPlannedContractRemove");

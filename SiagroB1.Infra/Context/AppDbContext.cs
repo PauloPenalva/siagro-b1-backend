@@ -953,6 +953,35 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.ContractKey)
             .OnDelete(DeleteBehavior.NoAction);
 
+        // Rodada 2: o planejado aponta para a liberação. NoAction como as demais — quem exclui a
+        // liberação (ShipmentReleasesDeleteService / SalesShipmentReleasesDeleteService) remove as
+        // linhas planejadas à mão.
+        modelBuilder.Entity<ShipmentLoadPlannedPurchaseContract>()
+            .HasOne(x => x.ShipmentRelease)
+            .WithMany()
+            .HasForeignKey(x => x.ShipmentReleaseKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadPlannedSalesContract>()
+            .HasOne(x => x.SalesShipmentRelease)
+            .WithMany()
+            .HasForeignKey(x => x.SalesShipmentReleaseKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Com coluna anulável o EF filtra o índice único sozinho ("IS NOT NULL"). Aqui o filtro
+        // sai de propósito: índice filtrado exige QUOTED_IDENTIFIER ON em toda conexão que grava
+        // na tabela, e sem ele o NULL conta como valor — a linha anterior à rodada 2 (sem
+        // liberação) continua única por (carga, contrato), que é a regra que ela sempre teve.
+        modelBuilder.Entity<ShipmentLoadPlannedPurchaseContract>()
+            .HasIndex(x => new { x.ShipmentLoadKey, x.ContractKey, x.ShipmentReleaseKey })
+            .IsUnique()
+            .HasFilter(null);
+
+        modelBuilder.Entity<ShipmentLoadPlannedSalesContract>()
+            .HasIndex(x => new { x.ShipmentLoadKey, x.ContractKey, x.SalesShipmentReleaseKey })
+            .IsUnique()
+            .HasFilter(null);
+
         // GAC-1181: as duas FKs do transbordo são NoAction — ShipmentLoadsDeleteService remove os
         // filhos à mão, e o romaneio de entrada não pode arrastar o transbordo num delete.
         modelBuilder.Entity<ShipmentLoadTransshipment>()

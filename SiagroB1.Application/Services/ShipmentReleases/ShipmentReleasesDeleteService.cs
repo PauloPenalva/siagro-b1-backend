@@ -36,6 +36,11 @@ public class ShipmentReleasesDeleteService(IUnitOfWork db, ILogger<ShipmentRelea
         if (await db.Context.WarehouseReconciliationReleases.AnyAsync(x => x.ShipmentReleaseKey == key))
             throw new ApplicationException("Liberação usada em conferência de saldo de armazém: não pode ser excluída.");
 
+        // GAC-1185: liberação planejada em carga é vínculo informativo (FK NoAction): sai junto.
+        db.Context.ShipmentLoadsPlannedPurchaseContracts.RemoveRange(
+            await db.Context.ShipmentLoadsPlannedPurchaseContracts
+                .Where(x => x.ShipmentReleaseKey == key).ToListAsync());
+
         db.Context.ShipmentReleases.Remove(entity);
         await db.SaveChangesAsync();
         return true;

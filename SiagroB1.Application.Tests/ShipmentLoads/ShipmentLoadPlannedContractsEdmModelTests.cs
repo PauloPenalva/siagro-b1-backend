@@ -56,4 +56,45 @@ public class ShipmentLoadPlannedContractsEdmModelTests
         Assert.NotNull(sales.FindProperty("Contract"));
         Assert.NotNull(sales.FindProperty("ShipmentLoad"));
     }
+
+    /// <summary>Rodada 2: a tela expande a liberação planejada para mostrar item, armazém e saldo.</summary>
+    [Fact]
+    public void Planned_rows_expose_release_navigations()
+    {
+        var purchase = (IEdmEntityType)Model()
+            .FindDeclaredType(typeof(ShipmentLoadPlannedPurchaseContract).FullName);
+        var sales = (IEdmEntityType)Model()
+            .FindDeclaredType(typeof(ShipmentLoadPlannedSalesContract).FullName);
+
+        Assert.NotNull(purchase.FindProperty("ShipmentReleaseKey"));
+        Assert.NotNull(purchase.FindProperty("ShipmentRelease"));
+        Assert.NotNull(sales.FindProperty("SalesShipmentReleaseKey"));
+        Assert.NotNull(sales.FindProperty("SalesShipmentRelease"));
+    }
+
+    /// <summary>
+    /// Rodada 2: a tela manda a LIBERAÇÃO e o servidor deriva o contrato. `ContractKey` sai da
+    /// action de propósito — mantê-lo deixaria aberto um caminho de inclusão sem liberação.
+    /// </summary>
+    [Fact]
+    public void Add_action_takes_the_release_key_instead_of_the_contract_key()
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>()
+            .Single(a => a.Name == "ShipmentLoadsPlannedContractAdd");
+
+        Assert.Equal(
+            new[] { "LoadKey", "ContractType", "ReleaseKey", "Quantity", "Notes" },
+            action.Parameters.Select(p => p.Name));
+        Assert.Equal("Edm.Guid", action.FindParameter("ReleaseKey").Type.FullName());
+    }
+
+    [Theory]
+    [InlineData("CC000001", null, null, "CC000001")]
+    [InlineData("CC000001", 2, null, "CC000001 (item 2)")]
+    [InlineData("CC000001", 2, 500, "CC000001 (item 2) — 500,000")]
+    [InlineData("CC000001", null, 500, "CC000001 — 500,000")]
+    public void Change_log_describes_the_planned_release(string code, int? rowId, int? quantity, string expected)
+    {
+        Assert.Equal(expected, ShipmentLoadChangeLogFields.DescribePlannedContract(code, rowId, quantity));
+    }
 }
