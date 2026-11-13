@@ -17,7 +17,9 @@ public class PurchaseContractsGetAllocationsByContractService(
     // tabelas a aba "Entregas" trava (timeout de 30 s) atrás de qualquer escrita em andamento, mesmo de outro
     // contrato (produção CEAGUI, 14/10/2026). Todo FROM/JOIN novo precisa do hint (há teste que confere).
     private static readonly string SQL = """
-        SELECT DISTINCT 
+        SELECT DISTINCT
+            -- Uma linha por alocação: sem a chave, o DISTINCT fundiria duas alocações iguais no mesmo romaneio.
+            PA.[Key] AS AllocationKey,
             ST.BranchCode AS BranchCode,
         	B.BranchName AS BranchName,
             ST.Code AS StorageTransactionCode,
@@ -53,7 +55,8 @@ public class PurchaseContractsGetAllocationsByContractService(
             CASE
                 WHEN RGEN.ReleaseKey IS NOT NULL AND RLOAD.Code IS NOT NULL THEN N'Carga ' + RLOAD.Code + N' recusada'
                 WHEN RGEN.ReleaseKey IS NOT NULL THEN N'Devolução ao armazém'
-                WHEN RCON.[Key] IS NOT NULL THEN N'Saída da devolução ' + COALESCE(STGEN.Code, N'')
+                WHEN RCON.[Key] IS NOT NULL AND STGEN.Code IS NOT NULL THEN N'Saída da devolução ' + STGEN.Code
+                WHEN RCON.[Key] IS NOT NULL THEN N'Saída da devolução ao armazém'
                 ELSE WRRS.Description
             END AS ReasonDescription,
             COALESCE(DINV.TaxDocumentNumber, DINV.InvoiceNumber) AS DischargeInvoiceNumber,
