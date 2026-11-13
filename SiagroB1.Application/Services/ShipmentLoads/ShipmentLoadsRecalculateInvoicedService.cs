@@ -140,8 +140,14 @@ public class ShipmentLoadsRecalculateInvoicedService(
         var hasPendingRefusal = await context.ShipmentLoadRefusals
             .AnyAsync(x => x.ShipmentLoadKey == shipmentLoadKey && x.Status == ShipmentLoadRefusalStatus.Pending);
 
+        // GAC-1176: um transbordo só (o último) responde as duas perguntas da transferência —
+        // "terminou aqui?" (status) e "a parada em aberto é uma transferência?" (rótulo).
+        var lastTransshipment = await ShipmentLoadsRecalculateTransshippedService
+            .LastAsync(context, shipmentLoadKey);
+
         var baseStatus = ResolveStatus(
-            load.TotalQuantity, invoiced, returned, transshipped, transitLoss, hasOpenTransshipment, hasPendingRefusal);
+            load.TotalQuantity, invoiced, returned, transshipped, transitLoss, hasOpenTransshipment, hasPendingRefusal,
+            endsAtFinalTransshipment: lastTransshipment?.FinalDestinationAt != null);
 
         // Só o ramo Faturada usa a Conferência e os tickets: fora dele a consulta seria trabalho à toa.
         var closure = baseStatus == ShipmentLoadStatus.Invoiced
@@ -153,6 +159,8 @@ public class ShipmentLoadsRecalculateInvoicedService(
         load.TransshippedQuantity = transshipped;
         load.TransitLossQuantity = transitLoss;
         load.Status = ResolveClosure(baseStatus, closure.AllDischarged, closure.AllDeliveriesClosed);
+        load.IsInTransfer = load.Status == ShipmentLoadStatus.InTransshipment &&
+                            lastTransshipment?.Type == TransshipmentType.Transfer;
         load.UpdatedAt = DateTime.Now;
 
         // TransitLoss (GAC-1213): a mercadoria saiu e foi perdida no trajeto; o romaneio não volta à Montagem.
@@ -271,6 +279,10 @@ public class ShipmentLoadsRecalculateInvoicedService(
     /// <para>
     /// <c>hasPendingRefusal</c> (recusa com NF-e de entrada pendente) vence qualquer outra situação.
     /// </para>
+    /// <para>
+    /// <c>endsAtFinalTransshipment</c> (GAC-1176): o último transbordo é destino final — a carga
+    /// de transferência entre armazéns de terceiros fecha em <c>Completed</c> sem faturamento.
+    /// </para>
     /// </remarks>
     public static ShipmentLoadStatus ResolveStatus(
         decimal totalQuantity,
@@ -279,7 +291,8 @@ public class ShipmentLoadsRecalculateInvoicedService(
         decimal transshippedQuantity,
         decimal transitLossQuantity,
         bool hasOpenTransshipment,
-        bool hasPendingRefusal = false)
+        bool hasPendingRefusal = false,
+        bool endsAtFinalTransshipment = false)
     {
         // Spec 2026-10-09: a recusa aguardando NF-e vence tudo — a carga fica travada até concluir ou cancelar.
         // Não colide com o transbordo: a recusa para Transbordo exige que não haja transbordo aberto.
@@ -305,9 +318,17 @@ public class ShipmentLoadsRecalculateInvoicedService(
             if (transitLossQuantity > Tolerance)
                 return ShipmentLoadStatus.TransitLoss;
 
-            return returnedToWarehouseQuantity > Tolerance
-                ? ShipmentLoadStatus.Returned
-                : ShipmentLoadStatus.Invoiced;
+            if (returnedToWarehouseQuantity > Tolerance)
+                return ShipmentLoadStatus.Returned;
+
+            // GAC-1176: a carga terminou numa transferência entre armazéns de terceiros e nada
+            // foi faturado — não há nota para a Conferência encerrar, então a conclusão é direta.
+            // Com faturamento parcial o rótulo segue o comercial (Invoiced), que ResolveClosure
+            // ainda refina: concluir aqui esconderia notas não conferidas.
+            if (endsAtFinalTransshipment && invoicedQuantity <= Tolerance)
+                return ShipmentLoadStatus.Completed;
+
+            return ShipmentLoadStatus.Invoiced;
         }
 
         if (invoicedQuantity + returnedToWarehouseQuantity + transitLossQuantity <= decimal.Zero)

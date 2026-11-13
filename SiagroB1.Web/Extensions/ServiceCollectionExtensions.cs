@@ -718,6 +718,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsTransshipmentRegisterEntryService>();
         services.AddScoped<ShipmentLoadsTransshipmentAttachLotExitService>();
         services.AddScoped<ShipmentLoadsTransshipmentReverseService>();
+        services.AddScoped<ShipmentLoadsTransshipmentCompleteService>();
+        services.AddScoped<ShipmentLoadsTransshipmentReopenService>();
         services.AddScoped<ShipmentLoadsTransshipmentsGetService>();
 
         // shipping orders

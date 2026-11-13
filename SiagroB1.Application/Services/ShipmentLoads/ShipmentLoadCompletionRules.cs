@@ -1,5 +1,6 @@
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
@@ -19,10 +20,12 @@ public static class ShipmentLoadCompletionRules
     /// <summary>
     /// Como DESFAZER a conclusão, isto é, voltar a carga à situação anterior. Usada pela Recusa.
     /// </summary>
-    public static string UndoHint(ShipmentLoad load) =>
+    public static string UndoHint(ShipmentLoad load, bool completedByTransfer = false) =>
         load.LoadType == ShipmentLoadType.Removal
             ? "Reabra-a"
-            : "Estorne a conferência de entrega";
+            : completedByTransfer
+                ? TransferHint
+                : "Estorne a conferência de entrega";
 
     /// <summary>
     /// Como destravar a COMPOSIÇÃO da carga concluída: usada por Vincular, Desvincular e Cancelar.
@@ -35,8 +38,26 @@ public static class ShipmentLoadCompletionRules
     /// documentos de saída faz as duas coisas de uma vez: a carga deixa a Concluída e a
     /// composição fica livre. Na Remoção não há nota, e "Reabrir" resolve os dois casos.
     /// </remarks>
-    public static string CompositionHint(ShipmentLoad load) =>
+    public static string CompositionHint(ShipmentLoad load, bool completedByTransfer = false) =>
         load.LoadType == ShipmentLoadType.Removal
             ? "Reabra-a"
-            : "Cancele os documentos de saída";
+            : completedByTransfer
+                ? TransferHint
+                : "Cancele os documentos de saída";
+
+    /// <summary>
+    /// GAC-1176: a carga Normal também chega a Concluída por TRANSFERÊNCIA entre armazéns de
+    /// terceiros — sem nota nenhuma. As duas dicas acima mandariam o usuário procurar uma
+    /// conferência ou um documento de saída que não existem.
+    /// </summary>
+    public const string TransferHint = "Reabra a transferência";
+
+    /// <summary>
+    /// A carga está Concluída POR TRANSFERÊNCIA (o último transbordo é destino final). Consulta o
+    /// banco só quando a carga está de fato Concluída e é Normal — fora disso a resposta é não.
+    /// </summary>
+    public static async Task<bool> IsCompletedByTransferAsync(AppDbContext context, ShipmentLoad load) =>
+        load.Status == ShipmentLoadStatus.Completed &&
+        load.LoadType != ShipmentLoadType.Removal &&
+        await ShipmentLoadsRecalculateTransshippedService.EndsAtFinalTransshipmentAsync(context, load.Key);
 }

@@ -103,6 +103,15 @@ public class ShipmentLoadsTransshipmentReverseService(
         if (transshipment.Sequence != lastSequence)
             throw new ApplicationException($"Estorne primeiro o transbordo {lastSequence}.");
 
+        // GAC-1176: a transferência concluída só se desfaz reabrindo — a carga está encerrada, e
+        // estornar por baixo dela apagaria a conclusão sem que o usuário a tivesse desfeito. Vem
+        // ANTES da checagem de transbordo aberto: sem isso a recusa sairia com a frase da
+        // Expedição de venda vinculada, que aqui não existe.
+        if (transshipment.FinalDestinationAt != null)
+            throw new ApplicationException(
+                $"A transferência {transshipment.Sequence} foi concluída. Reabra a transferência " +
+                "antes de estorná-la.");
+
         List<ShipmentRelease> releases = [];
         StorageTransaction? entry = null;
         StorageTransaction? warehouseCredit = null;
@@ -215,6 +224,7 @@ public class ShipmentLoadsTransshipmentReverseService(
             }
 
             var sequence = transshipment.Sequence;
+            var type = transshipment.Type;
             var warehouseCode = transshipment.WarehouseCode;
             var warehouseName = transshipment.WarehouseName;
             var outgoing = transshipment.OutgoingQuantity;
@@ -244,7 +254,10 @@ public class ShipmentLoadsTransshipmentReverseService(
             };
 
             var description =
-                $"Transbordo {sequence} estornado no armazém ({warehouseCode}) {warehouseName}: " +
+                (type == TransshipmentType.Transfer
+                    ? $"Transferência {sequence} estornada"
+                    : $"Transbordo {sequence} estornado") +
+                $" no armazém ({warehouseCode}) {warehouseName}: " +
                 $"{outgoing:N3} devolvido à carga.{entryNarrative}" +
                 (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Motivo: {reason.Trim()}.");
 

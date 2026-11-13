@@ -50,7 +50,8 @@ public class ShipmentLoadsDetachTransactionsService(
         if (load.Status == ShipmentLoadStatus.Completed)
             throw new ApplicationException(
                 $"A carga {load.Code} já foi concluída. " +
-                $"{ShipmentLoadCompletionRules.CompositionHint(load)} antes de alterar a composição.");
+                $"{ShipmentLoadCompletionRules.CompositionHint(load, await ShipmentLoadCompletionRules.IsCompletedByTransferAsync(db.Context, load))} " +
+                "antes de alterar a composição.");
 
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException(

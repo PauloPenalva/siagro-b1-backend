@@ -58,6 +58,48 @@ public class ShipmentLoadTransshipmentEdmModelTests
         Assert.NotNull(transshipment.FindProperty(nameof(ShipmentLoadTransshipment.ShrinkageQuantity)));
     }
 
+    // ─── GAC-1176: transferência entre armazéns de terceiros ───
+
+    [Theory]
+    [InlineData("ShipmentLoadsTransferComplete")]
+    [InlineData("ShipmentLoadsTransferReopen")]
+    public void Declares_the_transfer_actions_taking_the_transshipment_key(string name)
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>().Single(a => a.Name == name);
+
+        Assert.Equal(["Key"], action.Parameters.Select(p => p.Name).ToArray());
+    }
+
+    /// <summary>A tela decide rótulos e botões por estes campos: sem eles no EDM o $select devolve 400.</summary>
+    [Fact]
+    public void Exposes_the_transfer_fields()
+    {
+        var transshipment =
+            (IEdmStructuredType)Model().FindDeclaredType(typeof(ShipmentLoadTransshipment).FullName);
+        var load = (IEdmStructuredType)Model().FindDeclaredType(typeof(ShipmentLoad).FullName);
+
+        Assert.NotNull(transshipment.FindProperty(nameof(ShipmentLoadTransshipment.Type)));
+        Assert.NotNull(transshipment.FindProperty(nameof(ShipmentLoadTransshipment.FinalDestinationAt)));
+        Assert.NotNull(load.FindProperty(nameof(ShipmentLoad.IsInTransfer)));
+    }
+
+    /// <summary>
+    /// Type como STRING opcional ("Transshipment" | "Transfer"), não enum: parâmetro de action
+    /// tipado como enum exige o nome qualificado no corpo, e a tela antiga, que não o envia,
+    /// continua iniciando um transbordo comum.
+    /// </summary>
+    [Fact]
+    public void Start_action_takes_an_optional_string_type()
+    {
+        var parameter = Model().SchemaElements.OfType<IEdmAction>()
+            .Single(a => a.Name == "ShipmentLoadsTransshipmentStart")
+            .FindParameter("Type");
+
+        Assert.NotNull(parameter);
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(parameter);
+        Assert.Equal("Edm.String", parameter.Type.FullName());
+    }
+
     [Fact]
     public void Start_action_takes_the_expected_parameters()
     {

@@ -37,5 +37,7 @@ public enum ShipmentLoadMovementType
     Discharged = 23,             // Carga marcada à mão como descarregada no destino (GAC-1171)
     DischargeUndone = 24,        // Marcação de descarregada desfeita — o status volta ao do recálculo
     RefusalCancelled = 25,       // Recusa aguardando NF-e cancelada — devoluções pendentes canceladas, carga destravada
-    TransitLoss = 26             // Quebra de trajeto registrada — o volume perdido sai do saldo da carga (GAC-1213)
+    TransitLoss = 26,            // Quebra de trajeto registrada — o volume perdido sai do saldo da carga (GAC-1213)
+    TransferCompleted = 27,      // Transferência entre armazéns de terceiros concluída — a carga encerra sem faturamento (GAC-1176)
+    TransferReopened = 28        // Conclusão da transferência desfeita — a carga volta a "em transbordo"
 }

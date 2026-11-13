@@ -50,7 +50,8 @@ public class ShipmentLoadsCancelService(
         if (load.Status == ShipmentLoadStatus.Completed)
             throw new ApplicationException(
                 $"A carga {load.Code} já foi concluída. " +
-                $"{ShipmentLoadCompletionRules.CompositionHint(load)} antes de cancelá-la.");
+                $"{ShipmentLoadCompletionRules.CompositionHint(load, await ShipmentLoadCompletionRules.IsCompletedByTransferAsync(db.Context, load))} " +
+                "antes de cancelá-la.");
 
         await compositionGuard.EnsureCanChangeCompositionAsync(load);
 

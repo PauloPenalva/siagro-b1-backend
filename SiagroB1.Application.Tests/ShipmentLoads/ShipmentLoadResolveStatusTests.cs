@@ -203,4 +203,21 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(expected, ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
             total, invoiced, returned, transshipped, loss, hasOpenTransshipment: false));
     }
+
+    // ─── Transferência entre armazéns de terceiros (GAC-1176): o último transbordo é destino final ───
+
+    [Theory]
+    [InlineData(30_000, 0, 0, 30_000, 0, true, ShipmentLoadStatus.Completed)]        // só transferência, nunca faturada
+    [InlineData(30_000, 10_000, 0, 20_000, 0, true, ShipmentLoadStatus.Invoiced)]    // parte faturada: segue o comercial (Conferência refina)
+    [InlineData(30_000, 0, 10_000, 20_000, 0, true, ShipmentLoadStatus.Returned)]    // devolução vence
+    [InlineData(30_000, 0, 0, 20_000, 10_000, true, ShipmentLoadStatus.TransitLoss)] // quebra de trajeto vence
+    [InlineData(30_000, 0, 0, 30_000, 0, false, ShipmentLoadStatus.Invoiced)]        // sem o fato, nada muda
+    public void ResolveStatus_WithFinalTransfer(
+        decimal total, decimal invoiced, decimal returned, decimal transshipped, decimal loss,
+        bool endsAtFinalTransshipment, ShipmentLoadStatus expected)
+    {
+        Assert.Equal(expected, ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
+            total, invoiced, returned, transshipped, loss, hasOpenTransshipment: false,
+            endsAtFinalTransshipment: endsAtFinalTransshipment));
+    }
 }

@@ -33,18 +33,42 @@ public static class ShipmentLoadsRecalculateTransshippedService
     /// O ÚLTIMO transbordo ainda não tem saída vinculada — a mercadoria está no armazém
     /// intermediário e a viagem não acabou.
     /// </summary>
+    /// <remarks>
+    /// GAC-1176: o transbordo marcado como destino final
+    /// (<see cref="ShipmentLoadTransshipment.FinalDestinationAt"/>) NÃO está aberto, mesmo sem
+    /// saída — a viagem acabou ali. A exceção mora aqui e não em <see cref="IsClosedAsync"/>, que
+    /// continua significando "tem a Expedição de venda vinculada" para quem decide sobre saída.
+    /// </remarks>
     public static async Task<bool> HasOpenTransshipmentAsync(AppDbContext context, Guid shipmentLoadKey)
     {
-        var last = await context.ShipmentLoadsTransshipments
-            .Where(x => x.ShipmentLoadKey == shipmentLoadKey)
-            .OrderByDescending(x => x.Sequence)
-            .FirstOrDefaultAsync();
+        var last = await LastAsync(context, shipmentLoadKey);
 
         if (last?.Key is not { } transshipmentKey)
             return false;
 
+        if (last.FinalDestinationAt != null)
+            return false;
+
         return !await IsClosedAsync(context, transshipmentKey);
     }
+
+    /// <summary>
+    /// O ÚLTIMO transbordo da carga é destino final (GAC-1176): a carga terminou numa
+    /// transferência entre armazéns de terceiros.
+    /// </summary>
+    /// <remarks>
+    /// "O último", não "algum": depois de uma transferência a carga mista ainda pode abrir outro
+    /// transbordo (recusa com destino Transbordo), e aí o anterior vira histórico.
+    /// </remarks>
+    public static async Task<bool> EndsAtFinalTransshipmentAsync(AppDbContext context, Guid shipmentLoadKey) =>
+        (await LastAsync(context, shipmentLoadKey))?.FinalDestinationAt != null;
+
+    /// <summary>O transbordo de maior <c>Sequence</c> da carga, ou nulo se ela não tem nenhum.</summary>
+    public static Task<ShipmentLoadTransshipment?> LastAsync(AppDbContext context, Guid shipmentLoadKey) =>
+        context.ShipmentLoadsTransshipments
+            .Where(x => x.ShipmentLoadKey == shipmentLoadKey)
+            .OrderByDescending(x => x.Sequence)
+            .FirstOrDefaultAsync();
 
     /// <summary>
     /// Este transbordo ESPECÍFICO já tem a Expedição de venda (<see cref="StorageTransactionType

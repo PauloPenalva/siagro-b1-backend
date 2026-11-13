@@ -192,7 +192,8 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
                 ShipmentLoadMovementType.TransshipmentEntered,
                 decimal.Zero,
                 load.AvailableQuantity,
-                $"Entrada do transbordo {transshipment.Sequence} registrada no armazém " +
+                $"Entrada {(transshipment.Type == TransshipmentType.Transfer ? "da transferência" : "do transbordo")} " +
+                $"{transshipment.Sequence} registrada no armazém " +
                 $"({transshipment.WarehouseCode}) {transshipment.WarehouseName}: {quantity:N3}. " +
                 $"Quebra: {transshipment.ShrinkageQuantity:N3}. Romaneio {entry.Code}.",
                 userName,

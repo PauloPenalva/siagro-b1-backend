@@ -32,7 +32,11 @@ public class ShipmentLoadsCompleteService(
 
         if (load.LoadType != ShipmentLoadType.Removal)
             throw new ApplicationException(
-                $"A carga {load.Code} não é do tipo Remoção: ela é encerrada pelo faturamento.");
+                load.Status == ShipmentLoadStatus.InTransshipment
+                    // GAC-1176: a carga parada num armazém de terceiro tem conclusão própria.
+                    ? $"A carga {load.Code} não é do tipo Remoção. Se a mercadoria termina no armazém " +
+                      "do transbordo, use Concluir Transferência no transbordo da carga."
+                    : $"A carga {load.Code} não é do tipo Remoção: ela é encerrada pelo faturamento.");
 
         if (load.Status != ShipmentLoadStatus.Open)
         {

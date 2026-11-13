@@ -1793,7 +1793,20 @@ public static class ODataConfigurations
         transshipmentStart.Parameter<string>("WarehouseCode");
         transshipmentStart.Parameter<string>("TransshipmentDate");
         transshipmentStart.Parameter<string>("Comments").Optional();
+        // GAC-1176: "Transshipment" (padrão, quando omitido) | "Transfer". String e não enum,
+        // como o Destination da recusa: enum em parâmetro de action exige o nome qualificado.
+        transshipmentStart.Parameter<string>("Type").Optional();
         transshipmentStart.Returns<IActionResult>();
+
+        // GAC-1176 — transferência entre armazéns de terceiros: a carga termina no armazém do
+        // transbordo e encerra sem faturamento. Key é a chave do TRANSBORDO, não da carga.
+        var transferComplete = modelBuilder.Action("ShipmentLoadsTransferComplete");
+        transferComplete.Parameter<Guid>("Key");
+        transferComplete.Returns<IActionResult>();
+
+        var transferReopen = modelBuilder.Action("ShipmentLoadsTransferReopen");
+        transferReopen.Parameter<Guid>("Key");
+        transferReopen.Returns<IActionResult>();
 
         // GrossWeight e ReceiptStorageTransactionKey são opcionais: armazém próprio deriva o
         // peso do romaneio de Entrada em Armazenagem apontado por ReceiptStorageTransactionKey

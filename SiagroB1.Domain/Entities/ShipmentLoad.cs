@@ -165,6 +165,18 @@ public class ShipmentLoad : DocumentEntity
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal TransitLossQuantity { get; set; }
 
+    /// <summary>
+    /// Persistido-derivado (GAC-1176): a carga está <see cref="ShipmentLoadStatus.InTransshipment"/>
+    /// e a parada em aberto é uma TRANSFERÊNCIA entre armazéns de terceiros — as telas leem "Em
+    /// transferência" em vez de "Em transbordo". Escritor único:
+    /// <c>ShipmentLoadsRecalculateInvoicedService</c>.
+    /// </summary>
+    /// <remarks>
+    /// Coluna, e não <c>[NotMapped]</c>: propriedade não mapeada some do EDM e as listas não a
+    /// conseguiriam selecionar.
+    /// </remarks>
+    public bool IsInTransfer { get; set; }
+
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
 
