@@ -59,7 +59,7 @@ public class ShipmentLoadsMultiOriginProcessingScenarioTests
         new(_db, new ShipmentLoadsMovementLogService(_db.Context));
 
     private ShipmentLoadsTransshipmentStartService Start() =>
-        new(_db, Warehouses(), new ShipmentLoadsMovementLogService(_db.Context));
+        new(_db, Warehouses(), new ShipmentLoadsMovementLogService(_db.Context), new WarehouseComplementService(_db));
 
     private ShipmentLoadsTransshipmentRegisterEntryService RegisterEntry() => new(
         _db,

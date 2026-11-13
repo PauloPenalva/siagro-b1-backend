@@ -28,14 +28,16 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 public class ShipmentLoadsTransshipmentStartService(
     IUnitOfWork db,
     IWarehouseService warehouseService,
-    ShipmentLoadsMovementLogService movementLog)
+    ShipmentLoadsMovementLogService movementLog,
+    IWarehouseComplementService warehouseComplementService)
 {
     public async Task<ShipmentLoadTransshipment> ExecuteAsync(
         Guid loadKey,
         string warehouseCode,
         DateTime transshipmentDate,
         string? comments,
-        string userName)
+        string userName,
+        TransshipmentType type = TransshipmentType.Transshipment)
     {
         var load = await db.Context.ShipmentLoads
                        .FirstOrDefaultAsync(x => x.Key == loadKey) ??
@@ -48,6 +50,19 @@ public class ShipmentLoadsTransshipmentStartService(
 
         var warehouse = await warehouseService.GetByIdAsync(warehouseCode.Trim())
                         ?? throw new ApplicationException($"Armazém {warehouseCode} não encontrado.");
+
+        // GAC-1176: a transferência TERMINA no armazém, e mercadoria que fica em armazém próprio
+        // é Entrada em Armazenagem. IsOwn lido AO VIVO porque isto é criação — ver o remarks de
+        // ShipmentLoadTransshipmentRules sobre a regra temporal do discriminador.
+        if (type == TransshipmentType.Transfer)
+        {
+            var complement = await warehouseComplementService.GetAsync(warehouse.Code ?? warehouseCode.Trim());
+
+            if (complement?.IsOwn == true)
+                throw new ApplicationException(
+                    $"O armazém {warehouse.Code} é armazém próprio. A transferência é entre armazéns " +
+                    "de terceiros: para armazém próprio use a Entrada em Armazenagem.");
+        }
 
         var invoiced = await ShipmentLoadsRecalculateInvoicedService.CalculateInvoicedAsync(
             db.Context, loadKey, excludedInvoiceKeys: null);
@@ -79,6 +94,7 @@ public class ShipmentLoadsTransshipmentStartService(
             ShipmentLoadKey = loadKey,
             Sequence = sequence,
             Origin = TransshipmentOrigin.Planned,
+            Type = type,
             WarehouseCode = warehouse.Code ?? warehouseCode.Trim(),
             WarehouseName = warehouse.Name,
             TransshipmentDate = transshipmentDate.Date,
@@ -107,7 +123,7 @@ public class ShipmentLoadsTransshipmentStartService(
                 ShipmentLoadMovementType.TransshipmentStarted,
                 -available,
                 load.AvailableQuantity,
-                $"Transbordo {sequence} iniciado no armazém ({transshipment.WarehouseCode}) " +
+                $"{ShipmentLoadTransshipmentRules.Started(type, sequence)} no armazém ({transshipment.WarehouseCode}) " +
                 $"{transshipment.WarehouseName}: {available:N3}.",
                 userName,
                 movementContext: new ShipmentLoadMovementContext(

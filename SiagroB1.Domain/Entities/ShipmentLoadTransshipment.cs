@@ -41,6 +41,24 @@ public class ShipmentLoadTransshipment
 
     public TransshipmentOrigin Origin { get; set; } = TransshipmentOrigin.Planned;
 
+    /// <summary>Transbordo ou Transferência entre armazéns de terceiros (GAC-1176).</summary>
+    public TransshipmentType Type { get; set; } = TransshipmentType.Transshipment;
+
+    /// <summary>
+    /// Quando a parada foi marcada como DESTINO FINAL (GAC-1176): a mercadoria terminou a viagem
+    /// neste armazém de terceiro e a carga foi concluída sem faturamento. Nulo = não é destino
+    /// final. É o fato persistido que o recálculo do status lê — sem ele o transbordo sem
+    /// Expedição de saída deixaria a carga em "Em transbordo" para sempre.
+    /// </summary>
+    /// <remarks>
+    /// Um fato só, sem bool ao lado: data + flag admitiriam o par inconsistente. Não se chama
+    /// <c>CompletedAt</c> porque na tela "Concluído" já significa "Expedição de saída vinculada".
+    /// </remarks>
+    public DateTime? FinalDestinationAt { get; set; }
+
+    [Column(TypeName = "VARCHAR(100)")]
+    public string? FinalDestinationBy { get; set; }
+
     [Column(TypeName = "VARCHAR(10)")]
     public required string WarehouseCode { get; set; }
 
@@ -91,6 +109,9 @@ public class ShipmentLoadTransshipment
 
     [Column(TypeName = "VARCHAR(100)")]
     public string? UpdatedBy { get; set; }
+
+    [NotMapped]
+    public bool IsFinalDestination => FinalDestinationAt != null;
 
     /// <summary>Quebra de transporte: o que saiu da carga menos o que entrou no armazém.</summary>
     [NotMapped]

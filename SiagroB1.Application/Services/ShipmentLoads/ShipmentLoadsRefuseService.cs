@@ -95,7 +95,7 @@ public class ShipmentLoadsRefuseService(
 
         // TODA a validação antes de qualquer escrita: uma recusa recusada não pode deixar
         // efeito no banco, nem meia devolução criada.
-        Validate(load, request);
+        Validate(load, request, await ShipmentLoadCompletionRules.IsCompletedByTransferAsync(db.Context, load));
 
         if (request.Destination == RefusalDestination.Transshipment)
         {
@@ -306,7 +306,7 @@ public class ShipmentLoadsRefuseService(
         return nfeCount == lines.Count;
     }
 
-    private static void Validate(ShipmentLoad load, RefusalRequest request)
+    private static void Validate(ShipmentLoad load, RefusalRequest request, bool completedByTransfer)
     {
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException($"A carga {load.Code} está cancelada e não pode ser recusada.");
@@ -329,7 +329,8 @@ public class ShipmentLoadsRefuseService(
         if (load.Status == ShipmentLoadStatus.Completed && load.LoadType == ShipmentLoadType.Normal)
             throw new ApplicationException(
                 $"A carga {load.Code} já foi concluída. " +
-                $"{ShipmentLoadCompletionRules.UndoHint(load)} antes de registrar recusa.");
+                $"{ShipmentLoadCompletionRules.UndoHint(load, completedByTransfer)} " +
+                "antes de registrar recusa.");
 
         // GAC-1175: a recusa devolve mercadoria de um documento de SAÍDA, e a carga de remoção
         // não emite nenhum. O caminho de desfazer dela é desvincular a entrada.

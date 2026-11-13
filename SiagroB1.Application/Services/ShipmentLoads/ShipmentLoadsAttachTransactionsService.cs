@@ -45,7 +45,8 @@ public class ShipmentLoadsAttachTransactionsService(
                        .FirstOrDefaultAsync(x => x.Key == shipmentLoadKey) ??
                    throw new NotFoundException($"Shipment load not found key {shipmentLoadKey}");
 
-        EnsureLoadAcceptsShipments(load);
+        EnsureLoadAcceptsShipments(
+            load, await ShipmentLoadCompletionRules.IsCompletedByTransferAsync(db.Context, load));
 
         var distinctKeys = storageTransactionKeys.Distinct().ToList();
 
@@ -150,7 +151,7 @@ public class ShipmentLoadsAttachTransactionsService(
     /// <see cref="EnsureNoneIsATransshipmentWarehouseAsync"/>, não este guard.
     /// </para>
     /// </remarks>
-    private static void EnsureLoadAcceptsShipments(ShipmentLoad load)
+    private static void EnsureLoadAcceptsShipments(ShipmentLoad load, bool completedByTransfer)
     {
         if (load.Status is ShipmentLoadStatus.Planned or ShipmentLoadStatus.Open
             or ShipmentLoadStatus.InTransshipment)
@@ -163,7 +164,7 @@ public class ShipmentLoadsAttachTransactionsService(
         if (load.Status == ShipmentLoadStatus.Completed)
             throw new ApplicationException(
                 $"A carga {load.Code} já foi concluída e não aceita novos romaneios. " +
-                $"{ShipmentLoadCompletionRules.CompositionHint(load)} antes de alterar a composição.");
+                $"{ShipmentLoadCompletionRules.CompositionHint(load, completedByTransfer)} antes de alterar a composição.");
 
         var reason = load.Status switch
         {
@@ -297,6 +298,16 @@ public class ShipmentLoadsAttachTransactionsService(
         if (transshipment.ShipmentLoadKey != load.Key)
             throw new ApplicationException(
                 $"O transbordo informado não pertence à carga {load.Code}.");
+
+        // GAC-1176: a transferência TERMINA no armazém. Uma Expedição vinculada como saída dela a
+        // transformaria num transbordo comum pela porta dos fundos; e na transferência já
+        // concluída ainda reabriria o saldo de uma carga encerrada. A mercadoria sai dali pela
+        // Expedição de Grãos, em OUTRA carga, consumindo a liberação que a entrada emitiu.
+        if (transshipment.Type == TransshipmentType.Transfer || transshipment.FinalDestinationAt != null)
+            throw new ApplicationException(
+                $"O transbordo {transshipment.Sequence} é uma transferência entre armazéns de " +
+                "terceiros: a carga termina no armazém e não aceita Expedição de saída. A mercadoria " +
+                "sai dali em outra carga, pela liberação gerada na entrada.");
 
         if (transshipment.EntryStorageTransactionKey == null)
             throw new ApplicationException(

@@ -8268,6 +8268,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("InvoicedQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
+                    b.Property<bool>("IsInTransfer")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ItemCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
@@ -8754,6 +8757,12 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("EntryStorageTransactionKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("FinalDestinationAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FinalDestinationBy")
+                        .HasColumnType("VARCHAR(100)");
+
                     b.Property<Guid?>("LotExitStorageTransactionKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -8771,6 +8780,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<DateTime>("TransshipmentDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");

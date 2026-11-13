@@ -124,6 +124,28 @@ public static class ShipmentLoadTransshipmentRules
     /// .EntryStorageTransactionKey"/> preenchido é o carimbo de "já registrado". Corrigir exige
     /// estornar primeiro (Task 6).
     /// </summary>
+    /// <summary>
+    /// A linha informada é o ÚLTIMO transbordo da carga (GAC-1176) — concluir ou reabrir a
+    /// transferência só faz sentido nele, porque é o último que decide a situação da carga.
+    /// </summary>
+    public static async Task EnsureIsTheLastOneAsync(
+        AppDbContext context, ShipmentLoadTransshipment transshipment, string verb)
+    {
+        var lastSequence = await context.ShipmentLoadsTransshipments
+            .Where(x => x.ShipmentLoadKey == transshipment.ShipmentLoadKey)
+            .MaxAsync(x => (int?)x.Sequence) ?? 0;
+
+        if (transshipment.Sequence != lastSequence)
+            throw new ApplicationException(
+                $"Só é possível {verb} a transferência no último transbordo da carga (o {lastSequence}).");
+    }
+
+    /// <summary>"Transbordo 1 iniciado" / "Transferência 1 iniciada" (GAC-1176) — a concordância muda com o nome.</summary>
+    public static string Started(TransshipmentType type, int sequence) =>
+        type == TransshipmentType.Transfer
+            ? $"Transferência {sequence} iniciada"
+            : $"Transbordo {sequence} iniciado";
+
     public static void EnsureEntryNotAlreadyRegistered(ShipmentLoadTransshipment transshipment)
     {
         if (transshipment.EntryStorageTransactionKey != null)

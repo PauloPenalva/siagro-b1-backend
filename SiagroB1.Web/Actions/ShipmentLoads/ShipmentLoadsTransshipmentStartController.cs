@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Actions.ShipmentLoads;
@@ -41,6 +42,16 @@ public class ShipmentLoadsTransshipmentStartController(
             if (parsedDate is null)
                 return BadRequest(ShipmentLoadActionParameters.TransshipmentMissingDateMessage);
 
+            // GAC-1176: omitido = transbordo comum (a tela antiga não envia). Valor desconhecido é
+            // recusado em vez de cair no padrão — iniciar um transbordo quando o usuário pediu uma
+            // transferência só apareceria na hora de concluir.
+            parameters.TryGetValue("Type", out var typeObj);
+            var type = TransshipmentType.Transshipment;
+
+            if (typeObj is string typeText && !string.IsNullOrWhiteSpace(typeText) &&
+                (!Enum.TryParse(typeText, ignoreCase: false, out type) || !Enum.IsDefined(type)))
+                return BadRequest("Tipo de transbordo inválido.");
+
             var userName = User.Identity?.Name ?? "Unknown";
 
             await service.ExecuteAsync(
@@ -48,7 +59,8 @@ public class ShipmentLoadsTransshipmentStartController(
                 (string) warehouseCodeObj,
                 parsedDate.Value,
                 commentsObj as string,
-                userName);
+                userName,
+                type);
 
             return Ok();
         }

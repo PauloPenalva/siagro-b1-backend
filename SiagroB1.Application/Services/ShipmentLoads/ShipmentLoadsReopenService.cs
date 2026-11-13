@@ -33,6 +33,13 @@ public class ShipmentLoadsReopenService(
         // Entregas. Reabri-la aqui seria desfeito na hora pelo recálculo, que a concluiria de novo.
         // Vem DEPOIS da trava acima: a frase afirma que a carga está concluída, e numa carga que
         // não está ela seria falsa.
+        // GAC-1176: a Normal também conclui por transferência entre armazéns de terceiros, e aí
+        // não há conferência a estornar — quem reabre é a ação do próprio transbordo.
+        if (await ShipmentLoadCompletionRules.IsCompletedByTransferAsync(db.Context, load))
+            throw new ApplicationException(
+                $"A carga {load.Code} foi concluída por transferência entre armazéns de terceiros: " +
+                "use Reabrir Transferência no transbordo da carga.");
+
         if (load.LoadType != ShipmentLoadType.Removal)
             throw new ApplicationException(
                 $"A carga {load.Code} é concluída pela conferência de entrega: " +
