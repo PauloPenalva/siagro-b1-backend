@@ -24,6 +24,20 @@ public sealed class ScaleConfigPayload
 
     public int Port { get; set; }
 
+    /// <summary>"Tcp" ou "Serial". Client antigo ignora o campo e segue em TCP.</summary>
+    public string ConnectionType { get; set; } = "Tcp";
+
+    public string? SerialPortName { get; set; }
+
+    public int BaudRate { get; set; } = 9600;
+
+    public int DataBits { get; set; } = 8;
+
+    /// <summary>"None", "Odd" ou "Even".</summary>
+    public string Parity { get; set; } = "None";
+
+    public int StopBits { get; set; } = 1;
+
     public string Protocol { get; set; } = "JundiaiBj850";
 
     public int FramePrefixLength { get; set; } = 1;

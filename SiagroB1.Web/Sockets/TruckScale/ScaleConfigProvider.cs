@@ -22,6 +22,12 @@ public class ScaleConfigProvider(AppDbContext db)
         {
             Ip = scale.IpAddress,
             Port = scale.Port,
+            ConnectionType = scale.ConnectionType.ToString(),
+            SerialPortName = scale.SerialPortName?.Trim(),
+            BaudRate = scale.BaudRate ?? 9600,
+            DataBits = scale.DataBits ?? 8,
+            Parity = scale.Parity.ToString(),
+            StopBits = scale.StopBits ?? 1,
             Protocol = scale.Protocol.ToString(),
             FramePrefixLength = scale.FramePrefixLength ?? 1,
             WeightLength = scale.WeightLength ?? 6,
