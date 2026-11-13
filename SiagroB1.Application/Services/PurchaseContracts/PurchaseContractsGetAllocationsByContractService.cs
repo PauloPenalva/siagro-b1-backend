@@ -17,12 +17,16 @@ public class PurchaseContractsGetAllocationsByContractService(
     // tabelas a aba "Entregas" trava (timeout de 30 s) atrás de qualquer escrita em andamento, mesmo de outro
     // contrato (produção CEAGUI, 14/10/2026). Todo FROM/JOIN novo precisa do hint (há teste que confere).
     private static readonly string SQL = """
-        SELECT DISTINCT 
+        SELECT DISTINCT
+            -- Uma linha por alocação: sem a chave, o DISTINCT fundiria duas alocações iguais no mesmo romaneio.
+            PA.[Key] AS AllocationKey,
             ST.BranchCode AS BranchCode,
         	B.BranchName AS BranchName,
             ST.Code AS StorageTransactionCode,
             ST.TransactionDate AS StorageTransactionDate,
             CASE
+                 WHEN RGEN.ReleaseKey IS NOT NULL THEN N'Devolução'
+                 WHEN RCON.[Key] IS NOT NULL THEN N'Reentrega'
         		 WHEN ST.TransactionType = 8 THEN 'Compra'
         		 WHEN ST.TransactionType = 9 THEN 'Dev.Compra'
         		 WHEN ST.TransactionType = 10 THEN 'Compl.Qtd.'
@@ -40,19 +44,32 @@ public class PurchaseContractsGetAllocationsByContractService(
             ST.CardCode AS SupplierCode,
             INV.TaxDocumentNumber AS NotaFiscalVenda,
             CASE
+                WHEN RGEN.ReleaseKey IS NOT NULL THEN 'LoadRefusal'
+                WHEN RCON.[Key] IS NOT NULL THEN 'ReturnRedelivery'
                 WHEN ST.TransactionType = 16 THEN 'DischargeLoss'
                 WHEN ST.TransactionType = 17 THEN 'DischargeGain'
                 WHEN WRR.[Key] IS NOT NULL THEN 'WarehouseLoss'
                 ELSE 'Standard'
             END AS Origin,
             WR.Code AS WarehouseReconciliationCode,
-            WRRS.Description AS ReasonDescription,
+            CASE
+                WHEN RGEN.ReleaseKey IS NOT NULL AND RLOAD.Code IS NOT NULL THEN N'Carga ' + RLOAD.Code + N' recusada'
+                WHEN RGEN.ReleaseKey IS NOT NULL THEN N'Devolução ao armazém'
+                WHEN RCON.[Key] IS NOT NULL AND STGEN.Code IS NOT NULL THEN N'Saída da devolução ' + STGEN.Code
+                WHEN RCON.[Key] IS NOT NULL THEN N'Saída da devolução ao armazém'
+                ELSE WRRS.Description
+            END AS ReasonDescription,
             COALESCE(DINV.TaxDocumentNumber, DINV.InvoiceNumber) AS DischargeInvoiceNumber,
-            DLOAD.Code AS DischargeLoadCode,
+            CASE WHEN RGEN.ReleaseKey IS NOT NULL THEN RLOAD.Code ELSE DLOAD.Code END AS DischargeLoadCode,
             -- GAC-1216: carga da entrega. O romaneio de compra não carrega ShipmentLoadKey: a carga é
             -- a da perna de venda da Expedição; na troca de liberação (GAC-1177) a original sai da
             -- carga e o elo é o documento da troca; na quebra/sobra de descarga, a nota conferida.
-            COALESCE(SLOAD.Code, CHGLOAD.Code, DLOAD.Code) AS LoadCode,
+            -- GAC-1214: na devolução, a carga recusada; na reentrega, a carga do próprio romaneio.
+            CASE
+                WHEN RGEN.ReleaseKey IS NOT NULL THEN RLOAD.Code
+                WHEN RCON.[Key] IS NOT NULL THEN OLOAD.Code
+                ELSE COALESCE(SLOAD.Code, CHGLOAD.Code, DLOAD.Code)
+            END AS LoadCode,
             ST.[Key] AS StorageTransactionKey,
             ST.ItemCode AS ItemCode,
             ST.NetWeight AS PhysicalQuantity,
@@ -96,6 +113,30 @@ public class PurchaseContractsGetAllocationsByContractService(
                ON CHG.[Key] = COALESCE(ST.ReplacedByShippingReleaseChangeKey, ST.ShippingReleaseChangeKey)
         LEFT JOIN SHIPMENT_LOADS CHGLOAD WITH (NOLOCK)
                ON CHGLOAD.[Key] = CHG.ShipmentLoadKey
+        -- GAC-1214: alocações derivadas da liberação de devolução (Origin = 2, SalesReturn).
+        -- Reentrega: o romaneio 7/13/12 consome a liberação do contrato desta linha.
+        LEFT JOIN SHIPMENT_RELEASES RCON WITH (NOLOCK)
+               ON RCON.[Key] = ST.ShipmentReleaseKey
+              AND RCON.Origin = 2
+              AND RCON.PurchaseContractKey = PA.PurchaseContractKey
+              AND ST.TransactionType IN (7, 12, 13)
+        LEFT JOIN STORAGE_TRANSACTIONS STGEN WITH (NOLOCK)
+               ON STGEN.[Key] = RCON.GeneratedByStorageTransactionKey
+        LEFT JOIN SHIPMENT_LOADS OLOAD WITH (NOLOCK)
+               ON OLOAD.[Key] = ST.ShipmentLoadKey
+        -- Devolução: o romaneio 12 gerou liberação de devolução NESTE contrato. TOP 1 filtrado pelo
+        -- contrato da linha: o gerador pode ter liberações em vários contratos (e mais de uma no mesmo),
+        -- e um JOIN direto duplicaria ou cruzaria as linhas.
+        OUTER APPLY (
+            SELECT TOP 1 RG.[Key] AS ReleaseKey
+            FROM SHIPMENT_RELEASES RG WITH (NOLOCK)
+            WHERE RG.GeneratedByStorageTransactionKey = ST.[Key]
+              AND RG.Origin = 2
+              AND RG.PurchaseContractKey = PA.PurchaseContractKey
+        ) RGEN
+        LEFT JOIN SHIPMENT_LOADS RLOAD WITH (NOLOCK)
+               ON RLOAD.[Key] = ST.RefusedFromShipmentLoadKey
+              AND RGEN.ReleaseKey IS NOT NULL
         -- Conciliação fiscal (spec 2026-10-13 §7): NFs do fornecedor vinculadas ao romaneio (NF cancelada não conta).
         -- ⚠️ Sem STRING_AGG aqui: dentro deste SELECT DISTINCT com 11 LEFT JOINs ele levou o plano de 0,3 s a mais de
         -- 40 s (CEAGUI, 13/10/2026). Os números das NFs vêm de LinksSql, uma consulta à parte.
@@ -128,40 +169,6 @@ public class PurchaseContractsGetAllocationsByContractService(
         WHERE PA.PurchaseContractKey = @purchaseContractKey AND PI.InvoiceStatus <> 2
         """;
 
-    /// <summary>
-    /// GAC-1214: cargas recusadas para um armazém, exibidas como "Devolução" para mostrar que a carga
-    /// viajou e voltou. O contrato continua baixado (o grão foi comprado e só mudou de lugar), então
-    /// estas linhas NÃO vêm de alocação e não entram no saldo. O romaneio 12 não carrega
-    /// ShipmentReleaseKey (ver ShipmentLoadsRefuseService): o elo com o contrato é a liberação de
-    /// devolução (Origin = 2, SalesReturn) que ele gerou. Romaneio cancelado (status 2) fica de fora.
-    /// </summary>
-    private static readonly string ReturnsSql = """
-        SELECT DISTINCT
-            ST.BranchCode AS BranchCode,
-            B.BranchName AS BranchName,
-            ST.Code AS StorageTransactionCode,
-            ST.TransactionDate AS StorageTransactionDate,
-            ST.NetWeight AS Volume,
-            ST.UnitOfMeasureCode AS UnitOfMeasureCode,
-            ST.WarehouseCode AS WarehouseCode,
-            ST.TruckCode AS TruckCode,
-            ST.CardCode AS SupplierCode,
-            L.Code AS LoadCode,
-            ST.[Key] AS StorageTransactionKey,
-            ST.ItemCode AS ItemCode
-        FROM SHIPMENT_RELEASES SR WITH (NOLOCK)
-        JOIN STORAGE_TRANSACTIONS ST WITH (NOLOCK)
-          ON ST.[Key] = SR.GeneratedByStorageTransactionKey
-        LEFT JOIN BRANCHS B WITH (NOLOCK)
-               ON B.Code = ST.BranchCode
-        LEFT JOIN SHIPMENT_LOADS L WITH (NOLOCK)
-               ON L.[Key] = ST.RefusedFromShipmentLoadKey
-        WHERE SR.PurchaseContractKey = @purchaseContractKey
-          AND SR.Origin = 2
-          AND ST.TransactionType = 12
-          AND ST.TransactionStatus <> 2
-        """;
-
     public async Task<ICollection<PurchaseContractAllocationsByContractDto>> ExecuteAsync(Guid purchaseContractKey)
     {
         var allocations = new List<PurchaseContractAllocationsByContractDto>();
@@ -182,9 +189,15 @@ public class PurchaseContractsGetAllocationsByContractService(
         {
             var supplierName = await GetSupplierName(allocation.CardCode);
             var warehouseName = await GetSupplierName(allocation.WarehouseCode);
-            var physical = (decimal?)allocation.PhysicalQuantity ?? 0m;
-            var fiscal = (decimal?)allocation.FiscalQuantity ?? 0m;
-            
+            var fiscalColumns = BuildFiscalColumns(
+                (string?)allocation.Origin,
+                (decimal?)allocation.PhysicalQuantity ?? 0m,
+                (decimal?)allocation.FiscalQuantity ?? 0m,
+                ((int?)allocation.FiscalLinkCount ?? 0) > 0,
+                allocation.FiscalReconciledAt != null,
+                allocation.StorageTransactionKey is Guid txKey ? invoiceNumbers.GetValueOrDefault(txKey) : null,
+                ((int?)allocation.ContractCount ?? 0) > 1);
+
             allocations.Add(new PurchaseContractAllocationsByContractDto
             {
                 BranchCode = allocation.BranchCode,
@@ -209,38 +222,12 @@ public class PurchaseContractsGetAllocationsByContractService(
                 LoadCode = allocation.LoadCode,
                 StorageTransactionKey = (Guid?)allocation.StorageTransactionKey,
                 ItemCode = (string?)allocation.ItemCode,
-                SupplierInvoiceNumbers = allocation.StorageTransactionKey is Guid txKey ? invoiceNumbers.GetValueOrDefault(txKey) : null,
-                PhysicalQuantity = physical,
-                FiscalQuantity = fiscal,
-                FiscalDifference = fiscal - physical,
-                FiscalStatus = PurchaseFiscalReconciliationRules.StatusName(PurchaseFiscalReconciliationRules.Status(
-                    physical, fiscal, ((int?)allocation.FiscalLinkCount ?? 0) > 0, allocation.FiscalReconciledAt != null)),
-                IsSplitAcrossContracts = ((int?)allocation.ContractCount ?? 0) > 1,
-            });
-        }
-
-        foreach (var ret in dbConnection.Query(ReturnsSql, new { purchaseContractKey }))
-        {
-            allocations.Add(new PurchaseContractAllocationsByContractDto
-            {
-                BranchCode = ret.BranchCode,
-                BranchName = ret.BranchName,
-                StorageTransactionCode = ret.StorageTransactionCode,
-                StorageTransactionDate = ret.StorageTransactionDate,
-                StorageTransactionTypeName = "Devolução",
-                Volume = ret.Volume,
-                UnitOfMeasureCode = ret.UnitOfMeasureCode,
-                WarehouseCode = ret.WarehouseCode,
-                WarehouseName = await GetSupplierName(ret.WarehouseCode),
-                TruckCode = ret.TruckCode,
-                SupplierCode = ret.SupplierCode,
-                Origin = "LoadRefusal",
-                ReasonDescription = ret.LoadCode is string load ? $"Carga {load} recusada" : "Carga recusada",
-                DischargeLoadCode = ret.LoadCode,
-                LoadCode = ret.LoadCode,
-                StorageTransactionKey = (Guid?)ret.StorageTransactionKey,
-                ItemCode = (string?)ret.ItemCode,
-                FiscalStatus = null,
+                SupplierInvoiceNumbers = fiscalColumns.SupplierInvoiceNumbers,
+                PhysicalQuantity = fiscalColumns.PhysicalQuantity,
+                FiscalQuantity = fiscalColumns.FiscalQuantity,
+                FiscalDifference = fiscalColumns.FiscalDifference,
+                FiscalStatus = fiscalColumns.FiscalStatus,
+                IsSplitAcrossContracts = fiscalColumns.IsSplitAcrossContracts,
             });
         }
 
@@ -248,6 +235,37 @@ public class PurchaseContractsGetAllocationsByContractService(
             .OrderBy(a => a.StorageTransactionDate)
             .ThenBy(a => a.StorageTransactionCode, StringComparer.Ordinal)
             .ToList();
+    }
+
+    /// <summary>Colunas da conciliação fiscal de uma linha da aba "Entregas".</summary>
+    public sealed record FiscalColumns(
+        decimal PhysicalQuantity,
+        decimal FiscalQuantity,
+        decimal FiscalDifference,
+        string? FiscalStatus,
+        string? SupplierInvoiceNumbers,
+        bool IsSplitAcrossContracts);
+
+    /// <summary>
+    /// GAC-1214: devolução (LoadRefusal) e reentrega (ReturnRedelivery) não são compra do fornecedor e não têm
+    /// conciliação fiscal: tudo zerado/nulo, senão a tela mostraria fiscal 0 e uma "diferença" igual ao peso
+    /// do romaneio, como se faltasse a NF do fornecedor. As demais linhas seguem a regra de sempre.
+    /// </summary>
+    public static FiscalColumns BuildFiscalColumns(
+        string? origin, decimal physical, decimal fiscal, bool hasFiscalLink, bool fiscalReconciled,
+        string? supplierInvoiceNumbers, bool isSplitAcrossContracts)
+    {
+        if (origin is "LoadRefusal" or "ReturnRedelivery")
+            return new FiscalColumns(0m, 0m, 0m, null, null, false);
+
+        return new FiscalColumns(
+            physical,
+            fiscal,
+            fiscal - physical,
+            PurchaseFiscalReconciliationRules.StatusName(
+                PurchaseFiscalReconciliationRules.Status(physical, fiscal, hasFiscalLink, fiscalReconciled)),
+            supplierInvoiceNumbers,
+            isSplitAcrossContracts);
     }
 
     private async Task<string?> GetSupplierName(string cardCode)

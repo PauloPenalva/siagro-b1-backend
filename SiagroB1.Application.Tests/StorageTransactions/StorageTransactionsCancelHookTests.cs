@@ -52,6 +52,43 @@ public class StorageTransactionsCancelHookTests
     }
 
     /// <summary>
+    /// GAC-1214: só a alocação DERIVADA da liberação de devolução deixa de travar o cancelamento;
+    /// a alocação de uma compra comum continua exigindo remoção prévia.
+    /// </summary>
+    [Fact]
+    public async Task Cancel_PurchaseWithAllocation_StillBlocked()
+    {
+        var tx = new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "ST",
+            CardCode = "F0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = "01",
+            TransactionType = StorageTransactionType.Purchase,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            TransactionOrigin = TransactionCode.StorageTransaction,
+            NetWeight = 80m,
+        };
+        _db.Context.StorageTransactions.Add(tx);
+        _db.Context.PurchaseContractsAllocations.Add(new PurchaseContractAllocation
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = Guid.NewGuid(),
+            StorageTransactionKey = tx.Key,
+            Volume = 80m,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var service = new StorageTransactionsCancelService(_db, new ShipmentReleasesRecalculateShippedService(_db.Context));
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => service.ExecuteAsync(tx.Key, "tester"));
+
+        Assert.Contains("purchase contract allocations", ex.Message);
+    }
+
+    /// <summary>
     /// Numa liberação COMUM quem consome é o Purchase(8); cancelar a perna de venda do
     /// par da Expedição não pode devolver saldo. O hook hoje dispara também para tipos de
     /// venda (precisa disparar para as liberações de transferência), então o que segura a

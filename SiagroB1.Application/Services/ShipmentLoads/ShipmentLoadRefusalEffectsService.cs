@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Entities;
@@ -358,6 +359,10 @@ public class ShipmentLoadRefusalEffectsService(
             entry.Comments = AppendComment(entry.Comments, build.Note);
 
         await db.SaveChangesAsync();
+
+        // GAC-1214: a devolução ao armazém devolve o saldo ao contrato de compra. Depois do
+        // SaveChanges, porque o sincronizador lê o que está gravado.
+        await PurchaseContractsReturnReleaseAllocationSync.SyncByGeneratorAsync(db.Context, entry.Key);
     }
 
     /// <summary>

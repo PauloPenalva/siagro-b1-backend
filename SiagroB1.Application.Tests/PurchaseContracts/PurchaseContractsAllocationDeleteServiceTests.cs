@@ -219,6 +219,37 @@ public class PurchaseContractsAllocationDeleteServiceTests
         await _db.Context.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// GAC-1214: a alocação da devolução ao armazém (romaneio gerador de uma liberação SalesReturn) é
+    /// derivada e mantida pelo sistema; a tela não pode removê-la.
+    /// </summary>
+    [Fact]
+    public async Task Delete_DerivedAllocation_IsRefused()
+    {
+        var returned = NewStorageTransaction(netWeight: 1500m, type: StorageTransactionType.SalesShipmentReturn);
+        var alloc = NewAllocation(returned, volume: -1500m);
+        await SeedAsync(returned, alloc);
+        _db.Context.ShipmentReleases.Add(new ShipmentRelease
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = alloc.PurchaseContractKey,
+            DeliveryLocationCode = "01",
+            ReleasedQuantity = 1500m,
+            Status = ReleaseStatus.Actived,
+            Origin = ReleaseOrigin.SalesReturn,
+            GeneratedByStorageTransactionKey = returned.Key,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            CreateService().ExecuteWithTransactionAsync(alloc.Key, "tester"));
+
+        Assert.Equal(
+            "Alocação gerada pela devolução ao armazém: ela é mantida pelo sistema e não pode ser removida.",
+            ex.Message);
+        Assert.Single(await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
+    }
+
     [Fact]
     public async Task ExecuteWithTransactionAsync_AllocationOfStorageEntry_ThrowsAndKeepsAllocation()
     {

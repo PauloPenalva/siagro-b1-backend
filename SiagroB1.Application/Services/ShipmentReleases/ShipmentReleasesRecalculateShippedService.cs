@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra.Context;
 
@@ -117,5 +118,10 @@ public class ShipmentReleasesRecalculateShippedService(AppDbContext context)
         release.ShippedQuantity = await CalculateShippedAsync(shipmentReleaseKey, release.Origin);
 
         await context.SaveChangesAsync();
+
+        // GAC-1214: a devolução de venda restaura o saldo do contrato enquanto a liberação
+        // estiver viva; o sincronizador deriva as alocações do ledger a partir dela.
+        if (release.Origin == ReleaseOrigin.SalesReturn)
+            await PurchaseContractsReturnReleaseAllocationSync.SyncAsync(context, shipmentReleaseKey);
     }
 }

@@ -60,11 +60,15 @@ public class PurchaseContractsRecalculateBalanceService(AppDbContext context)
 
     private async Task<PurchaseContractRecalcResultDto> RecalculateAsync(PurchaseContract contract)
     {
-        // Σ com sinal — igual ao runtime/backfill.
-        var newAllocated = await CalculateAllocatedAsync(context, contract.Key);
-
+        // Valores de ANTES do recálculo: o sincronizador abaixo já regrava AllocatedVolume.
         var previousAllocated = contract.AllocatedVolume;
         var previousAvaiable = contract.AvaiableVolume;
+
+        // GAC-1214: alinha antes as alocações derivadas das liberações de devolução vivas.
+        await PurchaseContractsReturnReleaseAllocationSync.SyncContractAsync(context, contract.Key);
+
+        // Σ com sinal — igual ao runtime/backfill.
+        var newAllocated = await CalculateAllocatedAsync(context, contract.Key);
 
         contract.AllocatedVolume = newAllocated;
 

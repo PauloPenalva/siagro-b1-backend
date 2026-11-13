@@ -911,7 +911,7 @@ public class ShipmentLoadsRefuseServiceTests
     /// Pendura o romaneio da carga numa liberação de COMPRA, que é por onde o rastreio chega ao
     /// contrato que originou o grão (cadeia curta).
     /// </summary>
-    private async Task<PurchaseContract> SeedPurchaseOriginAsync(params Guid[] shipmentKeys)
+    internal async Task<PurchaseContract> SeedPurchaseOriginAsync(params Guid[] shipmentKeys)
     {
         var contract = new PurchaseContract
         {
@@ -947,7 +947,7 @@ public class ShipmentLoadsRefuseServiceTests
         return contract;
     }
 
-    private async Task<Guid> LoadShipmentKeyAsync(ShipmentLoad load) =>
+    internal async Task<Guid> LoadShipmentKeyAsync(ShipmentLoad load) =>
         await _db.Context.StorageTransactions
             .Where(x => x.ShipmentLoadKey == load.Key &&
                         x.TransactionType == StorageTransactionType.SalesShipment)
@@ -1031,6 +1031,37 @@ public class ShipmentLoadsRefuseServiceTests
             .SingleAsync(x => x.Key == contract.Key);
 
         Assert.Equal(1_000_000m, reloaded.TotalShipmentReleases); // só a liberação original
+    }
+
+    [Fact]
+    public async Task Refuse_ToWarehouse_GivesTheContractBalanceBack()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+        var contract = await SeedPurchaseOriginAsync(await LoadShipmentKeyAsync(load));
+
+        // O grão saiu do contrato na compra: 40.000 alocados.
+        var purchase = await _db.Context.StorageTransactions.AsNoTracking()
+            .FirstAsync(x => x.TransactionType == StorageTransactionType.SalesShipment);
+        _db.Context.PurchaseContractsAllocations.Add(new PurchaseContractAllocation
+        {
+            PurchaseContractKey = contract.Key, StorageTransactionKey = purchase.Key, Volume = 40_000m,
+            ApprovedAt = DateTime.Now, ApprovedBy = "tester",
+        });
+        (await _db.Context.PurchaseContracts.SingleAsync(x => x.Key == contract.Key)).AllocatedVolume = 40_000m;
+        await _db.SaveChangesAsync();
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 15_000m, RefusalDestination.Warehouse, DestinationWarehouse),
+            "tester");
+
+        var entry = await _db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.SalesShipmentReturn);
+        var reloaded = await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == contract.Key);
+        var negative = await _db.Context.PurchaseContractsAllocations.AsNoTracking()
+            .SingleAsync(x => x.StorageTransactionKey == entry.Key);
+
+        Assert.Equal(25_000m, reloaded.AllocatedVolume);
+        Assert.Equal(-15_000m, negative.Volume);
     }
 
     [Fact]

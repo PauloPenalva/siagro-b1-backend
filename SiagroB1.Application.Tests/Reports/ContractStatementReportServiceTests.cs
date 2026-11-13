@@ -242,6 +242,17 @@ public class ContractStatementReportServiceTests
     public void Freight_is_translated(FreightTerms terms, string expected) =>
         Assert.Equal(expected, ContractStatementReportService.FreightText(terms));
 
+    /// <summary>
+    /// GAC-1214: a devolução (romaneio 12 gerador) devolve saldo ao contrato e a reentrega (7/13 da
+    /// liberação de devolução) volta a consumi-lo; o extrato rotula cada uma, sem confundir com compra.
+    /// </summary>
+    [Theory]
+    [InlineData(StorageTransactionType.SalesShipmentReturn, "Devolução")]
+    [InlineData(StorageTransactionType.SalesShipment, "Reentrega")]
+    [InlineData(StorageTransactionType.WarehouseLoss, "Reentrega (perda)")]
+    public void Sales_return_movements_are_labelled(StorageTransactionType type, string expected) =>
+        Assert.Equal(expected, ContractStatementReportService.PurchaseMovement(type));
+
     [Fact]
     public async Task Unknown_contract_is_not_found()
     {

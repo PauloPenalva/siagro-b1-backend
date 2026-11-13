@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageAddresses;
@@ -121,6 +122,11 @@ public class StorageTransactionsReverseService(
 
         var hasAllocations = await db.Context.PurchaseContractsAllocations
             .AnyAsync(x => x.StorageTransactionKey == key);
+
+        // GAC-1214: a alocação derivada da liberação de devolução é mantida pelo sistema; o recálculo
+        // disparado pela mudança de status logo abaixo a remove, então ela não trava o estorno.
+        if (hasAllocations && await PurchaseContractsReturnReleaseAllocationSync.IsDerivedAsync(db.Context, key))
+            hasAllocations = false;
 
         if (hasAllocations)
         {

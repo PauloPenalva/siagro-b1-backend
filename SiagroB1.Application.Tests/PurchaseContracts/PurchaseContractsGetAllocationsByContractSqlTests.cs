@@ -27,7 +27,6 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
     [Theory]
     [InlineData("SQL")]
     [InlineData("LinksSql")]
-    [InlineData("ReturnsSql")]
     public void Every_table_reference_has_nolock_hint(string field)
     {
         var sql = StripComments(ReadSql(field));
@@ -42,8 +41,8 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
     public void Main_query_references_all_expected_tables()
     {
         var sql = StripComments(ReadSql("SQL"));
-        // 1 FROM + 15 LEFT JOIN + 3 do 1o OUTER APPLY (PFR, PII, PI) + PA2 = 20 referências.
-        Assert.Equal(20, TableReference.Matches(sql).Count);
+        // 1 FROM + 19 LEFT JOIN + 3 do 1o OUTER APPLY (PFR, PII, PI) + PA2 + RG = 25 referências.
+        Assert.Equal(25, TableReference.Matches(sql).Count);
     }
 
     /// <summary>
@@ -57,7 +56,7 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
     {
         var sql = StripComments(ReadSql("SQL"));
 
-        Assert.Contains("COALESCE(SLOAD.Code, CHGLOAD.Code, DLOAD.Code) AS LoadCode", sql);
+        Assert.Matches(@"ELSE COALESCE\(SLOAD\.Code, CHGLOAD\.Code, DLOAD\.Code\)\s+END AS LoadCode", sql);
         Assert.Contains("SLOAD.[Key] = SALES.ShipmentLoadKey", sql);
         Assert.Contains("CHG.[Key] = COALESCE(ST.ReplacedByShippingReleaseChangeKey, ST.ShippingReleaseChangeKey)", sql);
         Assert.Contains("CHGLOAD.[Key] = CHG.ShipmentLoadKey", sql);
@@ -79,20 +78,55 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
     }
 
     /// <summary>
-    /// GAC-1214: a carga recusada para um armazém aparece no contrato como "Devolução", sem mexer no
-    /// saldo. O romaneio 12 não tem alocação nem ShipmentReleaseKey — o elo com o contrato é a
-    /// liberação de devolução (Origin = SalesReturn) que ele gerou. Romaneio cancelado não aparece.
+    /// GAC-1214 rodada 3: devolução e reentrega vêm do próprio ledger (alocações derivadas da liberação
+    /// de devolução). O gerador 12 é "Devolução"/LoadRefusal; o 7/13/12 que consome a liberação é
+    /// "Reentrega"/ReturnRedelivery. A liberação do gerador é filtrada pelo contrato da linha, para que
+    /// um gerador com liberações em vários contratos não duplique nem contamine as linhas.
     /// </summary>
     [Fact]
-    public void Returns_query_links_refused_loads_through_the_sales_return_release()
+    public void Main_query_labels_sales_return_rows()
     {
-        var sql = StripComments(ReadSql("ReturnsSql"));
+        var sql = StripComments(ReadSql("SQL"));
 
-        Assert.Contains("SR.GeneratedByStorageTransactionKey", sql);
-        Assert.Contains("SR.PurchaseContractKey = @purchaseContractKey", sql);
-        Assert.Contains("SR.Origin = 2", sql);
-        Assert.Contains("ST.TransactionType = 12", sql);
-        Assert.Contains("ST.TransactionStatus <> 2", sql);
+        Assert.Contains("'Devolução'", sql);
+        Assert.Contains("'Reentrega'", sql);
+        Assert.Contains("'LoadRefusal'", sql);
+        Assert.Contains("'ReturnRedelivery'", sql);
+        Assert.Matches(@"SHIPMENT_RELEASES\s+\w+\s+WITH\s*\(\s*NOLOCK\s*\)", sql);
+        Assert.Contains("RG.PurchaseContractKey = PA.PurchaseContractKey", sql);
+        Assert.Contains("RCON.PurchaseContractKey = PA.PurchaseContractKey", sql);
         Assert.Contains("RefusedFromShipmentLoadKey", sql);
+    }
+
+    /// <summary>Uma linha de saída por linha do ledger: o DISTINCT não pode fundir duas alocações iguais.</summary>
+    [Fact]
+    public void Main_query_selects_the_allocation_key()
+    {
+        Assert.Contains("PA.[Key] AS AllocationKey", StripComments(ReadSql("SQL")));
+    }
+
+    [Fact]
+    public void Main_query_checks_derived_rows_before_the_transaction_type()
+    {
+        var sql = Regex.Replace(StripComments(ReadSql("SQL")), @"\s+", " ");
+
+        Assert.Contains("CASE WHEN RGEN.ReleaseKey IS NOT NULL THEN N'Devolução' WHEN RCON.[Key] IS NOT NULL THEN N'Reentrega' WHEN ST.TransactionType = 8", sql);
+        Assert.Contains("CASE WHEN RGEN.ReleaseKey IS NOT NULL THEN 'LoadRefusal' WHEN RCON.[Key] IS NOT NULL THEN 'ReturnRedelivery' WHEN ST.TransactionType = 16", sql);
+    }
+
+    [Fact]
+    public void Redelivery_reason_falls_back_when_the_generator_code_is_missing()
+    {
+        var sql = StripComments(ReadSql("SQL"));
+
+        Assert.Contains("N'Saída da devolução ao armazém'", sql);
+        Assert.DoesNotContain("COALESCE(STGEN.Code, N'')", sql);
+    }
+
+    [Fact]
+    public void Returns_side_query_is_gone()
+    {
+        Assert.Null(typeof(PurchaseContractsGetAllocationsByContractService)
+            .GetField("ReturnsSql", BindingFlags.NonPublic | BindingFlags.Static));
     }
 }

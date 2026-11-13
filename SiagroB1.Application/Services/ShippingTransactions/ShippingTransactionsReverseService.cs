@@ -139,6 +139,8 @@ public class ShippingTransactionsReverseService(
             // continua sendo da companhia, no lote — só voltou a não estar embarcado.
             // Desfazê-la aqui devolveria saldo de contrato que deve seguir debitado; quem
             // devolve é o cancelamento da transferência.
+            // Exceção (GAC-1214): na liberação de devolução ao armazém a Saída(7) carrega uma alocação
+            // DERIVADA; o recálculo abaixo, depois do Cancelled, a remove e devolve o saldo ao contrato.
             if (purchaseStorageTransactionKey.HasValue)
             {
                 var purchaseContractAllocKey = await db.Context.PurchaseContractsAllocations

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
@@ -19,6 +20,8 @@ public class ShipmentReleasesReopenService(AppDbContext context)
         release.UpdatedAt = DateTime.Now;
         release.UpdatedBy = userName;
 
-        await context.SaveChangesAsync();
+        // GAC-1214: liberação de devolução viva devolve saldo ao contrato; finalizada, não.
+        // Status e sincronização do contrato gravam na mesma transação.
+        await PurchaseContractsReturnReleaseAllocationSync.SaveAndSyncAsync(context, release);
     }
 }

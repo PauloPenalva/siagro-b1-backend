@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -113,5 +113,71 @@ public class PurchaseContractsRecalculateBalanceServiceTests
         Assert.Equal(250m, result.Changes.First().NewAllocatedVolume);
         // finished intocado
         Assert.Equal(777m, (await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == finished.Key)).AllocatedVolume);
+    }
+
+    private async Task<PurchaseContract> SeedOpenReturnReleaseAsync()
+    {
+        var pc = NewContract(totalVolume: 10_000m, allocatedVolume: 3_000m);
+        _db.Context.PurchaseContracts.Add(pc);
+        var purchase = NewTx(StorageTransactionType.Purchase);
+        var generator = NewTx(StorageTransactionType.SalesShipmentReturn);
+        _db.Context.StorageTransactions.AddRange(purchase, generator);
+        _db.Context.PurchaseContractsAllocations.Add(new PurchaseContractAllocation
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = pc.Key,
+            StorageTransactionKey = purchase.Key,
+            Volume = 3_000m,
+        });
+        _db.Context.ShipmentReleases.Add(new ShipmentRelease
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = pc.Key,
+            DeliveryLocationCode = "01",
+            ReleasedQuantity = 3_000m,
+            Status = ReleaseStatus.Actived,
+            Origin = ReleaseOrigin.SalesReturn,
+            GeneratedByStorageTransactionKey = generator.Key,
+        });
+        await _db.Context.SaveChangesAsync();
+        return pc;
+    }
+
+    private static StorageTransaction NewTx(StorageTransactionType type) => new()
+    {
+        Key = Guid.NewGuid(),
+        Code = Guid.NewGuid().ToString("N")[..8],
+        CardCode = "C0001",
+        ItemCode = "SOJA",
+        UnitOfMeasureCode = "KG",
+        WarehouseCode = "01",
+        TransactionType = type,
+        TransactionStatus = StorageTransactionsStatus.Confirmed,
+        GrossWeight = 3_000m,
+        NetWeight = 3_000m,
+    };
+
+    [Fact]
+    public async Task Execute_ContractWithOpenSalesReturnRelease_SyncsBeforeSumming()
+    {
+        var pc = await SeedOpenReturnReleaseAsync();
+
+        var result = await Service().ExecuteAsync(pc.Key);
+
+        Assert.Equal(0m, result.NewAllocatedVolume);
+        Assert.Equal(3_000m, result.PreviousAllocatedVolume);
+        Assert.True(result.Changed);
+    }
+
+    [Fact]
+    public async Task ExecuteAll_ContractWithOpenSalesReturnRelease_SyncsBeforeSumming()
+    {
+        var pc = await SeedOpenReturnReleaseAsync();
+
+        var result = await Service().ExecuteAllAsync();
+
+        var change = Assert.Single(result.Changes, c => c.Key == pc.Key);
+        Assert.Equal(0m, change.NewAllocatedVolume);
+        Assert.Equal(3_000m, change.PreviousAllocatedVolume);
     }
 }

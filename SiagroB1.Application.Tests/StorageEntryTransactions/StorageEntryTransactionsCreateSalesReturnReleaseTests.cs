@@ -115,6 +115,10 @@ public class StorageEntryTransactionsCreateSalesReturnReleaseTests
         _db.Context.StorageAddresses.Add(lot);
         await _db.Context.SaveChangesAsync();
 
+        // GAC-1214: a devolução já devolveu o saldo ao contrato (alocação −Q no romaneio gerador).
+        if (origin == ReleaseOrigin.SalesReturn)
+            await PurchaseContractsReturnReleaseAllocationSync.SyncAsync(_db.Context, release.Key);
+
         return (contract, release);
     }
 
@@ -147,15 +151,20 @@ public class StorageEntryTransactionsCreateSalesReturnReleaseTests
     }
 
     [Fact]
-    public async Task Execute_SalesReturnRelease_DoesNotAllocateTheContractAgain()
+    public async Task Execute_SalesReturnRelease_ConsumesTheContractAgain()
     {
         var (contract, release) = await SeedAsync();
+        Assert.Equal(-1500m,
+            (await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == contract.Key)).AllocatedVolume);
 
-        await CreateService().ExecuteAsync(contract.Key, "LOTE-01", Payload(release.Key, 1500m), "tester");
+        var entry = await CreateService().ExecuteAsync(contract.Key, "LOTE-01", Payload(release.Key, 1500m), "tester");
 
-        Assert.Empty(await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
+        var allocation = await _db.Context.PurchaseContractsAllocations.AsNoTracking()
+            .SingleAsync(x => x.StorageTransactionKey == entry.PurchaseStorageTransactionKey);
+        Assert.Equal(1500m, allocation.Volume);
         var reloaded = await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == contract.Key);
-        Assert.Equal(0m, reloaded.AllocatedVolume);
+        Assert.Equal(0m, reloaded.AllocatedVolume); // −1 500 da devolução + 1 500 da saída
+        Assert.Equal(0m, entry.AllocatedVolume); // o campo é da perna de compra
     }
 
     [Fact]
@@ -193,20 +202,68 @@ public class StorageEntryTransactionsCreateSalesReturnReleaseTests
         Assert.Single(await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
     }
 
+    private StorageEntryTransactionsCancelService CreateCancelService() => new(
+        _db,
+        new PurchaseContractsAllocationDeleteService(
+            _db, NullLogger<PurchaseContractsAllocationDeleteService>.Instance),
+        new StorageTransactionsCancelService(
+            _db, new ShipmentReleasesRecalculateShippedService(_db.Context)),
+        new FakeStorageAddressBalanceReader(100_000m));
+
+    [Fact]
+    public async Task Cancel_SalesReturnEntry_GivesTheContractBalanceBackToo()
+    {
+        var (contract, release) = await SeedAsync();
+        var entry = await CreateService().ExecuteAsync(contract.Key, "LOTE-01", Payload(release.Key, 1500m), "tester");
+
+        await CreateCancelService().ExecuteAsync(entry.Key, "tester");
+
+        var allocation = Assert.Single(await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
+        Assert.NotEqual(entry.PurchaseStorageTransactionKey, allocation.StorageTransactionKey);
+        Assert.Equal(-1500m, allocation.Volume); // só a da devolução
+        var reloaded = await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == contract.Key);
+        Assert.Equal(-1500m, reloaded.AllocatedVolume);
+    }
+
+    [Fact]
+    public async Task Cancel_SalesReturnEntry_OnFinishedContract_IsAllowed()
+    {
+        var (contract, release) = await SeedAsync();
+        var entry = await CreateService().ExecuteAsync(contract.Key, "LOTE-01", Payload(release.Key, 1500m), "tester");
+        var tracked = await _db.Context.PurchaseContracts.SingleAsync(x => x.Key == contract.Key);
+        tracked.Status = ContractStatus.Finished;
+        await _db.Context.SaveChangesAsync();
+
+        await CreateCancelService().ExecuteAsync(entry.Key, "tester");
+
+        var reloaded = await _db.Context.StorageEntryTransactions.AsNoTracking().SingleAsync(x => x.Key == entry.Key);
+        Assert.Equal(StorageEntryTransactionStatus.Cancelled, reloaded.Status);
+        Assert.Equal(-1500m,
+            (await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == contract.Key)).AllocatedVolume);
+    }
+
+    /// <summary>Só a devolução ao armazém ganha o bypass: as outras origens seguem barradas por contrato encerrado.</summary>
+    [Fact]
+    public async Task Cancel_TransshipmentEntry_OnFinishedContract_StillThrows()
+    {
+        var (contract, release) = await SeedAsync(ReleaseOrigin.Transshipment);
+        var entry = await CreateService().ExecuteAsync(contract.Key, "LOTE-01", Payload(release.Key, 1500m), "tester");
+        var tracked = await _db.Context.PurchaseContracts.SingleAsync(x => x.Key == contract.Key);
+        tracked.Status = ContractStatus.Finished;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => CreateCancelService().ExecuteAsync(entry.Key, "tester"));
+
+        Assert.Equal("Contrato encerrado: não é possível estornar a entrada em armazenagem.", ex.Message);
+    }
+
     [Fact]
     public async Task Cancel_SalesReturnEntry_GivesTheReleaseAndWarehouseBack()
     {
         var (contract, release) = await SeedAsync();
         var entry = await CreateService().ExecuteAsync(contract.Key, "LOTE-01", Payload(release.Key, 1500m), "tester");
 
-        await new StorageEntryTransactionsCancelService(
-                _db,
-                new PurchaseContractsAllocationDeleteService(
-                    _db, NullLogger<PurchaseContractsAllocationDeleteService>.Instance),
-                new StorageTransactionsCancelService(
-                    _db, new ShipmentReleasesRecalculateShippedService(_db.Context)),
-                new FakeStorageAddressBalanceReader(100_000m))
-            .ExecuteAsync(entry.Key, "tester");
+        await CreateCancelService().ExecuteAsync(entry.Key, "tester");
 
         var reloaded = await _db.Context.ShipmentReleases.AsNoTracking().SingleAsync(x => x.Key == release.Key);
         Assert.Equal(0m, reloaded.ShippedQuantity);

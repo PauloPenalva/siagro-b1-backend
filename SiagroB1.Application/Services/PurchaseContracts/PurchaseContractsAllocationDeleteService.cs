@@ -21,6 +21,12 @@ public class PurchaseContractsAllocationDeleteService(
                         .FirstOrDefaultAsync(x => x.Key == key)
             ?? throw new NotFoundException("Purchase contract allocation not found.");
 
+        // GAC-1214: a alocação da devolução ao armazém (e a das saídas dessa liberação) é derivada do
+        // ledger e mantida pelo sistema; removê-la à mão a recriaria no próximo recálculo.
+        if (await PurchaseContractsReturnReleaseAllocationSync.IsDerivedAsync(db.Context, alloc.StorageTransactionKey))
+            throw new ApplicationException(
+                "Alocação gerada pela devolução ao armazém: ela é mantida pelo sistema e não pode ser removida.");
+
         var contract = await db.Context.PurchaseContracts
             .FirstOrDefaultAsync(x => x.Key == alloc.PurchaseContractKey);
 

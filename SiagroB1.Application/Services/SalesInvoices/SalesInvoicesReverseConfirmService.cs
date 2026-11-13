@@ -1,6 +1,7 @@
 ﻿using SiagroB1.Application.Services.StorageInvoices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.SalesContracts;
@@ -33,6 +34,12 @@ public class SalesInvoicesReverseConfirmService(
 {
     private readonly ShipmentLoadsMovementLogService _movementLog = movementLog ?? new ShipmentLoadsMovementLogService(db.Context);
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
+
+    /// <summary>
+    /// GAC-1214: romaneios 12 (devolução ao armazém) cancelados neste estorno. O sincronizador do
+    /// contrato lê o banco, então só roda depois dos SaveChanges, antes do commit.
+    /// </summary>
+    private readonly List<Guid> _cancelledReturnEntryKeys = [];
 
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -203,12 +210,22 @@ public class SalesInvoicesReverseConfirmService(
                 }
             }
 
+            // GAC-1214: o gerador (12) cancelado e a liberação de devolução cancelada deixam de
+            // devolver saldo ao contrato de compra.
+            foreach (var entryKey in _cancelledReturnEntryKeys.Distinct().ToList())
+                await PurchaseContractsReturnReleaseAllocationSync.SyncByGeneratorAsync(db.Context, entryKey);
+
             await db.CommitAsync();
         }
         catch
         {
+            _cancelledReturnEntryKeys.Clear();
             await db.RollbackAsync();
             throw;
+        }
+        finally
+        {
+            _cancelledReturnEntryKeys.Clear();
         }
     }
 
@@ -460,6 +477,8 @@ public class SalesInvoicesReverseConfirmService(
     private async Task CancelReturnReleasesAsync(
         StorageTransaction entry, string userName, string context)
     {
+        _cancelledReturnEntryKeys.Add(entry.Key);
+
         var releases = await db.Context.ShipmentReleases
             .Where(x => x.GeneratedByStorageTransactionKey == entry.Key &&
                         x.Status != ReleaseStatus.Cancelled)

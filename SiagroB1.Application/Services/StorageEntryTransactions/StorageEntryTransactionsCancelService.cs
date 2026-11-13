@@ -40,10 +40,21 @@ public class StorageEntryTransactionsCancelService(
             throw new ApplicationException(
                 "Romaneio faturado: cancele a nota fiscal antes de estornar a entrada.");
 
+        // Entrada de liberação de devolução ao armazém: a Saída(7) só tem alocação DERIVADA pelo sistema
+        // (GAC-1214), que some sozinha no recálculo do cancelamento — não há o que estornar à mão e o
+        // contrato encerrado não impede devolver o saldo. As demais origens seguem como antes.
+        var releaseOrigin = purchase.ShipmentReleaseKey.HasValue
+            ? await unitOfWork.Context.ShipmentReleases.AsNoTracking()
+                .Where(x => x.Key == purchase.ShipmentReleaseKey.Value)
+                .Select(x => (ReleaseOrigin?)x.Origin)
+                .FirstOrDefaultAsync()
+            : null;
+        var isSalesReturnEntry = releaseOrigin == ReleaseOrigin.SalesReturn;
+
         var contract = await unitOfWork.Context.PurchaseContracts
             .FirstOrDefaultAsync(x => x.Key == entry.PurchaseContractKey);
 
-        if (contract?.Status == ContractStatus.Finished)
+        if (!isSalesReturnEntry && contract?.Status == ContractStatus.Finished)
             throw new ApplicationException(
                 "Contrato encerrado: não é possível estornar a entrada em armazenagem.");
 
@@ -59,10 +70,12 @@ public class StorageEntryTransactionsCancelService(
 
             // A alocação sai primeiro — o cancelamento do romaneio recusa enquanto
             // existir alocação de contrato apontando para ele.
-            var allocations = await unitOfWork.Context.PurchaseContractsAllocations
-                .Where(x => x.StorageTransactionKey == purchase.Key)
-                .Select(x => x.Key)
-                .ToListAsync();
+            var allocations = isSalesReturnEntry
+                ? []
+                : await unitOfWork.Context.PurchaseContractsAllocations
+                    .Where(x => x.StorageTransactionKey == purchase.Key)
+                    .Select(x => x.Key)
+                    .ToListAsync();
 
             foreach (var allocationKey in allocations)
                 await allocationDeleteService.ExecuteAsync(allocationKey, userName);

@@ -538,6 +538,11 @@ public class ContractStatementReportService(IUnitOfWork db, IFastReportService r
         StorageTransactionType.ShipmentReleased => "Embarque",
         StorageTransactionType.Transfer => "Transferência",
         StorageTransactionType.TransshipmentReceipt => "Transbordo",
+        // GAC-1214: alocações derivadas da liberação de devolução — a devolução (12 gerador) devolve
+        // saldo ao contrato e a reentrega (7/13 da liberação) volta a consumi-lo.
+        StorageTransactionType.SalesShipmentReturn => "Devolução",
+        StorageTransactionType.SalesShipment => "Reentrega",
+        StorageTransactionType.WarehouseLoss => "Reentrega (perda)",
         _ => type.ToString(),
     };
 

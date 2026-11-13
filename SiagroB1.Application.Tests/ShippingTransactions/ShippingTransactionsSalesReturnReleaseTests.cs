@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.ShipmentReleases;
+using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Tests.Support;
@@ -114,6 +115,9 @@ public class ShippingTransactionsSalesReturnReleaseTests
         _db.Context.ShipmentReleases.Add(release);
         await _db.Context.SaveChangesAsync();
 
+        // GAC-1214: a devolução já devolveu o saldo ao contrato (alocação −Q no romaneio gerador).
+        await PurchaseContractsReturnReleaseAllocationSync.SyncAsync(_db.Context, release.Key);
+
         return (contract, release, entry);
     }
 
@@ -168,22 +172,93 @@ public class ShippingTransactionsSalesReturnReleaseTests
     }
 
     /// <summary>
-    /// A restrição do usuário no eixo da ALOCAÇÃO: o contrato já foi debitado quando a
-    /// mercadoria saiu pela primeira vez. Um segundo débito pelo mesmo grão dobraria o consumo.
+    /// GAC-1214, eixo da ALOCAÇÃO: a devolução devolveu o saldo ao contrato (−1 500 no romaneio
+    /// gerador) e o reembarque o baixa de novo (+1 000 na Saída). Sem perna de compra, a alocação
+    /// é derivada pelo recálculo da liberação.
     /// </summary>
     [Fact]
-    public async Task Execute_SalesReturnRelease_DoesNotAllocateTheContract()
+    public async Task Ship_FromSalesReturnRelease_ConsumesTheContractAgain()
     {
-        var (contract, release, _) = await SeedReturnedGoodsAsync();
+        var (contract, release, entry) = await SeedReturnedGoodsAsync();
 
-        await CreateService()
+        var shipping = await CreateService()
             .ExecuteAsync(contract.Key, NewPurchasePayload(release.Key, 1000m), "tester");
 
-        Assert.Empty(await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
+        var allocations = await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync();
+        Assert.Equal(2, allocations.Count);
+        Assert.Equal(-1500m, allocations.Single(a => a.StorageTransactionKey == entry.Key).Volume);
+        Assert.Equal(1000m, allocations.Single(a => a.StorageTransactionKey == shipping.SalesStorageTransactionKey).Volume);
 
         var reloaded = await _db.Context.PurchaseContracts
             .AsNoTracking().SingleAsync(x => x.Key == contract.Key);
-        Assert.Equal(0m, reloaded.AllocatedVolume);
+        Assert.Equal(-500m, reloaded.AllocatedVolume);
+    }
+
+    [Fact]
+    public async Task Reverse_ShipmentFromSalesReturnRelease_GivesTheContractBalanceBack()
+    {
+        var (contract, release, entry) = await SeedReturnedGoodsAsync();
+        var shipping = await CreateService()
+            .ExecuteAsync(contract.Key, NewPurchasePayload(release.Key, 1000m), "tester");
+
+        await new ShippingTransactionsReverseService(
+                _db,
+                new StorageTransactionsGetService(_db, NullLogger<StorageTransactionsGetService>.Instance),
+                new PurchaseContractsAllocationDeleteService(
+                    _db, NullLogger<PurchaseContractsAllocationDeleteService>.Instance),
+                new ShipmentReleasesRecalculateShippedService(_db.Context),
+                NullLogger<ShippingTransactionsReverseService>.Instance)
+            .ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
+
+        var allocation = Assert.Single(await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
+        Assert.Equal(entry.Key, allocation.StorageTransactionKey);
+        Assert.Equal(-1500m, allocation.Volume);
+        var reloaded = await _db.Context.PurchaseContracts
+            .AsNoTracking().SingleAsync(x => x.Key == contract.Key);
+        Assert.Equal(-1500m, reloaded.AllocatedVolume);
+    }
+
+    /// <summary>
+    /// A alocação derivada da Saída(7) não trava o cancelamento do romaneio: o recálculo disparado
+    /// pela mudança de status a remove.
+    /// </summary>
+    [Fact]
+    public async Task Cancel_ShipmentOfSalesReturnRelease_IsNotBlockedByDerivedAllocation()
+    {
+        var (contract, release, entry) = await SeedReturnedGoodsAsync();
+        var shipping = await CreateService()
+            .ExecuteAsync(contract.Key, NewPurchasePayload(release.Key, 1000m), "tester");
+
+        await new StorageTransactionsCancelService(_db, new ShipmentReleasesRecalculateShippedService(_db.Context))
+            .ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
+
+        var allocation = Assert.Single(await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
+        Assert.Equal(entry.Key, allocation.StorageTransactionKey);
+        var reloaded = await _db.Context.PurchaseContracts
+            .AsNoTracking().SingleAsync(x => x.Key == contract.Key);
+        Assert.Equal(-1500m, reloaded.AllocatedVolume);
+    }
+
+    [Fact]
+    public async Task Reverse_ShipmentOfSalesReturnRelease_ToPendingIsNotBlockedByDerivedAllocation()
+    {
+        var (contract, release, entry) = await SeedReturnedGoodsAsync();
+        var shipping = await CreateService()
+            .ExecuteAsync(contract.Key, NewPurchasePayload(release.Key, 1000m), "tester");
+
+        await new StorageTransactionsReverseService(
+                _db,
+                new StorageAddressesGetBalanceService(null!),
+                new ShipmentReleasesRecalculateShippedService(_db.Context),
+                new FakeStringLocalizer<Resource>())
+            .ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
+
+        // Pendente ainda conta como romaneio vivo: o consumo do contrato permanece.
+        var reloaded = await _db.Context.PurchaseContracts
+            .AsNoTracking().SingleAsync(x => x.Key == contract.Key);
+        Assert.Equal(-500m, reloaded.AllocatedVolume);
+        Assert.Contains(await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync(),
+            a => a.StorageTransactionKey == entry.Key);
     }
 
     [Fact]

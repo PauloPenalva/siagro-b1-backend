@@ -19,9 +19,11 @@ namespace SiagroB1.Application.Services.StorageEntryTransactions;
 /// <para>
 /// <b>GAC-1214 — liberação cujo físico JÁ está em nosso poder</b>
 /// (<see cref="ReleaseOriginRules.ShipsWithoutPurchaseLeg"/>: devolução ao armazém, transbordo,
-/// sobra). O contrato já foi debitado e o armazém já foi creditado antes; aqui o par vira
-/// SalesShipment/Receipt, sem alocação — igual à Expedição de Grãos. O Purchase(8) baixaria o
-/// contrato de novo, creditaria o armazém de novo e não consumiria a liberação.
+/// sobra). O armazém já foi creditado antes; aqui o par vira SalesShipment/Receipt, sem perna de
+/// compra — igual à Expedição de Grãos. O Purchase(8) creditaria o armazém de novo e não
+/// consumiria a liberação. Na devolução ao armazém (<see cref="ReleaseOrigin.SalesReturn"/>) a
+/// Saída(7) baixa o contrato de novo, por uma alocação derivada (GAC-1214) criada pelo recálculo
+/// da liberação; <c>AllocatedVolume</c> da entrada fica em zero, pois é o campo da perna de compra.
 /// </para>
 /// </summary>
 public class StorageEntryTransactionsCreateService(
@@ -108,12 +110,18 @@ public class StorageEntryTransactionsCreateService(
             await unitOfWork.Context.StorageEntryTransactions.AddAsync(entry);
 
             await unitOfWork.SaveChangesAsync();
+
+            // Sem perna de compra o recálculo também deriva a alocação do contrato (GAC-1214): ele
+            // entra na transação para que a entrada e o consumo do contrato sejam atômicos.
+            if (semPernaDeCompra && purchase.ShipmentReleaseKey.HasValue)
+                await recalcShipped.RecalculateAsync(purchase.ShipmentReleaseKey.Value);
+
             await unitOfWork.CommitAsync();
 
-            // Fora da transação e explícito: os hooks de ShippedQuantity em
-            // Create/Confirmed só disparam em CommitMode.Auto, e todo o fluxo acima
-            // roda em Deferred — sem esta chamada a liberação não seria atualizada.
-            if (purchase.ShipmentReleaseKey.HasValue)
+            // Explícito: os hooks de ShippedQuantity em Create/Confirmed só disparam em
+            // CommitMode.Auto, e todo o fluxo acima roda em Deferred — sem esta chamada a
+            // liberação não seria atualizada. Fora da transação só no fluxo com perna de compra.
+            if (!semPernaDeCompra && purchase.ShipmentReleaseKey.HasValue)
                 await recalcShipped.RecalculateAsync(purchase.ShipmentReleaseKey.Value);
 
             return entry;

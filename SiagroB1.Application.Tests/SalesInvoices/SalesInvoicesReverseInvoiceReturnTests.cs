@@ -429,4 +429,64 @@ public class SalesInvoicesReverseInvoiceReturnTests
             .AsNoTracking().SingleAsync(x => x.Key == release.Key);
         Assert.Equal(ReleaseStatus.Actived, reloaded.Status);
     }
+
+    // ---------- GAC-1214: a devolução ao armazém devolve o saldo ao contrato de compra ----------
+
+    /// <summary>Registra a compra de 20.000 do contrato semeado, como se o grão já tivesse sido alocado.</summary>
+    private async Task<Guid> AllocatePurchaseAsync()
+    {
+        var contract = await _db.Context.PurchaseContracts.SingleAsync();
+        var purchase = new StorageTransaction
+        {
+            Key = Guid.NewGuid(), Code = "COMPRA", CardCode = "F0001", ItemCode = "SOJA", UnitOfMeasureCode = "KG",
+            WarehouseCode = OriginWarehouse, TransactionType = StorageTransactionType.Purchase,
+            TransactionStatus = StorageTransactionsStatus.Confirmed, NetWeight = 20_000m, GrossWeight = 20_000m,
+        };
+        _db.Context.StorageTransactions.Add(purchase);
+        _db.Context.PurchaseContractsAllocations.Add(new PurchaseContractAllocation
+        {
+            PurchaseContractKey = contract.Key, StorageTransactionKey = purchase.Key, Volume = 20_000m,
+            ApprovedAt = DateTime.Now, ApprovedBy = "tester",
+        });
+        contract.AllocatedVolume = 20_000m;
+        await _db.SaveChangesAsync();
+        return contract.Key;
+    }
+
+    private async Task<decimal> AllocatedVolumeAsync(Guid contractKey) =>
+        await _db.Context.PurchaseContracts.AsNoTracking()
+            .Where(c => c.Key == contractKey).Select(c => c.AllocatedVolume).SingleAsync();
+
+    [Fact]
+    public async Task Return_ByInvoice_GivesTheContractBalanceBack()
+    {
+        var (invoice, r1) = await SeedAsync();
+        await SeedPurchaseOriginAsync(r1);
+        var contractKey = await AllocatePurchaseAsync();
+
+        var returnInvoice = await ReturnToWarehouseAsync(invoice, r1);
+
+        Assert.Equal(0m, await AllocatedVolumeAsync(contractKey));
+        var entry = await _db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.GeneratedByReturnInvoiceKey == returnInvoice.Key);
+        Assert.Equal(-20_000m, (await _db.Context.PurchaseContractsAllocations.AsNoTracking()
+            .SingleAsync(a => a.StorageTransactionKey == entry.Key)).Volume);
+    }
+
+    [Fact]
+    public async Task ReverseReturn_TakesItAgain()
+    {
+        var (invoice, r1) = await SeedAsync();
+        await SeedPurchaseOriginAsync(r1);
+        var contractKey = await AllocatePurchaseAsync();
+        var returnInvoice = await ReturnToWarehouseAsync(invoice, r1);
+
+        await ReverseService().ExecuteAsync(returnInvoice.Key, "tester");
+
+        Assert.Equal(20_000m, await AllocatedVolumeAsync(contractKey));
+        var entry = await _db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.GeneratedByReturnInvoiceKey == returnInvoice.Key);
+        Assert.False(await _db.Context.PurchaseContractsAllocations.AsNoTracking()
+            .AnyAsync(a => a.StorageTransactionKey == entry.Key));
+    }
 }
