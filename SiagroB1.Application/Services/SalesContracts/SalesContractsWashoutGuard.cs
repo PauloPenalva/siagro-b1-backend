@@ -100,7 +100,7 @@ internal static class SalesContractsWashoutGuard
         if (total > toRelease)
             throw new ApplicationException(
                 $"Volume do washout excede o saldo não liberado do contrato. Disponível: {toRelease:N3}, " +
-                $"solicitado: {total:N3}. Encerre ou cancele a liberação antes.");
+                $"solicitado: {total:N3}. Cancele a liberação antes (reabra primeiro, se estiver finalizada): finalizar não devolve o saldo ao contrato.");
 
         if (washout.Amount > 0 && washout.DueDate is null)
             throw new ApplicationException("Informe o vencimento do título a receber.");

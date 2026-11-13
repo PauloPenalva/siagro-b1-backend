@@ -182,7 +182,7 @@ public class SalesContractsWashoutCreateServiceTests
         _db.Context.SalesShipmentReleases.Add(SalesContractsAllocationTestSupport.NewRelease(contract.Key, released: 950m));
         await _db.Context.SaveChangesAsync();
 
-        await RefusesAsync(contract.Key, Input(fixation.Key, 100m), "excede o saldo não liberado");
+        await RefusesAsync(contract.Key, Input(fixation.Key, 100m), "Cancele a liberação antes (reabra primeiro, se estiver finalizada)");
     }
 
     [Fact]
