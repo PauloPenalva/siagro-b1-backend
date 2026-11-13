@@ -242,6 +242,21 @@ public class StorageEntryTransactionsCreateSalesReturnReleaseTests
             (await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == contract.Key)).AllocatedVolume);
     }
 
+    /// <summary>Só a devolução ao armazém ganha o bypass: as outras origens seguem barradas por contrato encerrado.</summary>
+    [Fact]
+    public async Task Cancel_TransshipmentEntry_OnFinishedContract_StillThrows()
+    {
+        var (contract, release) = await SeedAsync(ReleaseOrigin.Transshipment);
+        var entry = await CreateService().ExecuteAsync(contract.Key, "LOTE-01", Payload(release.Key, 1500m), "tester");
+        var tracked = await _db.Context.PurchaseContracts.SingleAsync(x => x.Key == contract.Key);
+        tracked.Status = ContractStatus.Finished;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => CreateCancelService().ExecuteAsync(entry.Key, "tester"));
+
+        Assert.Equal("Contrato encerrado: não é possível estornar a entrada em armazenagem.", ex.Message);
+    }
+
     [Fact]
     public async Task Cancel_SalesReturnEntry_GivesTheReleaseAndWarehouseBack()
     {

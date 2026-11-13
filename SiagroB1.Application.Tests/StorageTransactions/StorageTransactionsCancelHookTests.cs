@@ -52,12 +52,6 @@ public class StorageTransactionsCancelHookTests
     }
 
     /// <summary>
-    /// Numa liberação COMUM quem consome é o Purchase(8); cancelar a perna de venda do
-    /// par da Expedição não pode devolver saldo. O hook hoje dispara também para tipos de
-    /// venda (precisa disparar para as liberações de transferência), então o que segura a
-    /// regra é a fórmula por origem — e é isso que este teste protege.
-    /// </summary>
-    /// <summary>
     /// GAC-1214: só a alocação DERIVADA da liberação de devolução deixa de travar o cancelamento;
     /// a alocação de uma compra comum continua exigindo remoção prévia.
     /// </summary>
@@ -94,6 +88,12 @@ public class StorageTransactionsCancelHookTests
         Assert.Contains("purchase contract allocations", ex.Message);
     }
 
+    /// <summary>
+    /// Numa liberação COMUM quem consome é o Purchase(8); cancelar a perna de venda do
+    /// par da Expedição não pode devolver saldo. O hook hoje dispara também para tipos de
+    /// venda (precisa disparar para as liberações de transferência), então o que segura a
+    /// regra é a fórmula por origem — e é isso que este teste protege.
+    /// </summary>
     [Fact]
     public async Task Cancel_SalesShipmentLinkedToAStandardRelease_DoesNotTouchShippedQuantity()
     {
