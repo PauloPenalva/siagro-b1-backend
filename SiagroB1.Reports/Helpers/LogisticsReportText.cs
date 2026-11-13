@@ -50,6 +50,37 @@ public static class LogisticsReportText
     private static T[] Effective<T>(IReadOnlyCollection<T>? requested, T[] defaults) where T : struct, Enum =>
         requested is { Count: > 0 } ? requested.Distinct().ToArray() : defaults;
 
+    /// <summary>
+    /// Situação da CARGA na linha do relatório (GAC-1176): a transferência entre armazéns de
+    /// terceiros lê "Transferência" — em trânsito e depois de concluída —, e não "Em Transbordo" /
+    /// "Concluída", que são do transbordo comum e da Conferência de Entregas.
+    /// </summary>
+    /// <remarks>
+    /// A concluída por transferência é reconhecida pelos números da própria carga, sem consultar
+    /// os transbordos: a carga Normal só chega a <c>Completed</c> SEM faturamento por esse caminho
+    /// (a Conferência de Entregas exige nota — ver <c>ShipmentLoadsRecalculateInvoicedService
+    /// .ResolveStatus</c>), e a Remoção, que também conclui sem faturar, não tem transbordo.
+    /// <para>
+    /// O FILTRO de situação do relatório continua pelo enum (<see cref="LoadStatusText(ShipmentLoadStatus)"/>):
+    /// a transferência entra em "Em Transbordo" e "Concluída", como nas telas.
+    /// </para>
+    /// </remarks>
+    public static string LoadStatusText(ShipmentLoad load)
+    {
+        if (load.Status == ShipmentLoadStatus.InTransshipment && load.IsInTransfer)
+            return "Em Transferência";
+
+        if (load.Status == ShipmentLoadStatus.Completed &&
+            load.LoadType == ShipmentLoadType.Normal &&
+            load.InvoicedQuantity <= 0.001m &&
+            load.TransshippedQuantity > 0.001m)
+        {
+            return "Transferência Concluída";
+        }
+
+        return LoadStatusText(load.Status);
+    }
+
     public static string LoadStatusText(ShipmentLoadStatus status) => status switch
     {
         ShipmentLoadStatus.Planned => "Planejada",

@@ -113,7 +113,7 @@ public class ShipmentLoadsByPeriodReportService(IUnitOfWork db, IFastReportServi
         Code = l.Code ?? "",
         LoadDate = ReportText.Date(l.LoadDate),
         Type = LogisticsReportText.LoadTypeText(l.LoadType),
-        Status = LogisticsReportText.LoadStatusText(l.Status),
+        Status = LogisticsReportText.LoadStatusText(l),
         Truck = l.TruckCode ?? "",
         Carrier = ReportText.NameOrCode(l.CarrierCardCode, l.CarrierName),
         Warehouse = ReportText.NameOrCode(l.WarehouseCode, l.WarehouseName),

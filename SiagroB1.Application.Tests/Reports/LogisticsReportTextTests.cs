@@ -24,6 +24,56 @@ public class LogisticsReportTextTests
     public void LoadStatusText_MatchesTheScreen(ShipmentLoadStatus status, string expected) =>
         Assert.Equal(expected, LogisticsReportText.LoadStatusText(status));
 
+    // GAC-1176 — transferência entre armazéns de terceiros: no relatório a carga lê "Transferência",
+    // em trânsito e depois de concluída, e não "Em Transbordo"/"Concluída".
+
+    private static ShipmentLoad TransferLoad(
+        ShipmentLoadStatus status, bool isInTransfer = false, decimal invoiced = 0m, decimal transshipped = 30_000m,
+        ShipmentLoadType type = ShipmentLoadType.Normal) => new()
+    {
+        Code = "CG1",
+        ItemCode = "SOJA",
+        UnitOfMeasureCode = "KG",
+        LoadType = type,
+        Status = status,
+        IsInTransfer = isInTransfer,
+        TotalQuantity = 30_000m,
+        InvoicedQuantity = invoiced,
+        TransshippedQuantity = transshipped,
+    };
+
+    [Fact]
+    public void LoadStatusText_ALoadInTransferReadsEmTransferencia()
+    {
+        Assert.Equal("Em Transferência",
+            LogisticsReportText.LoadStatusText(TransferLoad(ShipmentLoadStatus.InTransshipment, isInTransfer: true)));
+        Assert.Equal("Em Transbordo",
+            LogisticsReportText.LoadStatusText(TransferLoad(ShipmentLoadStatus.InTransshipment)));
+    }
+
+    /// <summary>
+    /// A carga Normal só chega a Concluída sem faturamento por transferência (a Conferência de
+    /// Entregas exige nota) — por isso o relatório a reconhece pelos próprios números da carga.
+    /// </summary>
+    [Fact]
+    public void LoadStatusText_ALoadCompletedByTransferReadsTransferenciaConcluida()
+    {
+        Assert.Equal("Transferência Concluída",
+            LogisticsReportText.LoadStatusText(TransferLoad(ShipmentLoadStatus.Completed)));
+    }
+
+    [Fact]
+    public void LoadStatusText_OtherCompletedLoadsStayConcluida()
+    {
+        // Concluída pela Conferência de Entregas: há faturamento.
+        Assert.Equal("Concluída",
+            LogisticsReportText.LoadStatusText(TransferLoad(ShipmentLoadStatus.Completed, invoiced: 10_000m)));
+        // Remoção concluída à mão: não fatura e não tem transbordo.
+        Assert.Equal("Concluída",
+            LogisticsReportText.LoadStatusText(
+                TransferLoad(ShipmentLoadStatus.Completed, transshipped: 0m, type: ShipmentLoadType.Removal)));
+    }
+
     [Theory]
     [InlineData(ShipmentLoadType.Normal, "Normal")]
     [InlineData(ShipmentLoadType.Removal, "Remoção")]

@@ -81,8 +81,10 @@ por linha e somada no cabeçalho da carga ("Quebra de Transporte").
   de saída.** `ShipmentLoadDischargeItem` tem FK obrigatória para o item da nota, e a quebra de
   trajeto nasce da recusa de nota. Na transferência a quebra é só a diferença de peso.
 - **Armazém próprio como destino final não é transferência** — é Entrada em Armazenagem.
-- **Relatórios** (Cargas por Período) mostram a carga em trânsito como "Em transbordo", sem
-  distinguir a transferência; a concluída aparece como "Concluída" com Transbordado = total.
+- **Relatório Cargas por Período** (pedido do usuário, 12/11): a linha lê "Em Transferência" e
+  "Transferência Concluída". O FILTRO de situação continua pelo enum — a transferência entra em
+  "Em Transbordo" e "Concluída". A concluída é reconhecida pelos números da carga (Normal,
+  Concluída, nada faturado, com transbordo), sem consultar os transbordos.
 - A lista de Expedições (`storageTransactions/sales`) também lê "Em Transbordo" para a carga em
   transferência: a view não carrega `IsInTransfer`.
 
