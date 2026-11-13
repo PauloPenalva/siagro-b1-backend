@@ -25,6 +25,11 @@ public class SalesShipmentReleasesDeleteService(IUnitOfWork db, ILogger<SalesShi
             throw new ApplicationException("Sales Shipment Release not pending.");
         }
 
+        // GAC-1185: liberação planejada em carga é vínculo informativo (FK NoAction): sai junto.
+        db.Context.ShipmentLoadsPlannedSalesContracts.RemoveRange(
+            await db.Context.ShipmentLoadsPlannedSalesContracts
+                .Where(x => x.SalesShipmentReleaseKey == key).ToListAsync());
+
         db.Context.SalesShipmentReleases.Remove(entity);
         await db.SaveChangesAsync();
         return true;

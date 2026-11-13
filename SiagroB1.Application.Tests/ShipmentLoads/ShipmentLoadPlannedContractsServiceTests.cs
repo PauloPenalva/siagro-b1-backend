@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.SalesContracts;
+using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
@@ -468,5 +470,50 @@ public class ShipmentLoadPlannedContractsServiceTests
 
         Assert.False(await _db.Context.SalesContracts.AnyAsync(x => x.Key == draft.Key));
         Assert.Empty(_db.Context.ShipmentLoadsPlannedSalesContracts);
+    }
+
+    /// <summary>
+    /// Só liberação Pendente pode ser excluída, e só Ativa pode ser planejada — mas a liberação
+    /// planejada pode voltar a Pendente depois. A FK é NoAction: sem limpar a linha planejada, a
+    /// exclusão estouraria 547 no SQL Server.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_a_purchase_release_removes_its_planned_rows()
+    {
+        var load = await SeedLoadAsync();
+        var contract = await SeedPurchaseAsync();
+        var release = await SeedPurchaseReleaseAsync(contract);
+        var other = await SeedPurchaseReleaseAsync(contract, rowId: 2);
+        await Add().ExecuteAsync(load.Key, PlannedContractType.Purchase, release.Key, null, null, "joao");
+        await Add().ExecuteAsync(load.Key, PlannedContractType.Purchase, other.Key, null, null, "joao");
+        release.Status = ReleaseStatus.Pending;
+        await _db.Context.SaveChangesAsync();
+
+        Assert.True(await new ShipmentReleasesDeleteService(
+            _db, NullLogger<ShipmentReleasesDeleteService>.Instance).ExecuteAsync(release.Key));
+
+        Assert.False(await _db.Context.ShipmentReleases.AnyAsync(x => x.Key == release.Key));
+        var remaining = Assert.Single(_db.Context.ShipmentLoadsPlannedPurchaseContracts);
+        Assert.Equal(other.Key, remaining.ShipmentReleaseKey);
+    }
+
+    [Fact]
+    public async Task Deleting_a_sales_release_removes_its_planned_rows()
+    {
+        var load = await SeedLoadAsync();
+        var contract = await SeedSalesAsync();
+        var release = await SeedSalesReleaseAsync(contract);
+        var other = await SeedSalesReleaseAsync(contract, rowId: 2);
+        await Add().ExecuteAsync(load.Key, PlannedContractType.Sales, release.Key, null, null, "joao");
+        await Add().ExecuteAsync(load.Key, PlannedContractType.Sales, other.Key, null, null, "joao");
+        release.Status = ReleaseStatus.Pending;
+        await _db.Context.SaveChangesAsync();
+
+        Assert.True(await new SalesShipmentReleasesDeleteService(
+            _db, NullLogger<SalesShipmentReleasesDeleteService>.Instance).ExecuteAsync(release.Key));
+
+        Assert.False(await _db.Context.SalesShipmentReleases.AnyAsync(x => x.Key == release.Key));
+        var remaining = Assert.Single(_db.Context.ShipmentLoadsPlannedSalesContracts);
+        Assert.Equal(other.Key, remaining.SalesShipmentReleaseKey);
     }
 }
