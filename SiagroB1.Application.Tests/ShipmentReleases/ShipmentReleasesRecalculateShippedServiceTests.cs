@@ -241,4 +241,77 @@ public class ShipmentReleasesRecalculateShippedServiceTests
         var reloaded = await _db.Context.ShipmentReleases.FirstAsync(x => x.Key == sr.Key);
         Assert.Equal(60_000m, reloaded.AvailableQuantity); // o dobro — por isso a chave fica nula
     }
+
+    private async Task<(PurchaseContract Contract, ShipmentRelease Release)> SeedReturnScenarioAsync(ReleaseOrigin origin)
+    {
+        var contract = new PurchaseContract
+        {
+            Key = Guid.NewGuid(),
+            Code = "PC-001",
+            CardCode = "F0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            HarvestSeasonCode = "2026",
+            DeliveryLocationCode = "01",
+            Status = ContractStatus.Approved,
+            TotalVolume = 10_000m,
+            AllocatedVolume = 3_000m,
+        };
+        _db.Context.PurchaseContracts.Add(contract);
+        var purchase = Tx(Guid.Empty, StorageTransactionType.Purchase, 3_000m);
+        purchase.ShipmentReleaseKey = null;
+        var generator = Tx(Guid.Empty, StorageTransactionType.SalesShipmentReturn, 3_000m);
+        generator.ShipmentReleaseKey = null;
+        _db.Context.StorageTransactions.AddRange(purchase, generator);
+        _db.Context.PurchaseContractsAllocations.Add(new PurchaseContractAllocation
+        {
+            PurchaseContractKey = contract.Key,
+            StorageTransactionKey = purchase.Key,
+            Volume = 3_000m,
+            ApprovedAt = DateTime.Now,
+            ApprovedBy = "tester",
+        });
+        var release = new ShipmentRelease
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            DeliveryLocationCode = "01",
+            ReleasedQuantity = 3_000m,
+            Status = ReleaseStatus.Actived,
+            Origin = origin,
+            GeneratedByStorageTransactionKey = generator.Key,
+        };
+        _db.Context.ShipmentReleases.Add(release);
+        await _db.Context.SaveChangesAsync();
+        return (contract, release);
+    }
+
+    [Fact]
+    public async Task Recalculate_SalesReturnRelease_SyncsTheContractLedger()
+    {
+        var (contract, release) = await SeedReturnScenarioAsync(ReleaseOrigin.SalesReturn);
+        _db.Context.StorageTransactions.Add(Tx(release.Key, StorageTransactionType.SalesShipment, 1_000m));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(release.Key);
+
+        Assert.Equal(1_000m, await ShippedAsync(release.Key));
+        var reloaded = await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(c => c.Key == contract.Key);
+        Assert.Equal(1_000m, reloaded.AllocatedVolume); // compra 3.000 − devolução 3.000 + saída 1.000
+    }
+
+    [Fact]
+    public async Task Recalculate_StandardRelease_DoesNotTouchTheLedger()
+    {
+        var (contract, release) = await SeedReturnScenarioAsync(ReleaseOrigin.Standard);
+        _db.Context.StorageTransactions.Add(Tx(release.Key, StorageTransactionType.Purchase, 500m));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(release.Key);
+
+        var allocations = await _db.Context.PurchaseContractsAllocations.AsNoTracking()
+            .Where(a => a.PurchaseContractKey == contract.Key).ToListAsync();
+        Assert.Single(allocations);
+        Assert.Equal(3_000m, allocations[0].Volume);
+    }
 }
