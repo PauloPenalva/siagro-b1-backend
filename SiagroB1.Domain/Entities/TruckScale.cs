@@ -21,6 +21,22 @@ public class TruckScale
 
     public int Port { get; set; }
 
+    /// <summary>TCP/IP usa IpAddress e Port; Serial usa os campos abaixo.</summary>
+    public ScaleConnectionType ConnectionType { get; set; } = ScaleConnectionType.Tcp;
+
+    /// <summary>Porta serial no PC da balança (COM3, /dev/ttyUSB0).</summary>
+    [Column(TypeName = "VARCHAR(50)")]
+    public string? SerialPortName { get; set; }
+
+    // Parâmetros da serial. Nulos usam o padrão: 9600 bps, 8 bits de dados, 1 bit de parada.
+    public int? BaudRate { get; set; }
+
+    public int? DataBits { get; set; }
+
+    public ScaleSerialParity Parity { get; set; } = ScaleSerialParity.None;
+
+    public int? StopBits { get; set; }
+
     public ScaleProtocolType Protocol { get; set; } = ScaleProtocolType.JundiaiBj850;
 
     // Sobrescritas do preset. Nulas usam o padrão do protocolo - é assim que o BJ850 real é
