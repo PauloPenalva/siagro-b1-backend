@@ -13,7 +13,10 @@ public class ShipmentReleasesCancelationServiceTests
 {
     private const string Reason = "troca de armazém";
 
-    private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
+    private readonly string _dbName = Guid.NewGuid().ToString();
+    private readonly UnitOfWork _db;
+
+    public ShipmentReleasesCancelationServiceTests() => _db = TestDb.CreateUnitOfWork(_dbName);
 
     private ShipmentReleasesCancelationService Service() =>
         new(_db.Context,
@@ -348,5 +351,21 @@ public class ShipmentReleasesCancelationServiceTests
         var returned = await _db.Context.PurchaseContractsAllocations.AsNoTracking()
             .SingleAsync(a => a.StorageTransactionKey == generator.Key);
         Assert.Equal(-30m, returned.Volume);
+    }
+
+    [Fact]
+    public async Task Cancel_SalesReturnReleaseWithContractConcurrencyConflict_ThrowsBusinessError()
+    {
+        var (_, _, release) = await SeedReturnAsync();
+        var conflicting = TestDb.CreateUnitOfWork(_dbName, new ContractConcurrencyConflictInterceptor());
+        var service = new ShipmentReleasesCancelationService(
+            conflicting.Context,
+            new ShipmentReleasesRecalculateShippedService(conflicting.Context),
+            NullLogger<ShipmentReleasesCancelationService>.Instance);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            service.ExecuteAsync(release.Key, "maria", Reason));
+
+        Assert.Equal("O contrato foi alterado por outro usuário. Tente novamente.", ex.Message);
     }
 }

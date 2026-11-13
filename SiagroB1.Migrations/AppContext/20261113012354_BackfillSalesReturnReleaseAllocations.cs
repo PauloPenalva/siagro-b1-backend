@@ -16,6 +16,12 @@ namespace SiagroB1.Migrations.AppContext
     /// zero e só insere o que ainda não existe — rodar de novo não muda nada. Por fim refaz o
     /// <c>AllocatedVolume</c> dos contratos que têm liberação de devolução (inclusive encerrados).
     /// </summary>
+    /// <remarks>
+    /// <c>Up</c> só INSERE as linhas (contrato, romaneio) que faltam; não corrige o volume de uma linha
+    /// que já existia e divergia do esperado — o sincronizador em runtime converge esse caso no próximo
+    /// recálculo da liberação. <c>Down</c> remove as linhas derivadas das liberações de devolução
+    /// inclusive as que o runtime criou depois do deploy, não apenas as inseridas por este <c>Up</c>.
+    /// </remarks>
     /// <inheritdoc />
     public partial class BackfillSalesReturnReleaseAllocations : Migration
     {

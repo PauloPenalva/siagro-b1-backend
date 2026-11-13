@@ -304,11 +304,15 @@ public class ShipmentReleasesRecalculateShippedServiceTests
     public async Task Recalculate_StandardRelease_DoesNotTouchTheLedger()
     {
         var (contract, release) = await SeedReturnScenarioAsync(ReleaseOrigin.Standard);
-        _db.Context.StorageTransactions.Add(Tx(release.Key, StorageTransactionType.Purchase, 500m));
+        // Consumidor vivo na liberação: sem a trava de origem, o sincronizador gravaria a linha do gerador
+        // e mexeria no AllocatedVolume do contrato.
+        _db.Context.StorageTransactions.Add(Tx(release.Key, StorageTransactionType.SalesShipment, 500m));
         await _db.Context.SaveChangesAsync();
 
         await Service().RecalculateAsync(release.Key);
 
+        Assert.Equal(3_000m,
+            (await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(c => c.Key == contract.Key)).AllocatedVolume);
         var allocations = await _db.Context.PurchaseContractsAllocations.AsNoTracking()
             .Where(a => a.PurchaseContractKey == contract.Key).ToListAsync();
         Assert.Single(allocations);

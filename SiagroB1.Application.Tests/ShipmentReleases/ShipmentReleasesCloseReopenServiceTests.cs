@@ -11,7 +11,10 @@ namespace SiagroB1.Application.Tests.ShipmentReleases;
 
 public class ShipmentReleasesCloseReopenServiceTests
 {
-    private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
+    private readonly string _dbName = Guid.NewGuid().ToString();
+    private readonly UnitOfWork _db;
+
+    public ShipmentReleasesCloseReopenServiceTests() => _db = TestDb.CreateUnitOfWork(_dbName);
 
     private async Task<ShipmentRelease> SeedAsync(ReleaseStatus status)
     {
@@ -138,5 +141,29 @@ public class ShipmentReleasesCloseReopenServiceTests
         await new ShipmentReleasesReopenService(_db.Context).ExecuteAsync(release.Key, "tester");
 
         Assert.Equal(0m, await AllocatedAsync(contract.Key));
+    }
+
+    [Fact]
+    public async Task Close_SalesReturnReleaseWithContractConcurrencyConflict_ThrowsBusinessError()
+    {
+        var (_, _, release) = await SeedReturnAsync();
+        var conflicting = TestDb.CreateUnitOfWork(_dbName, new ContractConcurrencyConflictInterceptor());
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            new ShipmentReleasesCloseService(conflicting.Context).ExecuteAsync(release.Key, "tester"));
+
+        Assert.Equal("O contrato foi alterado por outro usuário. Tente novamente.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Reopen_SalesReturnReleaseWithContractConcurrencyConflict_ThrowsBusinessError()
+    {
+        var (_, _, release) = await SeedReturnAsync(ReleaseStatus.Completed);
+        var conflicting = TestDb.CreateUnitOfWork(_dbName, new ContractConcurrencyConflictInterceptor());
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            new ShipmentReleasesReopenService(conflicting.Context).ExecuteAsync(release.Key, "tester"));
+
+        Assert.Equal("O contrato foi alterado por outro usuário. Tente novamente.", ex.Message);
     }
 }

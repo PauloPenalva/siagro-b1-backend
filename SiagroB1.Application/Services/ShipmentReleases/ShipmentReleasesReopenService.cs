@@ -20,9 +20,8 @@ public class ShipmentReleasesReopenService(AppDbContext context)
         release.UpdatedAt = DateTime.Now;
         release.UpdatedBy = userName;
 
-        await context.SaveChangesAsync();
-
         // GAC-1214: liberação de devolução viva devolve saldo ao contrato; finalizada, não.
-        await PurchaseContractsReturnReleaseAllocationSync.SyncAsync(context, release.Key);
+        // Status e sincronização do contrato gravam na mesma transação.
+        await PurchaseContractsReturnReleaseAllocationSync.SaveAndSyncAsync(context, release);
     }
 }

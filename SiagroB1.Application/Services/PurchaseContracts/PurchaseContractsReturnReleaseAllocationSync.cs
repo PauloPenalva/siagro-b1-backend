@@ -14,6 +14,10 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 /// então o método é idempotente. Sempre consulta o banco e sempre salva; participa da transação
 /// que estiver aberta no contexto.
 /// </summary>
+/// <remarks>
+/// Chama <c>SaveChangesAsync</c> no contexto compartilhado: quem chama precisa ter salvo as próprias
+/// alterações ANTES (ou usar <see cref="SaveAndSyncAsync"/>, que grava a mudança e sincroniza na mesma transação).
+/// </remarks>
 public static class PurchaseContractsReturnReleaseAllocationSync
 {
     private static readonly StorageTransactionType[] ConsumerTypes =
@@ -22,6 +26,39 @@ public static class PurchaseContractsReturnReleaseAllocationSync
         StorageTransactionType.SalesShipmentReturn,
         StorageTransactionType.WarehouseLoss,
     ];
+
+    /// <summary>
+    /// Grava as alterações pendentes do contexto (mudança de status da liberação) e, se a liberação é de
+    /// devolução, sincroniza o contrato na MESMA transação: ou os dois ficam gravados ou nenhum. Conflito de
+    /// concorrência no contrato vira erro de negócio. Liberações de outra origem só salvam, como antes.
+    /// </summary>
+    public static async Task SaveAndSyncAsync(AppDbContext context, ShipmentRelease release)
+    {
+        if (release.Origin != ReleaseOrigin.SalesReturn)
+        {
+            await context.SaveChangesAsync();
+            return;
+        }
+
+        // Se já há transação aberta (unidade de trabalho do chamador), participa dela.
+        var ownTransaction = context.Database.CurrentTransaction is null
+            ? await context.Database.BeginTransactionAsync()
+            : null;
+        try
+        {
+            await context.SaveChangesAsync();
+            await SyncAsync(context, release.Key);
+            if (ownTransaction is not null) await ownTransaction.CommitAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ApplicationException("O contrato foi alterado por outro usuário. Tente novamente.");
+        }
+        finally
+        {
+            if (ownTransaction is not null) await ownTransaction.DisposeAsync();
+        }
+    }
 
     public static async Task SyncAsync(AppDbContext context, Guid shipmentReleaseKey)
     {

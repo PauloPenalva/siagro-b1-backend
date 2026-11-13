@@ -259,6 +259,8 @@ public class PurchaseContractsReturnReleaseAllocationSyncTests
     public async Task Sync_NonSalesReturnOrigin_DoesNothing(ReleaseOrigin origin)
     {
         var s = await SeedAsync(origin);
+        // Consumidor vivo (tipo 7) na liberação: sem a trava de origem, o sincronizador gravaria linhas.
+        await AddTransactionAsync(StorageTransactionType.SalesShipment, 1_000m, s.Release.Key);
         var before = await _db.Context.PurchaseContractsAllocations.CountAsync();
 
         await PurchaseContractsReturnReleaseAllocationSync.SyncAsync(_db.Context, s.Release.Key);

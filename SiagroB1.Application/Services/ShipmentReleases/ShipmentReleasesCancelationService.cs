@@ -76,10 +76,9 @@ public class ShipmentReleasesCancelationService(
         sr.UpdatedAt = DateTime.Now;
         sr.UpdatedBy = userName;
 
-        await context.SaveChangesAsync();
-
         // GAC-1214: liberação de devolução cancelada mantém devolvido só o que já foi embarcado.
-        await PurchaseContractsReturnReleaseAllocationSync.SyncAsync(context, sr.Key);
+        // Status e sincronização do contrato gravam na mesma transação.
+        await PurchaseContractsReturnReleaseAllocationSync.SaveAndSyncAsync(context, sr);
 
         logger.LogInformation(
             "Liberação de embarque {Key} cancelada por {User}. Consumido do contrato: {Consumed}. Motivo: {Reason}",
