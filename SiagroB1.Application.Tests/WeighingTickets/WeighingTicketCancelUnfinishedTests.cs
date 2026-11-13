@@ -126,4 +126,46 @@ public class WeighingTicketCancelUnfinishedTests
         await Assert.ThrowsAsync<NotFoundException>(
             () => Service(db, admin: false).ExecuteAsync(ticket.Key, "joao"));
     }
+
+    private static WeighingTicketsUpdateService UpdateService(IUnitOfWork db) => new(
+        db,
+        new FakeBusinessPartnerService(new() { ["C0001"] = "Cliente Teste" }),
+        new FakeItemService(new() { ["TRIGO"] = "Trigo" }),
+        NullLogger<WeighingTicketsUpdateService>.Instance);
+
+    /// <summary>
+    /// O PATCH do ticket copia todos os campos, inclusive Status: sem esta trava, qualquer usuário
+    /// cancelaria o ticket em andamento por fora da ação, sem a checagem do papel. O teste imita o
+    /// controller, que aplica o Delta na entidade rastreada antes de chamar o serviço.
+    /// </summary>
+    [Fact]
+    public async Task Update_cannot_set_ticket_as_cancelled()
+    {
+        var (db, ticket) = await SeedTicketAsync(WeighingTicketStatus.Waiting, WeighingTicketStage.ReadyForFirstWeighing);
+        var tracked = await db.Context.WeighingTickets.SingleAsync(x => x.Key == ticket.Key);
+        tracked.Status = WeighingTicketStatus.Cancelled;
+        tracked.Stage = WeighingTicketStage.Completed;
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => UpdateService(db).ExecuteAsync(ticket.Key, tracked, "joao"));
+
+        Assert.Equal("O ticket de pesagem só pode ser cancelado pela ação Cancelar Ticket.", error.Message);
+        Assert.Equal(WeighingTicketStatus.Waiting, (await ReloadAsync(db, ticket.Key)).Status);
+    }
+
+    /// <summary>Ticket cancelado não volta para a fila de pesagem por um PATCH de Status/Stage.</summary>
+    [Fact]
+    public async Task Update_refuses_cancelled_ticket()
+    {
+        var (db, ticket) = await SeedTicketAsync(WeighingTicketStatus.Cancelled, WeighingTicketStage.Completed);
+        var tracked = await db.Context.WeighingTickets.SingleAsync(x => x.Key == ticket.Key);
+        tracked.Status = WeighingTicketStatus.Waiting;
+        tracked.Stage = WeighingTicketStage.ReadyForFirstWeighing;
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => UpdateService(db).ExecuteAsync(ticket.Key, tracked, "joao"));
+
+        Assert.Equal("Ticket de pesagem cancelado não pode ser alterado.", error.Message);
+        Assert.Equal(WeighingTicketStatus.Cancelled, (await ReloadAsync(db, ticket.Key)).Status);
+    }
 }
