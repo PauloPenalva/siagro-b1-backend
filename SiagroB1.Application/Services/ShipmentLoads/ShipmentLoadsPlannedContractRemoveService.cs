@@ -9,7 +9,7 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
 /// Remove um contrato planejado da carga (GAC-1185). <c>key</c> é a chave da LINHA planejada,
-/// não a do contrato. Recusa carga cancelada, como a inclusão; os deletes de carga/contrato não passam por aqui.
+/// não a do contrato nem a da liberação. Recusa carga cancelada, como a inclusão; os deletes de carga/contrato não passam por aqui.
 /// </summary>
 public class ShipmentLoadsPlannedContractRemoveService(
     AppDbContext context,
@@ -22,12 +22,15 @@ public class ShipmentLoadsPlannedContractRemoveService(
         {
             Guid loadKey;
             string? code;
+            // Nulo nas linhas anteriores à rodada 2, que não têm liberação.
+            int? releaseRowId;
             decimal? quantity;
 
             if (type == PlannedContractType.Purchase)
             {
                 var row = await context.ShipmentLoadsPlannedPurchaseContracts
                               .Include(x => x.Contract)
+                              .Include(x => x.ShipmentRelease)
                               .FirstOrDefaultAsync(x => x.Key == key)
                           ?? throw new NotFoundException("Contrato planejado não encontrado.");
 
@@ -35,6 +38,7 @@ public class ShipmentLoadsPlannedContractRemoveService(
 
                 loadKey = row.ShipmentLoadKey;
                 code = row.Contract?.Code;
+                releaseRowId = row.ShipmentRelease?.RowId;
                 quantity = row.PlannedQuantity;
                 context.ShipmentLoadsPlannedPurchaseContracts.Remove(row);
             }
@@ -42,6 +46,7 @@ public class ShipmentLoadsPlannedContractRemoveService(
             {
                 var row = await context.ShipmentLoadsPlannedSalesContracts
                               .Include(x => x.Contract)
+                              .Include(x => x.SalesShipmentRelease)
                               .FirstOrDefaultAsync(x => x.Key == key)
                           ?? throw new NotFoundException("Contrato planejado não encontrado.");
 
@@ -49,6 +54,7 @@ public class ShipmentLoadsPlannedContractRemoveService(
 
                 loadKey = row.ShipmentLoadKey;
                 code = row.Contract?.Code;
+                releaseRowId = row.SalesShipmentRelease?.RowId;
                 quantity = row.PlannedQuantity;
                 context.ShipmentLoadsPlannedSalesContracts.Remove(row);
             }
@@ -58,7 +64,7 @@ public class ShipmentLoadsPlannedContractRemoveService(
                 type == PlannedContractType.Purchase
                     ? ShipmentLoadChangeLogFields.PlannedPurchaseContract
                     : ShipmentLoadChangeLogFields.PlannedSalesContract,
-                ShipmentLoadChangeLogFields.DescribePlannedContract(code, null, quantity),
+                ShipmentLoadChangeLogFields.DescribePlannedContract(code, releaseRowId, quantity),
                 null,
                 user);
 

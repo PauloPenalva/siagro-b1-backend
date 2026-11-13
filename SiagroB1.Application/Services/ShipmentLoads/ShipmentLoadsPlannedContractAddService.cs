@@ -8,10 +8,14 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
-/// Inclui um contrato PLANEJADO na carga (GAC-1185). É vínculo informativo: não mexe em saldo,
-/// peso nem valor — o contrato efetivo continua sendo o das notas da carga. Por isso a regra é
-/// só de coerência: contrato aprovado, do mesmo produto da carga, uma vez por carga, e carga
-/// não cancelada (qualquer outro status aceita, o planejamento muda até o fim).
+/// Inclui um contrato PLANEJADO na carga (GAC-1185), escolhido pela LIBERAÇÃO: de embarque na
+/// compra, de entrega na venda. O contrato gravado é o da própria liberação.
+/// <para>
+/// É vínculo informativo: não mexe em saldo, peso nem valor — o contrato efetivo continua sendo o
+/// das notas da carga. Por isso a regra é só de coerência: liberação ativa, contrato aprovado e do
+/// mesmo produto da carga, cada liberação uma vez por carga, e carga não cancelada (qualquer outro
+/// status aceita, o planejamento muda até o fim). O saldo da liberação NÃO é validado.
+/// </para>
 /// </summary>
 public class ShipmentLoadsPlannedContractAddService(
     AppDbContext context,
@@ -19,7 +23,7 @@ public class ShipmentLoadsPlannedContractAddService(
     ILogger<ShipmentLoadsPlannedContractAddService> logger)
 {
     public async Task ExecuteAsync(
-        Guid loadKey, PlannedContractType type, Guid contractKey,
+        Guid loadKey, PlannedContractType type, Guid releaseKey,
         decimal? quantity, string? notes, string user)
     {
         try
@@ -38,28 +42,34 @@ public class ShipmentLoadsPlannedContractAddService(
             if (text is { Length: > 200 })
                 throw new ApplicationException("A observação deve ter no máximo 200 caracteres.");
 
-            string? code;
+            var release = type == PlannedContractType.Purchase
+                ? await FindPurchaseReleaseAsync(releaseKey)
+                : await FindSalesReleaseAsync(releaseKey);
+
+            var label = $"{release.ContractCode} (item {release.RowId})";
+
+            if (release.Status != ReleaseStatus.Actived)
+                throw new ApplicationException($"A liberação {label} não está ativa.");
+
+            if (release.ContractStatus != ContractStatus.Approved)
+                throw new ApplicationException($"O contrato {release.ContractCode} não está aprovado.");
+
+            if (!string.Equals(release.ItemCode, load.ItemCode, StringComparison.OrdinalIgnoreCase))
+                throw new ApplicationException($"O contrato {release.ContractCode} é de outro produto.");
+
+            var duplicateMessage = $"A liberação {label} já está planejada nesta carga.";
 
             if (type == PlannedContractType.Purchase)
             {
-                var contract = await context.PurchaseContracts
-                                   .Where(x => x.Key == contractKey)
-                                   .Select(x => new { x.Code, x.ItemCode, x.Status })
-                                   .FirstOrDefaultAsync()
-                               ?? throw new NotFoundException("Contrato de compra não encontrado.");
-
-                EnsureEligible(contract.Code, contract.Status, contract.ItemCode, load.ItemCode);
-
                 if (await context.ShipmentLoadsPlannedPurchaseContracts
-                        .AnyAsync(x => x.ShipmentLoadKey == loadKey && x.ContractKey == contractKey))
-                    throw new ApplicationException($"O contrato {contract.Code} já está planejado nesta carga.");
-
-                code = contract.Code;
+                        .AnyAsync(x => x.ShipmentLoadKey == loadKey && x.ShipmentReleaseKey == releaseKey))
+                    throw new ApplicationException(duplicateMessage);
 
                 await context.ShipmentLoadsPlannedPurchaseContracts.AddAsync(new ShipmentLoadPlannedPurchaseContract
                 {
                     ShipmentLoadKey = loadKey,
-                    ContractKey = contractKey,
+                    ContractKey = release.ContractKey,
+                    ShipmentReleaseKey = releaseKey,
                     PlannedQuantity = quantity,
                     Notes = text,
                     CreatedAt = DateTime.Now,
@@ -68,24 +78,15 @@ public class ShipmentLoadsPlannedContractAddService(
             }
             else
             {
-                var contract = await context.SalesContracts
-                                   .Where(x => x.Key == contractKey)
-                                   .Select(x => new { x.Code, x.ItemCode, x.Status })
-                                   .FirstOrDefaultAsync()
-                               ?? throw new NotFoundException("Contrato de venda não encontrado.");
-
-                EnsureEligible(contract.Code, contract.Status, contract.ItemCode, load.ItemCode);
-
                 if (await context.ShipmentLoadsPlannedSalesContracts
-                        .AnyAsync(x => x.ShipmentLoadKey == loadKey && x.ContractKey == contractKey))
-                    throw new ApplicationException($"O contrato {contract.Code} já está planejado nesta carga.");
-
-                code = contract.Code;
+                        .AnyAsync(x => x.ShipmentLoadKey == loadKey && x.SalesShipmentReleaseKey == releaseKey))
+                    throw new ApplicationException(duplicateMessage);
 
                 await context.ShipmentLoadsPlannedSalesContracts.AddAsync(new ShipmentLoadPlannedSalesContract
                 {
                     ShipmentLoadKey = loadKey,
-                    ContractKey = contractKey,
+                    ContractKey = release.ContractKey,
+                    SalesShipmentReleaseKey = releaseKey,
                     PlannedQuantity = quantity,
                     Notes = text,
                     CreatedAt = DateTime.Now,
@@ -99,17 +100,18 @@ public class ShipmentLoadsPlannedContractAddService(
                     ? ShipmentLoadChangeLogFields.PlannedPurchaseContract
                     : ShipmentLoadChangeLogFields.PlannedSalesContract,
                 null,
-                ShipmentLoadChangeLogFields.DescribePlannedContract(code, null, quantity),
+                ShipmentLoadChangeLogFields.DescribePlannedContract(release.ContractCode, release.RowId, quantity),
                 user);
 
             try
             {
                 await context.SaveChangesAsync();
             }
-            // Inclusão concorrente do mesmo contrato: o índice único (carga, contrato) barra a segunda.
+            // Inclusão concorrente da mesma liberação: o índice único (carga, contrato, liberação)
+            // barra a segunda.
             catch (DbUpdateException e) when (FiscalStock.FiscalStockPeriodsService.IsUniqueViolation(e))
             {
-                throw new ApplicationException($"O contrato {code} já está planejado nesta carga.");
+                throw new ApplicationException(duplicateMessage);
             }
         }
         catch (Exception exception)
@@ -119,12 +121,26 @@ public class ShipmentLoadsPlannedContractAddService(
         }
     }
 
-    private static void EnsureEligible(string? code, ContractStatus? status, string contractItem, string loadItem)
-    {
-        if (status != ContractStatus.Approved)
-            throw new ApplicationException($"O contrato {code} não está aprovado.");
+    private async Task<PlannedRelease> FindPurchaseReleaseAsync(Guid releaseKey) =>
+        await context.ShipmentReleases
+            .Where(x => x.Key == releaseKey)
+            .Select(x => new PlannedRelease(
+                x.RowId, x.Status, x.PurchaseContractKey,
+                x.PurchaseContract!.Code, x.PurchaseContract.ItemCode, x.PurchaseContract.Status))
+            .FirstOrDefaultAsync()
+        ?? throw new NotFoundException("Liberação de embarque não encontrada.");
 
-        if (!string.Equals(contractItem, loadItem, StringComparison.OrdinalIgnoreCase))
-            throw new ApplicationException($"O contrato {code} é de outro produto.");
-    }
+    private async Task<PlannedRelease> FindSalesReleaseAsync(Guid releaseKey) =>
+        await context.SalesShipmentReleases
+            .Where(x => x.Key == releaseKey)
+            .Select(x => new PlannedRelease(
+                x.RowId, x.Status, x.SalesContractKey,
+                x.SalesContract!.Code, x.SalesContract.ItemCode, x.SalesContract.Status))
+            .FirstOrDefaultAsync()
+        ?? throw new NotFoundException("Liberação de entrega não encontrada.");
+
+    /// <summary>O que a regra precisa da liberação e do contrato dela, igual para compra e venda.</summary>
+    private sealed record PlannedRelease(
+        int RowId, ReleaseStatus Status, Guid ContractKey,
+        string? ContractCode, string ItemCode, ContractStatus? ContractStatus);
 }
