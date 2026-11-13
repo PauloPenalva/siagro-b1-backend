@@ -13,6 +13,12 @@ public class ItemService(SapErpDbContext context, ILogger<ItemService> logger, I
 {
     public IQueryable<ItemModel> QueryAll()
     {
+        // GAC-1196: o inativo continua na consulta (documento antigo resolve o nome); quem
+        // ESCOLHE o produto filtra/confere `Inactive`.
+        var inactiveCodes = context.Items
+            .Where(SapRecordActivity.IsInactive<Domain.Entities.SAP.Item>(DateTime.Today))
+            .Select(i => i.ItemCode);
+
         return context.Items
             .Select(x => new ItemModel()
             {
@@ -20,6 +26,7 @@ public class ItemService(SapErpDbContext context, ILogger<ItemService> logger, I
                 ItemName = x.ItemName,
                 ItmsGrpCod = x.ItmsGrpCod,
                 Enabled = x.Enabled,
+                Inactive = inactiveCodes.Contains(x.ItemCode),
             })
             .AsNoTracking()
             // GAC-1209: só o campo U_YKT_Integra_Siagro decide o que integra (feijão está em outro grupo)
@@ -37,18 +44,7 @@ public class ItemService(SapErpDbContext context, ILogger<ItemService> logger, I
         try
         {
             logger.LogInformation("Fetching entity with ID {Id}", code);
-            return await context.Items
-                .Select(x => new ItemModel()
-                {
-                    ItemCode = x.ItemCode,
-                    ItemName = x.ItemName,
-                    ItmsGrpCod = x.ItmsGrpCod,
-                    Enabled = x.Enabled,
-                })
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.ItemCode == code &&
-                                          x.Enabled != null &&
-                                          x.Enabled.ToUpper() == "SIM");
+            return await QueryAll().FirstOrDefaultAsync(x => x.ItemCode == code);
         }
         catch (Exception ex)
         {

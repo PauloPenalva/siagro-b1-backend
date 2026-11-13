@@ -12,9 +12,12 @@ public sealed class FakeWarehouseService(Dictionary<string, string>? names = nul
 {
     private readonly Dictionary<string, string> _names = names ?? new();
 
+    /// <summary>Códigos marcados como inativos no SAP (GAC-1196).</summary>
+    public HashSet<string> Inactive { get; } = new();
+
     public Task<WarehouseModel?> GetByIdAsync(string code) => Task.FromResult(
         _names.TryGetValue(code, out var name)
-            ? new WarehouseModel { Code = code, Name = name }
+            ? new WarehouseModel { Code = code, Name = name, Inactive = Inactive.Contains(code) }
             : null);
 
     public Task<IEnumerable<WarehouseModel>> GetAllAsync() => throw new NotImplementedException();

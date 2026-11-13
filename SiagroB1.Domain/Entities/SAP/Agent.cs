@@ -16,4 +16,8 @@ public class Agent
     
     [Column("Locked", TypeName = "VARCHAR(1) DEFAULT 'N'")]
     public string? Inactive { get; set; }
+
+    /// <summary>OSLP.Active — 'N' quando o vendedor foi desmarcado como ativo no SAP.</summary>
+    [Column("Active", TypeName = "VARCHAR(1)")]
+    public string? Active { get; set; }
 }

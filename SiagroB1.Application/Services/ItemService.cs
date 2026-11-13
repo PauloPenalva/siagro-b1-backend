@@ -72,6 +72,7 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
             .Select(x => new ItemModel()
             {
                 ItemCode = x.ItemCode,
+                Inactive = false,
                 DocNumberKey = x.DocNumberKey,
                 ItemName = x.ItemName,
                 ItmsGrpCod = x.ItmsGrpCod,

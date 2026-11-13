@@ -7,6 +7,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
+using SiagroB1.Application.Services.MasterData;
 
 namespace SiagroB1.Application.Services.StorageAddresses;
 
@@ -64,9 +65,17 @@ public class StorageAddressesUpdateService(
 
         try
         {
-            entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
-            entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
-            entity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
+            // GAC-1196: cadastro inativo no SAP só barra quando o código MUDOU nesta edição
+            // (`original` é o OriginalValues lido acima — o PATCH chega mutado).
+            entity.CardName = InactiveRecordGuard.Partner(
+                await businessPartnerService.GetByIdAsync(entity.CardCode),
+                original.GetValue<string?>(nameof(StorageAddress.CardCode)), "O depositante")?.CardName;
+            entity.ItemName = InactiveRecordGuard.Item(
+                await itemService.GetByIdAsync(entity.ItemCode),
+                original.GetValue<string?>(nameof(StorageAddress.ItemCode)))?.ItemName;
+            entity.WarehouseName = InactiveRecordGuard.Warehouse(
+                await warehouseService.GetByIdAsync(entity.WarehouseCode),
+                original.GetValue<string?>(nameof(StorageAddress.WarehouseCode)))?.Name;
             context.Entry(existingAddress).CurrentValues.SetValues(entity);
 
             // Situação e data de encerramento só mudam pelas actions de encerrar/reabrir, que

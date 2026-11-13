@@ -6,6 +6,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Application.Services.MasterData;
 
 namespace SiagroB1.Application.Services.StorageAddresses;
 
@@ -45,9 +46,9 @@ public class StorageAddressesCreateService(
 
         try
         {
-            entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
-            entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
-            entity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
+            entity.CardName = InactiveRecordGuard.Partner(await businessPartnerService.GetByIdAsync(entity.CardCode), label: "O depositante")?.CardName;
+            entity.ItemName = InactiveRecordGuard.Item(await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            entity.WarehouseName = InactiveRecordGuard.Warehouse(await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
             entity.TransactionOrigin = TransactionCode.StorageAddress;
             
             await db.Context.StorageAddresses.AddAsync(entity);

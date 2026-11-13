@@ -4,6 +4,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
+using SiagroB1.Application.Services.MasterData;
 
 namespace SiagroB1.Application.Services.SalesContracts;
 
@@ -33,7 +34,7 @@ public class SalesContractsDeliveryLocationsCreateService(
 
             associationEntity.SalesContract = contract;
             associationEntity.CardName =
-                (await businessPartnerService.GetByIdAsync(associationEntity.CardCode))?.CardName;
+                InactiveRecordGuard.Partner(await businessPartnerService.GetByIdAsync(associationEntity.CardCode), label: "O local de entrega")?.CardName;
 
             await context.AddAsync(associationEntity);
 

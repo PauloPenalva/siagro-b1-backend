@@ -22,37 +22,9 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
         {
             logger.LogInformation("Fetching entity with ID {Id}", code);
 
-            return await context.BusinessPartners
-                .Include(a => a.Addresses)
-                .Select(x => new BusinessPartnerModel()
-                {
-                    CardCode = x.CardCode,
-                    CardName = x.CardName,
-                    CardFName = x.CardFName,
-                    CardType = x.CardType,
-                    Notes = x.Notes,
-                    QryGroup23 = x.QryGroup23,
-                    TaxId = x.TaxId,
-                    Addresses = x.Addresses
-                        .Where(a => a.CardCode == x.CardCode && a.AddressName == "FATURAMENTO")
-                        .Take(1)
-                        .OrderBy(a => a.AddressName)
-                        .Select(a => new AddressModel()
-                        {
-                            CardCode = a.CardCode,
-                            AddressName = a.AddressName,
-                            AdresType = a.AdresType,
-                            Block = a.Block,
-                            City = a.City,
-                            Country = a.Country,
-                            State = a.State,
-                            Street = a.Street,
-                            ZipCode = a.ZipCode
-                        })
-                        .AsQueryable()
-                        .ToList()
-                })
-                .FirstOrDefaultAsync(x => x.CardCode == code);
+            // Sem filtro de inativo de propósito (GAC-1196): documento antigo precisa resolver o
+            // parceiro que foi inativado depois. Quem ESCOLHE o parceiro confere `Inactive`.
+            return await QueryAll().FirstOrDefaultAsync(x => x.CardCode == code);
         }
         catch (Exception ex)
         {
@@ -78,6 +50,12 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
 
     public IQueryable<BusinessPartnerModel> QueryAll()
     {
+        // GAC-1196: subconsulta em vez de repetir a regra na projeção — o $filter do value help
+        // (Inactive eq false) vira um NOT EXISTS pela chave.
+        var inactiveCodes = context.BusinessPartners
+            .Where(SapRecordActivity.IsInactive<Domain.Entities.SAP.BusinessPartner>(DateTime.Today))
+            .Select(p => p.CardCode);
+
         return context.BusinessPartners
             .Include(a => a.Addresses)
             .Select(x => new BusinessPartnerModel()
@@ -89,6 +67,7 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
                 Notes = x.Notes,
                 QryGroup23 = x.QryGroup23,
                 TaxId = x.TaxId,
+                Inactive = inactiveCodes.Contains(x.CardCode),
                 Addresses = x.Addresses
                     .Where(a => a.CardCode == x.CardCode && a.AddressName == "FATURAMENTO")
                     .Take(1)

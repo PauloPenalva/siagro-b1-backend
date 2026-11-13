@@ -8,6 +8,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
+using SiagroB1.Application.Services.MasterData;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;
 
@@ -54,10 +55,10 @@ public class PurchaseContractsCreateService(
             entity.Code = assignment.Code;
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
-            entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
-            entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
-            entity.DeliveryLocationName = (await warehouseService.GetByIdAsync(entity.DeliveryLocationCode))?.Name;;
-            entity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
+            entity.CardName = InactiveRecordGuard.Partner(await businessPartnerService.GetByIdAsync(entity.CardCode), label: "O fornecedor")?.CardName;
+            entity.ItemName = InactiveRecordGuard.Item(await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            entity.DeliveryLocationName = InactiveRecordGuard.Warehouse(await warehouseService.GetByIdAsync(entity.DeliveryLocationCode), label: "O local de entrega")?.Name;;
+            entity.AgentName = InactiveRecordGuard.Agent(await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
             entity.Status = ContractStatus.Draft;
             // A liberação de pagamento só muda pelo serviço próprio (permissão + log); o payload
             // de um POST direto não pode nascer liberado.

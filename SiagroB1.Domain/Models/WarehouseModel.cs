@@ -21,4 +21,10 @@ public class WarehouseModel
     public string? City { get; set; }
     
     public string? State { get; set; }
+
+    /// <summary>
+    /// Cadastro inativo no SAP (GAC-1196): não pode ser ESCOLHIDO em registro novo nem numa troca,
+    /// mas continua resolvendo nos documentos que já o usam. Sempre false em STANDALONE.
+    /// </summary>
+    public bool Inactive { get; set; }
 }

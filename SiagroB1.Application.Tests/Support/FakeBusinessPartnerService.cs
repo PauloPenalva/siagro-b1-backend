@@ -45,12 +45,16 @@ public sealed class FakeBusinessPartnerService(
     /// </summary>
     private readonly Dictionary<string, List<AddressModel>> _addresses = addresses ?? new();
 
+    /// <summary>Códigos marcados como inativos no SAP (GAC-1196).</summary>
+    public HashSet<string> Inactive { get; } = new();
+
     public Task<BusinessPartnerModel?> GetByIdAsync(string code) => Task.FromResult(
         _names.TryGetValue(code, out var name)
             ? new BusinessPartnerModel
             {
                 CardCode = code,
                 CardName = name,
+                Inactive = Inactive.Contains(code),
                 TaxId = _taxIds.GetValueOrDefault(code),
                 Addresses = ResolveAddresses(code),
                 PaymentConditionCode = _paymentConditions.TryGetValue(code, out var paymentCondition) ? paymentCondition : null,

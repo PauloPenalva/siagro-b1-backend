@@ -6,6 +6,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
+using SiagroB1.Application.Services.MasterData;
 
 namespace SiagroB1.Application.Services.SalesContracts;
 
@@ -53,14 +54,21 @@ public class SalesContractsUpdateService(
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;
             // Uma leitura só do parceiro para as três colunas desnormalizadas.
-            var partner = await businessPartnerService.GetByIdAsync(entity.CardCode);
+            // GAC-1196: cadastro inativo no SAP só barra quando o código MUDOU nesta edição.
+            var partner = InactiveRecordGuard.Partner(
+                await businessPartnerService.GetByIdAsync(entity.CardCode),
+                InactiveRecordGuard.Original<string>(entry, nameof(SalesContract.CardCode)), "O cliente");
             existingEntity.CardName = partner?.CardName;
             existingEntity.CardFName = partner?.CardFName;
             existingEntity.CardTaxId = partner?.TaxId;
-            existingEntity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            existingEntity.ItemName = InactiveRecordGuard.Item(
+                await itemService.GetByIdAsync(entity.ItemCode),
+                InactiveRecordGuard.Original<string>(entry, nameof(SalesContract.ItemCode)))?.ItemName;
             // Precisa ser `existingEntity`: o SetValues acima já copiou `entity`, então
             // gravar em `entity` aqui não chega ao registro rastreado e a coluna fica velha.
-            existingEntity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
+            existingEntity.AgentName = InactiveRecordGuard.Agent(
+                await agentService.GetByIdAsync((int) entity.AgentCode),
+                InactiveRecordGuard.Original<int?>(entry, nameof(SalesContract.AgentCode)))?.Name;
 
             // O diff tem de sair AQUI: depois do SaveChanges o EF sincroniza OriginalValues com
             // o que foi gravado e a comparação sai vazia. Sem campo notificável alterado não há
