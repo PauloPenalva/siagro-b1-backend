@@ -189,10 +189,14 @@ public class PurchaseContractsGetAllocationsByContractService(
         {
             var supplierName = await GetSupplierName(allocation.CardCode);
             var warehouseName = await GetSupplierName(allocation.WarehouseCode);
-            var physical = (decimal?)allocation.PhysicalQuantity ?? 0m;
-            var fiscal = (decimal?)allocation.FiscalQuantity ?? 0m;
-            var origin = (string?)allocation.Origin;
-            var isSalesReturn = origin is "LoadRefusal" or "ReturnRedelivery";
+            var fiscalColumns = BuildFiscalColumns(
+                (string?)allocation.Origin,
+                (decimal?)allocation.PhysicalQuantity ?? 0m,
+                (decimal?)allocation.FiscalQuantity ?? 0m,
+                ((int?)allocation.FiscalLinkCount ?? 0) > 0,
+                allocation.FiscalReconciledAt != null,
+                allocation.StorageTransactionKey is Guid txKey ? invoiceNumbers.GetValueOrDefault(txKey) : null,
+                ((int?)allocation.ContractCount ?? 0) > 1);
 
             allocations.Add(new PurchaseContractAllocationsByContractDto
             {
@@ -218,14 +222,12 @@ public class PurchaseContractsGetAllocationsByContractService(
                 LoadCode = allocation.LoadCode,
                 StorageTransactionKey = (Guid?)allocation.StorageTransactionKey,
                 ItemCode = (string?)allocation.ItemCode,
-                SupplierInvoiceNumbers = allocation.StorageTransactionKey is Guid txKey ? invoiceNumbers.GetValueOrDefault(txKey) : null,
-                PhysicalQuantity = physical,
-                FiscalQuantity = fiscal,
-                FiscalDifference = fiscal - physical,
-                // GAC-1214: devolução e reentrega não são compra do fornecedor — sem conciliação fiscal.
-                FiscalStatus = isSalesReturn ? null : PurchaseFiscalReconciliationRules.StatusName(PurchaseFiscalReconciliationRules.Status(
-                    physical, fiscal, ((int?)allocation.FiscalLinkCount ?? 0) > 0, allocation.FiscalReconciledAt != null)),
-                IsSplitAcrossContracts = ((int?)allocation.ContractCount ?? 0) > 1,
+                SupplierInvoiceNumbers = fiscalColumns.SupplierInvoiceNumbers,
+                PhysicalQuantity = fiscalColumns.PhysicalQuantity,
+                FiscalQuantity = fiscalColumns.FiscalQuantity,
+                FiscalDifference = fiscalColumns.FiscalDifference,
+                FiscalStatus = fiscalColumns.FiscalStatus,
+                IsSplitAcrossContracts = fiscalColumns.IsSplitAcrossContracts,
             });
         }
 
@@ -233,6 +235,37 @@ public class PurchaseContractsGetAllocationsByContractService(
             .OrderBy(a => a.StorageTransactionDate)
             .ThenBy(a => a.StorageTransactionCode, StringComparer.Ordinal)
             .ToList();
+    }
+
+    /// <summary>Colunas da conciliação fiscal de uma linha da aba "Entregas".</summary>
+    public sealed record FiscalColumns(
+        decimal PhysicalQuantity,
+        decimal FiscalQuantity,
+        decimal FiscalDifference,
+        string? FiscalStatus,
+        string? SupplierInvoiceNumbers,
+        bool IsSplitAcrossContracts);
+
+    /// <summary>
+    /// GAC-1214: devolução (LoadRefusal) e reentrega (ReturnRedelivery) não são compra do fornecedor e não têm
+    /// conciliação fiscal: tudo zerado/nulo, senão a tela mostraria fiscal 0 e uma "diferença" igual ao peso
+    /// do romaneio, como se faltasse a NF do fornecedor. As demais linhas seguem a regra de sempre.
+    /// </summary>
+    public static FiscalColumns BuildFiscalColumns(
+        string? origin, decimal physical, decimal fiscal, bool hasFiscalLink, bool fiscalReconciled,
+        string? supplierInvoiceNumbers, bool isSplitAcrossContracts)
+    {
+        if (origin is "LoadRefusal" or "ReturnRedelivery")
+            return new FiscalColumns(0m, 0m, 0m, null, null, false);
+
+        return new FiscalColumns(
+            physical,
+            fiscal,
+            fiscal - physical,
+            PurchaseFiscalReconciliationRules.StatusName(
+                PurchaseFiscalReconciliationRules.Status(physical, fiscal, hasFiscalLink, fiscalReconciled)),
+            supplierInvoiceNumbers,
+            isSplitAcrossContracts);
     }
 
     private async Task<string?> GetSupplierName(string cardCode)
