@@ -25,5 +25,8 @@ public sealed class FakeWarehouseService(Dictionary<string, string>? names = nul
     public Task<WarehouseModel?> UpdateAsync(string code, WarehouseModel model) => throw new NotImplementedException();
     public Task<bool> DeleteAsync(string code) => throw new NotImplementedException();
     public IQueryable<WarehouseModel> QueryAll() => throw new NotImplementedException();
-    public Task<Dictionary<string, WarehouseInfo>> LoadWarehousesAsync() => throw new NotImplementedException();
+    /// <summary>Cadastro devolvido por <see cref="LoadWarehousesAsync"/>; vazio por padrão.</summary>
+    public Dictionary<string, WarehouseInfo> Warehouses { get; } = new();
+
+    public Task<Dictionary<string, WarehouseInfo>> LoadWarehousesAsync() => Task.FromResult(Warehouses);
 }

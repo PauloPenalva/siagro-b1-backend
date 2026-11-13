@@ -45,7 +45,7 @@ public class ShipmentReleasesPurchaseContractsServiceZeroBalanceTests
         _db.Context.PurchaseContracts.Add(_contract);
         await _db.Context.SaveChangesAsync();
 
-        var service = new ShipmentReleasesPurchaseContractsService(_db, new FakeBusinessPartnerService(),
+        var service = new ShipmentReleasesPurchaseContractsService(_db, new FakeBusinessPartnerService(), new FakeWarehouseService(),
             NullLogger<ShipmentReleasesPurchaseContractsService>.Instance);
 
         return await service.ExecuteAsync(ItemCode, WarehouseCode);

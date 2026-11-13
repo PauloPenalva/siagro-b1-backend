@@ -46,7 +46,7 @@ public class ShipmentReleasesPurchaseContractsServiceWarehouseFilterTests
         AddContractWithRelease("PC-ARM02", "ARM02", rowId: 1);
         await _db.Context.SaveChangesAsync();
 
-        var service = new ShipmentReleasesPurchaseContractsService(_db, new FakeBusinessPartnerService(),
+        var service = new ShipmentReleasesPurchaseContractsService(_db, new FakeBusinessPartnerService(), new FakeWarehouseService(),
             NullLogger<ShipmentReleasesPurchaseContractsService>.Instance);
 
         return await service.ExecuteAsync(ItemCode, warehouseCode!);
