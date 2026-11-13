@@ -38,7 +38,15 @@ public class TruckScalesController(TruckScaleService service) : ODataController
             return BadRequest(ModelState);
         }
 
-        await service.CreateAsync(entity);
+        try
+        {
+            await service.CreateAsync(entity);
+        }
+        catch (DefaultException ex)
+        {
+            // Regra de negócio recusada (código duplicado, serial sem porta): a tela precisa do motivo.
+            return BadRequest(ex.Message);
+        }
 
         return Created(entity);
     }
