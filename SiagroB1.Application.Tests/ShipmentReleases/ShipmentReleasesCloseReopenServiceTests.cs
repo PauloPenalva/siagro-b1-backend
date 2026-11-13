@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -70,5 +71,72 @@ public class ShipmentReleasesCloseReopenServiceTests
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             new ShipmentReleasesReopenService(_db.Context).ExecuteAsync(sr.Key, "tester"));
+    }
+
+    // ---------- GAC-1214: liberação de devolução e o saldo do contrato de compra ----------
+
+    /// <summary>Contrato com compra de 100 alocada, devolução de 100 e liberação SalesReturn de 100.</summary>
+    private async Task<(PurchaseContract Contract, StorageTransaction Generator, ShipmentRelease Release)> SeedReturnAsync(
+        ReleaseStatus status = ReleaseStatus.Actived)
+    {
+        var contract = new PurchaseContract
+        {
+            Key = Guid.NewGuid(), Code = "PC-RET", CardCode = "F0001", ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG", HarvestSeasonCode = "24/25", DeliveryLocationCode = "01",
+            TotalVolume = 1_000m, Status = ContractStatus.Approved, AllocatedVolume = 100m,
+        };
+        StorageTransaction Tx(StorageTransactionType type, decimal weight, Guid? release = null) => new()
+        {
+            Key = Guid.NewGuid(), Code = Guid.NewGuid().ToString("N")[..8], CardCode = "F0001", ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG", WarehouseCode = "01", TransactionType = type,
+            TransactionStatus = StorageTransactionsStatus.Confirmed, NetWeight = weight, GrossWeight = weight,
+            ShipmentReleaseKey = release,
+        };
+        var purchase = Tx(StorageTransactionType.Purchase, 100m);
+        var generator = Tx(StorageTransactionType.SalesShipmentReturn, 100m);
+        var release = new ShipmentRelease
+        {
+            Key = Guid.NewGuid(), PurchaseContractKey = contract.Key, DeliveryLocationCode = "01",
+            ReleasedQuantity = 100m, Status = status, Origin = ReleaseOrigin.SalesReturn,
+            GeneratedByStorageTransactionKey = generator.Key,
+        };
+        _db.Context.PurchaseContracts.Add(contract);
+        _db.Context.StorageTransactions.AddRange(purchase, generator);
+        _db.Context.ShipmentReleases.Add(release);
+        _db.Context.PurchaseContractsAllocations.Add(new PurchaseContractAllocation
+        {
+            PurchaseContractKey = contract.Key, StorageTransactionKey = purchase.Key, Volume = 100m,
+            ApprovedAt = DateTime.Now, ApprovedBy = "tester",
+        });
+        await _db.Context.SaveChangesAsync();
+        await PurchaseContractsReturnReleaseAllocationSync.SyncAsync(_db.Context, release.Key);
+        return (contract, generator, release);
+    }
+
+    private Task<decimal> AllocatedAsync(Guid contractKey) =>
+        _db.Context.PurchaseContracts.AsNoTracking().Where(c => c.Key == contractKey)
+            .Select(c => c.AllocatedVolume).SingleAsync();
+
+    [Fact]
+    public async Task Close_SalesReturnReleaseWithOpenBalance_StopsGivingBalanceBack()
+    {
+        var (contract, _, release) = await SeedReturnAsync();
+        Assert.Equal(0m, await AllocatedAsync(contract.Key));
+
+        await new ShipmentReleasesCloseService(_db.Context).ExecuteAsync(release.Key, "tester");
+
+        Assert.Equal(100m, await AllocatedAsync(contract.Key));
+    }
+
+    [Fact]
+    public async Task Reopen_SalesReturnRelease_GivesItBackAgain()
+    {
+        var (contract, _, release) = await SeedReturnAsync();
+        await new ShipmentReleasesCloseService(_db.Context).ExecuteAsync(release.Key, "tester");
+        Assert.Equal(100m, await AllocatedAsync(contract.Key));
+
+        await new ShipmentReleasesReopenService(_db.Context).ExecuteAsync(release.Key, "tester");
+
+        Assert.Equal(0m, await AllocatedAsync(contract.Key));
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -76,6 +77,9 @@ public class ShipmentReleasesCancelationService(
         sr.UpdatedBy = userName;
 
         await context.SaveChangesAsync();
+
+        // GAC-1214: liberação de devolução cancelada mantém devolvido só o que já foi embarcado.
+        await PurchaseContractsReturnReleaseAllocationSync.SyncAsync(context, sr.Key);
 
         logger.LogInformation(
             "Liberação de embarque {Key} cancelada por {User}. Consumido do contrato: {Consumed}. Motivo: {Reason}",
