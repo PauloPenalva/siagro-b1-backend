@@ -26,7 +26,7 @@ To run locally, three apps need to be started (each has its own `launchSettings.
 
 `dotnet run --project SiagroB1.Web --launch-profile dev` (same pattern for Gateway/Reports). The `siagro-b1-frontend` app talks to the Gateway (`localhost:5246`), which proxies `/odata` and `/reports` onward to Web/Reports via YARP and handles `/security` (auth) itself.
 
-`SiagroB1.Client` is a standalone Worker Service (weighbridge/truck-scale TCP reader) with no project references to anything else — run/deploy it independently of the other three.
+`SiagroB1.Client` is a standalone Worker Service (weighbridge/truck-scale reader, TCP/IP or serial port) that references only `SiagroB1.Commons` — run/deploy it independently of the other three.
 
 `SiagroB1.Migrations` is a class library, not runnable — it only holds generated EF Core migration files for two DbContexts. EF migrations are applied manually with `dotnet ef database update --context <Context>`, using `SiagroB1.Web` as the startup project; the `db-migration` launch profile only sets `ASPNETCORE_ENVIRONMENT=Migration` (there is no migration branch in `Program.cs`, and no `appsettings.Migration.json`, so it falls back to `appsettings.json`). Nothing applies migrations at runtime — instead `SiagroB1.Web` **refuses to start** while any `AppDbContext`/`CommonDbContext` migration is pending (`SiagroB1.Web/Startup/PendingMigrationsGuard.cs`; emergency bypass: `Migrations:AllowPendingOnStartup=true`). The check runs after `builder.Build()`, which `dotnet ef` never passes, so it does not block the tooling itself.
 
@@ -45,7 +45,7 @@ Domain ──┼─> Infra ──> Security ──┬─> Application ──> We
          │                        └─> Gateway
 Domain ──> Fiscal ──> Application   (Fiscal.Tests tests Fiscal)
 Migrations ──> Infra
-Client (standalone, no project references)
+Commons ──> Client (standalone otherwise)
 ```
 
 - **Domain** — entities, enums, DTOs, interfaces, exceptions. Notably depends directly on `Microsoft.EntityFrameworkCore` (not a framework-agnostic domain layer).
@@ -57,7 +57,7 @@ Client (standalone, no project references)
 - **Web** — OData API. Controllers extend `ODataController` (one per entity set), stay thin, and call directly into an injected `I<Feature>Service` — services call EF Core directly, there is no repository abstraction layer beyond that. Swagger/OpenAPI (Swashbuckle) only in Development. Hosts a raw WebSocket endpoint (`MapTruckScaleWebSocket()`) for the truck-scale integration and one Hangfire recurring job (`storage-daily-calculation-job`, cron `0 1 * * *`) registered in `Program.cs`.
 - **Gateway** — YARP reverse proxy configured in `appsettings.json` (`ReverseProxy:Routes`/`Clusters`): `/odata/**` → Web (`localhost:50000`), `/reports/**` → Reports (`localhost:8081`), both gated by an `AuthenticatedOnly` policy enforced at the gateway. Also serves the built frontend SPA as static files (`wwwroot`) with cache-busting on `index.html`. This is the BFF/API-gateway pattern — Web and Reports are not meant to be exposed publicly.
 - **Reports** — separate ASP.NET Core app using FastReport.OpenSource to generate PDFs, reuses `AppDbContext`/`CommonDbContext` directly. Note: `UseAuthentication()`/`UseAuthorization()` are commented out in its `Program.cs` — auth for reports is enforced upstream at the Gateway, not in this service itself.
-- **Client** — isolated Worker Service reading truck-scale weight data over TCP (`Readers/TcpScaleReader`, with a `Mock/MockScaleReader` for local dev without hardware).
+- **Client** — isolated Worker Service reading truck-scale weight data over TCP/IP or a serial port, chosen per scale by `TruckScale.ConnectionType` (`Readers/TcpScaleTransport`, `Readers/SerialScaleTransport`; the read/reconnect loop is `SiagroB1.Commons/Scales/ScaleIndicatorConnection`), with a `Mock/MockScaleReader` for local dev without hardware.
 
 **ERP integration mode (the app's "multi-tenancy")**: `SiagroB1.Web/Program.cs` reads a config key `Erp` (`SAPB1` vs `STANDALONE`) at startup and switches DI wiring between `AddSapServices()` and `AddStandAloneServices()`, registering different implementations of services like `IAgentService`/`IItemService` (SAP Business One-backed vs local-DB-backed). This is a per-deployment integration mode, decided at startup — not per-request tenant isolation. When adding a new entity/service that needs to work in both modes, check how existing services (e.g. `IAgentService`) branch between SAP and standalone implementations before adding a new one.
 
