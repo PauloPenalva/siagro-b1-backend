@@ -22,12 +22,13 @@ namespace SiagroB1.Application.Services.ShippingTransactions;
 /// <item><see cref="ReleaseOrigin.OwnershipTransfer"/> — o confirm da transferência criou o
 /// Purchase(8), alocou o contrato e creditou o armazém.</item>
 /// <item><see cref="ReleaseOrigin.SalesReturn"/> — a devolução criou o
-/// <see cref="StorageTransactionType.SalesShipmentReturn"/>, que creditou o armazém; o
-/// contrato já havia sido debitado quando a mercadoria saiu pela primeira vez.</item>
+/// <see cref="StorageTransactionType.SalesShipmentReturn"/>, que creditou o armazém e devolveu
+/// o saldo ao contrato; a saída desta liberação o baixa de novo (GAC-1214), por uma alocação
+/// derivada na própria Saída(7), mantida pelo recálculo da liberação.</item>
 /// </list>
 /// <para>
 /// Criar outro Purchase(8) aqui creditaria o armazém uma segunda vez por grão que está
-/// SAINDO — saldo fantasma — e alocaria o contrato de novo. Nesses caminhos a Expedição cria
+/// SAINDO — saldo fantasma — e alocaria o contrato duas vezes. Nesses caminhos a Expedição cria
 /// <b>só</b> a perna de saída, que debita o armazém (drenando o lote quando houver) e consome
 /// a liberação, e não pede contrato de compra ao usuário.
 /// </para>

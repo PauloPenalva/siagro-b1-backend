@@ -27,6 +27,28 @@ public class WarehouseReconciliationsCancelServiceTests
         Assert.Equal(1_000m, (await _ctx.ReloadReleaseAsync(release.Key)).AvailableQuantity);
     }
 
+    /// <summary>
+    /// GAC-1214: a perda de uma liberação de devolução carrega uma alocação derivada (+Q). Cancelar a
+    /// conferência não pode ser barrado por ela — o recálculo da liberação a remove.
+    /// </summary>
+    [Fact]
+    public async Task Cancelling_an_approved_loss_on_a_sales_return_release_removes_the_derived_allocation()
+    {
+        await _ctx.SeedStockAsync(StorageTransactionType.SalesShipmentReturn, 29_400m, Today.AddDays(-30));
+        var release = await _ctx.SeedReleaseAsync(29_400m, Today.AddDays(-30), origin: ReleaseOrigin.SalesReturn);
+        var r = await _ctx.CreateApprovedAsync(29_000m, Today, (release, 400m));
+        Assert.Single(await _ctx.Db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
+
+        await _ctx.Cancel().ExecuteAsync(r.Key, "armazém corrigiu o extrato", "tester");
+
+        Assert.Equal(WarehouseReconciliationStatus.Cancelled, (await _ctx.ReloadAsync(r.Key)).Status);
+        Assert.False(await _ctx.Db.Context.PurchaseContractsAllocations.AnyAsync());
+        var contract = await _ctx.Db.Context.PurchaseContracts.AsNoTracking()
+            .SingleAsync(x => x.Key == release.PurchaseContractKey);
+        Assert.Equal(0m, contract.AllocatedVolume);
+        Assert.Equal(29_400m, (await _ctx.ReloadReleaseAsync(release.Key)).AvailableQuantity);
+    }
+
     [Fact]
     public async Task Cancelling_an_approved_standard_loss_restores_the_releases_and_removes_the_allocation()
     {

@@ -176,7 +176,7 @@ public class WarehouseReconciliationsApprovalFlowTests
     }
 
     [Fact]
-    public async Task Approving_a_loss_on_a_sales_return_release_generates_only_the_loss()
+    public async Task Approving_a_loss_on_a_sales_return_release_generates_only_the_loss_and_consumes_the_contract()
     {
         await _ctx.SeedStockAsync(StorageTransactionType.SalesShipmentReturn, 29_400m, Today.AddDays(-30));
         var release = await _ctx.SeedReleaseAsync(29_400m, Today.AddDays(-30), origin: ReleaseOrigin.SalesReturn);
@@ -188,8 +188,15 @@ public class WarehouseReconciliationsApprovalFlowTests
         Assert.Null(line.PurchaseStorageTransactionKey);
         Assert.NotNull(line.LossStorageTransactionKey);
         Assert.Equal(29_000m, (await _ctx.ReloadReleaseAsync(release.Key)).AvailableQuantity);
-        Assert.False(await _ctx.Db.Context.PurchaseContractsAllocations.AnyAsync());
         Assert.Equal(29_000m, await _ctx.CurrentBalanceAsync());
+
+        // GAC-1214: a perda é uma saída da liberação de devolução e consome o contrato de novo.
+        var allocation = await _ctx.Db.Context.PurchaseContractsAllocations.AsNoTracking().SingleAsync();
+        Assert.Equal(line.LossStorageTransactionKey, allocation.StorageTransactionKey);
+        Assert.Equal(400m, allocation.Volume);
+        var contract = await _ctx.Db.Context.PurchaseContracts.AsNoTracking()
+            .SingleAsync(x => x.Key == release.PurchaseContractKey);
+        Assert.Equal(400m, contract.AllocatedVolume);
     }
 
     [Fact]

@@ -311,4 +311,43 @@ public class SalesInvoicesReverseConfirmTransitLossTests
         Assert.Equal(InvoiceStatus.Pending, await StatusOfAsync(rebillingReturn.Key));
         Assert.Equal(15_000m, (await _fixture.LoadAsync(load.Key)).TransitLossQuantity);
     }
+
+    /// <summary>
+    /// GAC-1214: estornar a devolução de uma recusa CONFIRMADA ao armazém (ReclaimGoodsFromWarehouse →
+    /// CancelReturnReleasesAsync) cancela o romaneio 12 e a liberação; a alocação negativa do 12 some
+    /// e o saldo do contrato volta ao valor anterior à recusa.
+    /// </summary>
+    [Fact]
+    public async Task Reversing_a_confirmed_warehouse_refusal_takes_the_contract_balance_back()
+    {
+        var (load, _, invoices) = await BilledLoadAsync(40_000m);
+        var contract = await _fixture.SeedPurchaseOriginAsync(await _fixture.LoadShipmentKeyAsync(load));
+
+        // O grão saiu do contrato na compra: 40.000 alocados.
+        var shipment = await _fixture._db.Context.StorageTransactions.AsNoTracking()
+            .FirstAsync(x => x.TransactionType == StorageTransactionType.SalesShipment);
+        _fixture._db.Context.PurchaseContractsAllocations.Add(new PurchaseContractAllocation
+        {
+            PurchaseContractKey = contract.Key, StorageTransactionKey = shipment.Key, Volume = 40_000m,
+            ApprovedAt = DateTime.Now, ApprovedBy = "tester",
+        });
+        (await _fixture._db.Context.PurchaseContracts.SingleAsync(x => x.Key == contract.Key)).AllocatedVolume = 40_000m;
+        await _fixture._db.SaveChangesAsync();
+
+        await RefuseToWarehouseAsync(load, invoices[0], 15_000m);
+        var entry = await EntryAsync(StorageTransactionType.SalesShipmentReturn);
+        Assert.Equal(25_000m,
+            (await _fixture._db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == contract.Key)).AllocatedVolume);
+        Assert.True(await _fixture._db.Context.PurchaseContractsAllocations.AsNoTracking()
+            .AnyAsync(x => x.StorageTransactionKey == entry.Key));
+
+        await Reverse().ExecuteAsync((await ReturnLinkedToAsync(entry)).Key, "tester");
+
+        Assert.Equal(StorageTransactionsStatus.Cancelled, (await EntryAsync(StorageTransactionType.SalesShipmentReturn)).TransactionStatus);
+        Assert.All(await ReturnReleasesAsync(entry), r => Assert.Equal(ReleaseStatus.Cancelled, r.Status));
+        Assert.False(await _fixture._db.Context.PurchaseContractsAllocations.AsNoTracking()
+            .AnyAsync(x => x.StorageTransactionKey == entry.Key));
+        Assert.Equal(40_000m,
+            (await _fixture._db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == contract.Key)).AllocatedVolume);
+    }
 }

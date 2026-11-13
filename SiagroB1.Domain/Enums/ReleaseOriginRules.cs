@@ -24,10 +24,11 @@ public static class ReleaseOriginRules
         origin != ReleaseOrigin.Standard;
 
     /// <summary>
-    /// A liberação desconta volume do contrato de compra. Falso em
+    /// A liberação desconta volume do contrato de compra (eixo do LIBERADO, não da alocação). Falso em
     /// <see cref="ReleaseOrigin.SalesReturn"/> e <see cref="ReleaseOrigin.Transshipment"/>: nas
-    /// duas, aquele volume já foi debitado do contrato quando a mercadoria saiu pela primeira vez,
-    /// e contá-lo de novo duplicaria o liberado. Falso também em
+    /// duas, aquele volume já foi contado como liberado quando a mercadoria saiu pela primeira vez,
+    /// e contá-lo de novo duplicaria o liberado. (Na devolução, a alocação é outro eixo: volta ao
+    /// contrato e a saída a baixa de novo — GAC-1214.) Falso também em
     /// <see cref="ReleaseOrigin.WarehouseGain"/>: a sobra é grão da empresa, que o contrato nunca comprou.
     /// </summary>
     public static bool ConsumesPurchaseContract(ReleaseOrigin origin) =>

@@ -295,7 +295,9 @@ public class ShipmentReleasesFromReturnService(AppDbContext context)
         var comments =
             $"Liberação gerada {originText} (romaneio {entry.Code}). " +
             (string.IsNullOrWhiteSpace(codes) ? string.Empty : $"Romaneio(s) de origem: {codes}. ") +
-            "A mercadoria já está no armazém: o embarque desta liberação não debita o contrato.";
+            "A mercadoria já está no armazém: " + (origin == ReleaseOrigin.SalesReturn
+                ? "a devolução devolveu o saldo ao contrato; o embarque desta liberação o baixa de novo."
+                : "o embarque desta liberação não debita o contrato.");
 
         return new ShipmentRelease
         {

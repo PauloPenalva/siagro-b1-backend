@@ -911,7 +911,7 @@ public class ShipmentLoadsRefuseServiceTests
     /// Pendura o romaneio da carga numa liberação de COMPRA, que é por onde o rastreio chega ao
     /// contrato que originou o grão (cadeia curta).
     /// </summary>
-    private async Task<PurchaseContract> SeedPurchaseOriginAsync(params Guid[] shipmentKeys)
+    internal async Task<PurchaseContract> SeedPurchaseOriginAsync(params Guid[] shipmentKeys)
     {
         var contract = new PurchaseContract
         {
@@ -947,7 +947,7 @@ public class ShipmentLoadsRefuseServiceTests
         return contract;
     }
 
-    private async Task<Guid> LoadShipmentKeyAsync(ShipmentLoad load) =>
+    internal async Task<Guid> LoadShipmentKeyAsync(ShipmentLoad load) =>
         await _db.Context.StorageTransactions
             .Where(x => x.ShipmentLoadKey == load.Key &&
                         x.TransactionType == StorageTransactionType.SalesShipment)
