@@ -99,7 +99,7 @@ public class ShipmentLoadsPlannedContractAddService(
                     ? ShipmentLoadChangeLogFields.PlannedPurchaseContract
                     : ShipmentLoadChangeLogFields.PlannedSalesContract,
                 null,
-                ShipmentLoadChangeLogFields.DescribePlannedContract(code, quantity),
+                ShipmentLoadChangeLogFields.DescribePlannedContract(code, null, quantity),
                 user);
 
             try

@@ -58,7 +58,7 @@ public class ShipmentLoadsPlannedContractRemoveService(
                 type == PlannedContractType.Purchase
                     ? ShipmentLoadChangeLogFields.PlannedPurchaseContract
                     : ShipmentLoadChangeLogFields.PlannedSalesContract,
-                ShipmentLoadChangeLogFields.DescribePlannedContract(code, quantity),
+                ShipmentLoadChangeLogFields.DescribePlannedContract(code, null, quantity),
                 null,
                 user);
 

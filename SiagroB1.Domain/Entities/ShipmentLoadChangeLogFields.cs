@@ -111,9 +111,19 @@ public static class ShipmentLoadChangeLogFields
         return parts.Count == 0 ? head : $"{head} ({string.Join("; ", parts)})";
     }
 
-    /// <summary>"CC000001" ou "CC000001 — 500,000": o código e, se informada, a quantidade planejada.</summary>
-    public static string DescribePlannedContract(string? contractCode, decimal? plannedQuantity) =>
-        plannedQuantity is null
+    /// <summary>
+    /// "CC000001", "CC000001 (item 2)" ou "CC000001 (item 2) — 500,000": o código do contrato, o
+    /// item da liberação planejada (ausente nas linhas anteriores à rodada 2 do GAC-1185) e, se
+    /// informada, a quantidade planejada.
+    /// </summary>
+    public static string DescribePlannedContract(string? contractCode, int? releaseRowId, decimal? plannedQuantity)
+    {
+        var head = releaseRowId is null
             ? contractCode ?? string.Empty
-            : $"{contractCode} — {plannedQuantity.Value.ToString("N3", PtBr)}";
+            : $"{contractCode} (item {releaseRowId})";
+
+        return plannedQuantity is null
+            ? head
+            : $"{head} — {plannedQuantity.Value.ToString("N3", PtBr)}";
+    }
 }

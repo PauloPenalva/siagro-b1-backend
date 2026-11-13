@@ -7,10 +7,12 @@ namespace SiagroB1.Domain.Entities;
 /// <summary>
 /// Contrato de venda PLANEJADO para a carga (GAC-1185): vínculo opcional e informativo, sem
 /// efeito em saldo, peso ou valor. O contrato efetivo continua sendo o das notas da carga.
-/// Um contrato aparece no máximo uma vez por carga.
+/// Rodada 2: o planejado aponta para a LIBERAÇÃO de entrega. Uma liberação aparece no máximo
+/// uma vez por carga, e um contrato pode entrar por várias liberações. Linha anterior à rodada 2
+/// tem a liberação nula e segue única por contrato (no índice único, NULL conta como valor).
 /// </summary>
 [Table("SHIPMENT_LOADS_PLANNED_SALES_CONTRACTS")]
-[Index(nameof(ShipmentLoadKey), nameof(ContractKey), IsUnique = true)]
+[Index(nameof(ShipmentLoadKey), nameof(ContractKey), nameof(SalesShipmentReleaseKey), IsUnique = true)]
 public class ShipmentLoadPlannedSalesContract
 {
     [Key]
@@ -22,6 +24,10 @@ public class ShipmentLoadPlannedSalesContract
 
     public Guid ContractKey { get; set; }
     public virtual SalesContract? Contract { get; set; }
+
+    /// <summary>Liberação de entrega planejada; nula só nas linhas anteriores à rodada 2.</summary>
+    public Guid? SalesShipmentReleaseKey { get; set; }
+    public virtual SalesShipmentRelease? SalesShipmentRelease { get; set; }
 
     /// <summary>Quantidade planejada para a carga neste contrato; opcional.</summary>
     [Column(TypeName = "DECIMAL(18,3)")]

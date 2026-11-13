@@ -953,6 +953,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.ContractKey)
             .OnDelete(DeleteBehavior.NoAction);
 
+        // Rodada 2: o planejado aponta para a liberação. NoAction como as demais — quem exclui a
+        // liberação (ShipmentReleasesDeleteService / SalesShipmentReleasesDeleteService) remove as
+        // linhas planejadas à mão.
+        modelBuilder.Entity<ShipmentLoadPlannedPurchaseContract>()
+            .HasOne(x => x.ShipmentRelease)
+            .WithMany()
+            .HasForeignKey(x => x.ShipmentReleaseKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadPlannedSalesContract>()
+            .HasOne(x => x.SalesShipmentRelease)
+            .WithMany()
+            .HasForeignKey(x => x.SalesShipmentReleaseKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
         // GAC-1181: as duas FKs do transbordo são NoAction — ShipmentLoadsDeleteService remove os
         // filhos à mão, e o romaneio de entrada não pode arrastar o transbordo num delete.
         modelBuilder.Entity<ShipmentLoadTransshipment>()
