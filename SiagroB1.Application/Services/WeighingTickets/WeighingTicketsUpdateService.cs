@@ -20,6 +20,19 @@ public class WeighingTicketsUpdateService(
                                  .FirstOrDefaultAsync(tc => tc.Key == key) ?? 
                              throw new KeyNotFoundException("Entity not found.");
 
+        // O controller aplica o Delta na entidade rastreada antes de chamar aqui, então o Status
+        // "atual" já é o do PATCH: o que estava gravado só existe no OriginalValue. Sem estas duas
+        // travas o PATCH cancelaria (ou reabriria) o ticket por fora da ação, sem a checagem do
+        // papel ADMIN do WeighingTicketsCancelService.
+        var storedStatus = db.Context.Entry(existingEntity).Property(x => x.Status).OriginalValue;
+
+        if (storedStatus == WeighingTicketStatus.Cancelled)
+            throw new ApplicationException("Ticket de pesagem cancelado não pode ser alterado.");
+
+        if (entity.Status == WeighingTicketStatus.Cancelled)
+            throw new ApplicationException(
+                "O ticket de pesagem só pode ser cancelado pela ação Cancelar Ticket.");
+
         if (existingEntity.Status == WeighingTicketStatus.Complete)
         {
             throw new ApplicationException("Weighing ticket is in complete status.");
