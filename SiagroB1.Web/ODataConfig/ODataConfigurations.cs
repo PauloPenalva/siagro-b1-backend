@@ -1692,7 +1692,9 @@ public static class ODataConfigurations
         var shipmentLoadsPlannedContractAdd = modelBuilder.Action("ShipmentLoadsPlannedContractAdd");
         shipmentLoadsPlannedContractAdd.Parameter<Guid>("LoadKey");
         shipmentLoadsPlannedContractAdd.Parameter<string>("ContractType");
-        shipmentLoadsPlannedContractAdd.Parameter<Guid>("ContractKey");
+        // Rodada 2: a tela escolhe a LIBERACAO (de embarque ou de entrega, conforme ContractType)
+        // e o servidor deriva o contrato dela.
+        shipmentLoadsPlannedContractAdd.Parameter<Guid>("ReleaseKey");
         shipmentLoadsPlannedContractAdd.Parameter<double?>("Quantity");
         shipmentLoadsPlannedContractAdd.Parameter<string>("Notes");
         shipmentLoadsPlannedContractAdd.Returns<IActionResult>();

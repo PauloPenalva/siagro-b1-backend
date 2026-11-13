@@ -6,7 +6,10 @@ using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Actions.ShipmentLoads;
 
-/// <summary>GAC-1185: <c>ContractType</c> = "Purchase" | "Sales"; <c>Quantity</c> (Double) e <c>Notes</c> opcionais.</summary>
+/// <summary>
+/// GAC-1185: <c>ContractType</c> = "Purchase" | "Sales"; <c>ReleaseKey</c> é a liberação de embarque
+/// (compra) ou de entrega (venda); <c>Quantity</c> (Double) e <c>Notes</c> opcionais.
+/// </summary>
 public class ShipmentLoadsPlannedContractAddController(
     ShipmentLoadsPlannedContractAddService service) : ODataController
 {
@@ -21,8 +24,8 @@ public class ShipmentLoadsPlannedContractAddController(
             // parameters chega NULO quando nenhum parametro do EDM e enviado.
             if (parameters is null ||
                 !parameters.TryGetValue("LoadKey", out var loadKey) ||
-                !parameters.TryGetValue("ContractKey", out var contractKey))
-                return BadRequest("Informe a carga e o contrato.");
+                !parameters.TryGetValue("ReleaseKey", out var releaseKey))
+                return BadRequest("Informe a carga e a liberação.");
 
             parameters.TryGetValue("ContractType", out var typeObj);
             parameters.TryGetValue("Quantity", out var quantityObj);
@@ -35,7 +38,7 @@ public class ShipmentLoadsPlannedContractAddController(
                 return BadRequest("Quantidade planejada inválida.");
 
             await service.ExecuteAsync(
-                (Guid) loadKey, type, (Guid) contractKey, quantity, notesObj as string,
+                (Guid) loadKey, type, (Guid) releaseKey, quantity, notesObj as string,
                 User.Identity?.Name ?? "Unknown");
 
             return Ok();
