@@ -10,6 +10,7 @@ namespace SiagroB1.Application.Services.ShipmentReleases;
 public class ShipmentReleasesPurchaseContractsService(
     IUnitOfWork db,
     IBusinessPartnerService businessPartnerService,
+    IWarehouseService warehouseService,
     ILogger<ShipmentReleasesPurchaseContractsService> logger)
 {
     public async Task<ICollection<ShipmentRelesesPurchaseContractsResponseDto>> ExecuteAsync(string itemCode, string? warehouseCode)
@@ -20,8 +21,11 @@ public class ShipmentReleasesPurchaseContractsService(
         {
             var releases = await LoadShipmentReleasesAsync(itemCode, warehouseCode);
             var suppliers = await LoadSuppliersAsync(releases);
+            // Nome fantasia do armazém vem do cadastro VIVO (GAC-1185): o nome gravado na
+            // liberação é a razão social da época e não acompanha o AliasName do SAP.
+            var warehouses = await warehouseService.LoadWarehousesAsync();
 
-            return MapToDto(releases, suppliers);
+            return MapToDto(releases, suppliers, warehouses);
         }
         catch (Exception ex)
         {
@@ -72,6 +76,8 @@ public class ShipmentReleasesPurchaseContractsService(
                 sr.PurchaseContract.CardName,
                 sr.Origin,
                 sr.PurchaseContract.StandardCashFlowDate,
+                sr.PurchaseContract.LogisticRegionCode,
+                LogisticRegionName = sr.PurchaseContract.LogisticRegion!.Name,
             })
             .Select(g => new ShipmentReleasesPurchaseContractsProjection
             {
@@ -83,6 +89,8 @@ public class ShipmentReleasesPurchaseContractsService(
                 CardName = g.Key.CardName,
                 Origin = g.Key.Origin,
                 StandardCashFlowDate = g.Key.StandardCashFlowDate,
+                LogisticRegionCode = g.Key.LogisticRegionCode,
+                LogisticRegionName = g.Key.LogisticRegionName,
                 DeliveryLocationCode = g.Key.DeliveryLocationCode,
                 DeliveryLocationName = g.Key.DeliveryLocationName,
                 ItemCode = g.Key.ItemCode,
@@ -103,11 +111,13 @@ public class ShipmentReleasesPurchaseContractsService(
 
     private static List<ShipmentRelesesPurchaseContractsResponseDto> MapToDto(
         IEnumerable<ShipmentReleasesPurchaseContractsProjection> balances,
-        IReadOnlyDictionary<string, SupplierInfo> suppliers)
+        IReadOnlyDictionary<string, SupplierInfo> suppliers,
+        IReadOnlyDictionary<string, WarehouseInfo> warehouses)
     {
         return balances.Select(b =>
         {
             suppliers.TryGetValue(b.CardCode, out var supplier);
+            warehouses.TryGetValue(b.DeliveryLocationCode, out var warehouse);
 
             return new ShipmentRelesesPurchaseContractsResponseDto
             {
@@ -116,6 +126,11 @@ public class ShipmentReleasesPurchaseContractsService(
                 PurchaseContractCode = b.PurchaseContractCode,
                 DeliveryLocationCode = b.DeliveryLocationCode,
                 DeliveryLocationName = b.DeliveryLocationName,
+                // AliasName é opcional no SAP: sem ele vale a razão social do cadastro; armazém
+                // fora do cadastro fica com o nome gravado na liberação. Nunca vazio.
+                WarehouseFName = FirstFilled(warehouse?.CardFName, warehouse?.CardName, b.DeliveryLocationName),
+                LogisticRegionCode = b.LogisticRegionCode,
+                LogisticRegionName = b.LogisticRegionName,
                 ItemCode = b.ItemCode,
                 ItemName = b.ItemName,
                 UnitOfMeasureCode = b.UnitOfMeasureCode,
@@ -135,6 +150,9 @@ public class ShipmentReleasesPurchaseContractsService(
             };
         }).ToList();
     }
+
+    private static string? FirstFilled(params string?[] values) =>
+        values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
     #endregion
     
@@ -163,6 +181,10 @@ public class ShipmentReleasesPurchaseContractsService(
         public ReleaseOrigin Origin { get; init; }
 
         public DateTime? StandardCashFlowDate { get; init; }
+
+        public string? LogisticRegionCode { get; init; }
+
+        public string? LogisticRegionName { get; init; }
     }
     
 }

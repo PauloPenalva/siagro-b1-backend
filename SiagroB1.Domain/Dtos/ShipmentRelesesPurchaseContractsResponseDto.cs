@@ -37,6 +37,20 @@ public class ShipmentRelesesPurchaseContractsResponseDto
     [JsonPropertyName("DeliveryLocationName")]
     public required string DeliveryLocationName { get; set; }
     
+    /// <summary>
+    /// Nome fantasia do armazém (<c>OCRD.AliasName</c>), lido do cadastro vivo; sem ele, a razão
+    /// social do cadastro e, por fim, o nome gravado na liberação (GAC-1185).
+    /// </summary>
+    [JsonPropertyName("WarehouseFName")]
+    public string? WarehouseFName { get; set; }
+
+    /// <summary>Região logística do contrato de compra (GAC-1185); nula quando o contrato não tem.</summary>
+    [JsonPropertyName("LogisticRegionCode")]
+    public string? LogisticRegionCode { get; set; }
+
+    [JsonPropertyName("LogisticRegionName")]
+    public string? LogisticRegionName { get; set; }
+
     [JsonPropertyName("ItemCode")]
     public required string ItemCode { get; set; }
     

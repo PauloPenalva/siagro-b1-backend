@@ -45,7 +45,7 @@ public class ShipmentReleasesPurchaseContractsServiceTests
     }
 
     private ShipmentReleasesPurchaseContractsService Service(FakeBusinessPartnerService partners) =>
-        new(_db, partners, NullLogger<ShipmentReleasesPurchaseContractsService>.Instance);
+        new(_db, partners, new FakeWarehouseService(), NullLogger<ShipmentReleasesPurchaseContractsService>.Instance);
 
     [Fact]
     public async Task FName_UsesContractCardName_WhenPartnerIsNotResolved()
