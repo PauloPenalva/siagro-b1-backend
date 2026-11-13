@@ -26,7 +26,7 @@ diferença de mercado e a multa.
 | Valor cobrado | `max(preço de mercado − preço da fixação, 0) × volume fixado lavado + multa` |
 | Mercado abaixo do contrato | A diferença vira **zero**; cobra-se só a multa. O produtor nunca recebe crédito. |
 | PAF | Só o volume **fixado** usa o preço da fixação. O volume **não fixado** entra no washout só com a multa, e o usuário informa quanto lava de cada um. |
-| Liberações abertas | Lava-se só o saldo não liberado: volume ≤ saldo físico **e** ≤ saldo a liberar. Para lavar volume já liberado, o usuário encerra ou cancela a liberação antes. |
+| Liberações abertas | Lava-se só o saldo não liberado: volume ≤ saldo físico **e** ≤ saldo a liberar. Para lavar volume já liberado, o usuário cancela a liberação antes (reabrindo-a primeiro, se estiver finalizada): finalizar não devolve o saldo ao contrato (GAC-1229). |
 | Aprovação | Em aprovação → Aprovado (efeitos) / Rejeitado, com tela própria no grupo Compras. |
 | Encerramento do contrato | Manual. O washout não encerra o contrato. |
 | Vencimento do título | Informado no washout; obrigatório quando o valor for maior que zero. |
