@@ -10,6 +10,8 @@ public class TruckScaleService(IUnitOfWork db, ILogger<TruckScaleService> logger
 {
     public async Task<TruckScale> CreateAsync(TruckScale entity)
     {
+        TruckScaleValidator.Validate(entity);
+
         var existingEntity = await db.Context.TruckScales
             .AsNoTracking()
             .FirstOrDefaultAsync(b => b.Code == entity.Code);
@@ -54,6 +56,8 @@ public class TruckScaleService(IUnitOfWork db, ILogger<TruckScaleService> logger
 
     public async Task<TruckScale?> UpdateAsync(string key, TruckScale entity)
     {
+        TruckScaleValidator.Validate(entity);
+
         db.Context.Entry(entity).State = EntityState.Modified;
 
         try

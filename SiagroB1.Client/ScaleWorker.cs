@@ -53,6 +53,9 @@ public class ScaleWorker(
                 if (scaleConfig == null)
                     throw new InvalidOperationException("Configuração da balança não recebida.");
 
+                // Leitor novo começa offline: o peso do leitor anterior não vale para esta conexão.
+                _indicatorOnline = false;
+
                 var reader = CreateReader(scaleConfig, readerCts.Token);
 
                 await Task.WhenAny(reader, StreamWeightAsync(ws, readerCts.Token));
@@ -89,16 +92,33 @@ public class ScaleWorker(
                 .RunAsync(ct);
         }
 
-        var connection = new ScaleTcpConnection(
-            scaleConfig.Ip ?? "127.0.0.1",
-            scaleConfig.Port,
+        // O cadastro da balança decide o caminho até o indicador: rede ou porta serial.
+        IScaleTransport transport = ScaleTransportSelector.IsSerial(scaleConfig.ConnectionType)
+            ? new SerialScaleTransport(
+                scaleConfig.SerialPortName ?? string.Empty,
+                scaleConfig.BaudRate,
+                scaleConfig.DataBits,
+                scaleConfig.Parity,
+                scaleConfig.StopBits)
+            : new TcpScaleTransport(scaleConfig.Ip ?? "127.0.0.1", scaleConfig.Port);
+
+        var connection = new ScaleIndicatorConnection(
+            transport,
             scaleConfig.ToOptions(),
-            scaleConfig.LogRawFrames,
             weight => _lastWeight = weight,
             online => _indicatorOnline = online,
-            logger);
+            scaleConfig.LogRawFrames ? frame => logger.LogInformation("Frame cru: {Frame}", frame) : null,
+            LogIndicator);
 
         return connection.RunAsync(ct);
+    }
+
+    private void LogIndicator(string message, Exception? error)
+    {
+        if (error == null)
+            logger.LogInformation("{Message}", message);
+        else
+            logger.LogWarning(error, "{Message}", message);
     }
 
     private async Task<ScaleConfigData?> ReceiveConfigAsync(ClientWebSocket ws, CancellationToken ct)

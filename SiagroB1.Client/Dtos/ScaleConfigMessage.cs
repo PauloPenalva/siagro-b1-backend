@@ -15,6 +15,19 @@ public sealed class ScaleConfigData
 
     public int Port { get; set; }
 
+    /// <summary>"Tcp" ou "Serial". Servidor antigo não manda o campo: fica em TCP/IP.</summary>
+    public string ConnectionType { get; set; } = "Tcp";
+
+    public string? SerialPortName { get; set; }
+
+    public int BaudRate { get; set; } = 9600;
+
+    public int DataBits { get; set; } = 8;
+
+    public string Parity { get; set; } = "None";
+
+    public int StopBits { get; set; } = 1;
+
     public string Protocol { get; set; } = "JundiaiBj850";
 
     public int FramePrefixLength { get; set; } = 1;

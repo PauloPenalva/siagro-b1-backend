@@ -11321,6 +11321,15 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Code")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<int?>("BaudRate")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ConnectionType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DataBits")
+                        .HasColumnType("int");
+
                     b.Property<int?>("DecimalPlaces")
                         .HasColumnType("int");
 
@@ -11347,10 +11356,19 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("Parity")
+                        .HasColumnType("int");
+
                     b.Property<int>("Port")
                         .HasColumnType("int");
 
                     b.Property<int>("Protocol")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SerialPortName")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<int?>("StopBits")
                         .HasColumnType("int");
 
                     b.Property<int>("TareToleranceKg")

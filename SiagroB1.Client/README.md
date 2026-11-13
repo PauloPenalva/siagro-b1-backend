@@ -1,6 +1,6 @@
 # SiagroB1.Client
 
-Serviço que lê o indicador da balança rodoviária por TCP e transmite o peso ao `SiagroB1.Web` por
+Serviço que lê o indicador da balança rodoviária por TCP/IP ou pela porta serial e transmite o peso ao `SiagroB1.Web` por
 WebSocket. Uma instância atende N balanças: uma conexão para cada entrada de `TruckScaleIds`.
 
 Roda como serviço do Windows ou unidade systemd. Não referencia os demais projetos da solução (só
@@ -111,14 +111,31 @@ TruckScale__ClientKey=<chave>
 
 ## Calibração do indicador
 
-IP, porta e protocolo **não** ficam aqui: vêm do cadastro da balança, enviados pelo servidor no
-`scale_config` ao conectar. Trocar o IP de um indicador não exige acesso à máquina do Client.
+Tipo de conexão, endereço e protocolo **não** ficam aqui: vêm do cadastro da balança, enviados pelo
+servidor no `scale_config` ao conectar. Trocar o IP ou a porta serial de um indicador não exige acesso
+à máquina do Client — mas a configuração só é lida **na conexão**: depois de alterar o cadastro,
+reinicie o serviço.
 
-Duas consequências práticas:
+O campo **Tipo de conexão** do cadastro decide o caminho até o indicador:
+
+| Tipo | Campos do cadastro | Observações |
+|---|---|---|
+| TCP/IP | Endereço IP, Porta | Indicador em rede ou conversor serial-ethernet. |
+| Serial | Porta serial, Baud rate, Bits de dados, Paridade, Bits de parada | Indicador ligado direto no PC. Vazios valem 9600, 8, nenhuma, 1. |
+
+Consequências práticas:
 
 - a conexão TCP parte **do PC da balança**, então o IP cadastrado precisa ser alcançável dali, não do
   servidor;
-- `TruckScale.IpAddress` nulo no cadastro faz o Client tentar `127.0.0.1` e falhar sem explicar.
+- `TruckScale.IpAddress` nulo no cadastro TCP/IP faz o Client tentar `127.0.0.1` e ficar offline;
+- a porta serial é a do **PC da balança** (`COM3`; em Linux, `/dev/ttyUSB0`). A conta do serviço
+  precisa de acesso a ela, e nenhum outro programa pode estar com a porta aberta — o log mostra
+  `Falha no indicador COM3 9600 8N1.` com o motivo e tenta de novo a cada 3 s;
+- a balança só fica **online quando chega um peso válido**. Porta serial aberta sem indicador
+  transmitindo, cabo solto ou baud rate errado deixam a balança offline: em serial, 5 s sem peso
+  válido derrubam para offline e a porta é reaberta;
+- balança Serial exige este Client ou mais novo. Um Client anterior ignora o tipo de conexão e
+  continua tentando TCP.
 
 Para ajustar `WeightLength`, `DecimalPlaces`, `FrameTerminator` e afins, ligue `LogRawFrames` no
 cadastro da balança e confira os frames crus no log. Peso parado em zero ou valor absurdo é protocolo
