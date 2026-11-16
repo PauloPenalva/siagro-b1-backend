@@ -239,6 +239,31 @@ public class ShipmentLoadEdmModelTests
         Assert.True(function.ReturnType.IsCollection());
     }
 
+    /// <summary>GAC-1226 — lista de invoices do SAP vinculáveis à carga.</summary>
+    [Fact]
+    public void ShipmentLoadsGetLinkableSapInvoices_is_a_function_returning_a_collection()
+    {
+        var function = Model()
+            .SchemaElements
+            .OfType<IEdmFunction>()
+            .Single(f => f.Name == "ShipmentLoadsGetLinkableSapInvoices");
+
+        Assert.Equal(
+            "Edm.Guid",
+            function.Parameters.Single(p => p.Name == "Key").Type.Definition.FullTypeName());
+        // Datas como string aaaa-mm-dd: mesmo padrão de PurchaseDischargesList, sem fuso.
+        Assert.Equal(
+            "Edm.String",
+            function.Parameters.Single(p => p.Name == "DateFrom").Type.Definition.FullTypeName());
+        Assert.Equal(
+            "Edm.String",
+            function.Parameters.Single(p => p.Name == "DateTo").Type.Definition.FullTypeName());
+        Assert.True(function.ReturnType.IsCollection());
+        Assert.Equal(
+            "SiagroB1.Domain.Dtos.SapLinkableInvoiceDto",
+            function.ReturnType.AsCollection().ElementType().FullName());
+    }
+
     [Fact]
     public void Comments_and_change_logs_are_exposed_as_entity_sets()
     {

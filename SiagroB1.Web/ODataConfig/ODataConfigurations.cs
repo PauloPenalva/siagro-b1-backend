@@ -1862,6 +1862,12 @@ public static class ODataConfigurations
         shipmentLoadsGetRefusableDocuments.Parameter<Guid>("Key");
         shipmentLoadsGetRefusableDocuments.ReturnsCollection<ShipmentLoadRefusableDocumentDto>();
 
+        var shipmentLoadsGetLinkableSapInvoices = modelBuilder.Function("ShipmentLoadsGetLinkableSapInvoices");
+        shipmentLoadsGetLinkableSapInvoices.Parameter<Guid>("Key");
+        shipmentLoadsGetLinkableSapInvoices.Parameter<string>("DateFrom");
+        shipmentLoadsGetLinkableSapInvoices.Parameter<string>("DateTo");
+        shipmentLoadsGetLinkableSapInvoices.ReturnsCollection<SapLinkableInvoiceDto>();
+
         var shipmentLoadsGetPendingRefusal = modelBuilder.Function("ShipmentLoadsGetPendingRefusal");
         shipmentLoadsGetPendingRefusal.Parameter<Guid>("Key");
         shipmentLoadsGetPendingRefusal.ReturnsCollection<ShipmentLoadPendingRefusalReturnDto>();
