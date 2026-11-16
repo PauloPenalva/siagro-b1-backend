@@ -123,6 +123,14 @@ public class SapLinkableInvoicesService(
         public string? Incoterms { get; set; }
     }
 
+    /// <summary>
+    /// Executa a consulta ao SAP. Existe como costura de teste: permite simular o SAP fora do ar
+    /// (<c>DbException</c>/<c>TimeoutException</c>) sem rede, e provar que vira erro de negócio.
+    /// </summary>
+    protected virtual Task<List<SapInvoiceProjection>> ExecuteSapQueryAsync(
+        IQueryable<SapInvoiceProjection> query, CancellationToken ct) =>
+        query.ToListAsync(ct);
+
     private async Task<List<SapLinkableInvoiceDto>> QueryAsync(
         Guid loadKey, DateTime? from, DateTime? toExclusive, int? docEntry, CancellationToken ct)
     {
@@ -146,8 +154,8 @@ public class SapLinkableInvoicesService(
         List<SapInvoiceProjection> rows;
         try
         {
-            rows = await BuildSapQuery(sap, load.ItemCode, branchId, available, from, toExclusive, docEntry)
-                .ToListAsync(ct);
+            rows = await ExecuteSapQueryAsync(
+                BuildSapQuery(sap, load.ItemCode, branchId, available, from, toExclusive, docEntry), ct);
         }
         catch (Exception e) when (e is DbException or TimeoutException)
         {
@@ -160,8 +168,17 @@ public class SapLinkableInvoicesService(
         IReadOnlyDictionary<int, SapFiscalDocumentInfo> infos = new Dictionary<int, SapFiscalDocumentInfo>();
         if (fiscal.IsAvailable && rows.Count > 0)
         {
-            infos = await fiscal.GetForInvoicesAsync(
-                rows.Select(r => new SapInvoiceRef(r.DocEntry, r.BranchId)).ToList(), ct);
+            try
+            {
+                infos = await fiscal.GetForInvoicesAsync(
+                    rows.Select(r => new SapInvoiceRef(r.DocEntry, r.BranchId)).ToList(), ct);
+            }
+            catch (Exception e) when (e is DbException or TimeoutException)
+            {
+                // Banco do add-on fora do ar: erro de negócio (4xx), e não 500 genérico.
+                throw new BusinessException(
+                    "Não foi possível consultar a situação das notas fiscais no add-on fiscal. Tente novamente em instantes.");
+            }
 
             // Sem informação no add-on = não autorizada.
             rows = rows.Where(r => infos.TryGetValue(r.DocEntry, out var info)

@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Application.Services.ShipmentLoads;
@@ -291,18 +292,26 @@ public class SapLinkableInvoicesServiceTests
     }
 
     [Fact]
-    public async Task Linked_exclusion_works_with_more_than_one_chunk_of_ids()
+    public async Task Linked_exclusion_works_in_every_chunk_of_ids()
     {
         await SeedLoadAsync();
+        // 1.005 invoices, as mais novas primeiro: DocEntry 6..1005 formam o primeiro lote de 1.000
+        // ids e 1..5 o segundo. Vincula TODO o primeiro lote e só o 3 do segundo: um laço que
+        // processasse só o primeiro lote deixaria o 3 na lista.
         for (var i = 1; i <= 1_005; i++)
             await AddInvoiceAsync(i, inv => inv.DocDate = Today.AddDays(-1).AddMinutes(i));
-        await LinkAsync(1_003, InvoiceStatus.Confirmed);
+        for (var i = 6; i <= 1_005; i++)
+            _db.Context.SalesInvoices.Add(new SalesInvoice
+            {
+                Key = Guid.NewGuid(), CardCode = "C0001", BranchCode = "3",
+                InvoiceStatus = InvoiceStatus.Confirmed, InvoiceType = SalesInvoiceType.Normal, SapDocEntry = i,
+            });
+        await _db.SaveChangesAsync();
+        await LinkAsync(3, InvoiceStatus.Confirmed);
 
         var result = await ListAsync();
 
-        Assert.Equal(200, result.Count);
-        Assert.DoesNotContain(result, r => r.DocEntry == 1_003);
-        Assert.Equal(1_005, result[0].DocEntry);
+        Assert.Equal([5, 4, 2, 1], result.Select(r => r.DocEntry).ToArray());
     }
 
     [Fact]
@@ -393,6 +402,76 @@ public class SapLinkableInvoicesServiceTests
             Service().ListAsync(Guid.NewGuid(), Today.AddDays(-15), Today));
     }
 
+    private sealed class FakeDbException() : DbException("banco fora do ar");
+
+    /// <summary>Costura de teste: faz a consulta ao SAP lançar o erro escolhido, sem rede.</summary>
+    private sealed class FailingSapService(
+        AppDbContext context, SapErpDbContext sap, ISapFiscalDocumentSource fiscal,
+        ShipmentLoadsBillingGuardService guard, Exception failure)
+        : SapLinkableInvoicesService(context, sap, fiscal, guard)
+    {
+        protected override Task<List<SapInvoiceProjection>> ExecuteSapQueryAsync(
+            IQueryable<SapInvoiceProjection> query, CancellationToken ct) =>
+            throw failure;
+    }
+
+    private sealed class FailingFiscal(Exception failure) : ISapFiscalDocumentSource
+    {
+        public bool IsAvailable => true;
+
+        public Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
+            IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default) =>
+            throw failure;
+    }
+
+    public static IEnumerable<object[]> Failures() =>
+    [
+        [new FakeDbException()],
+        [new TimeoutException("tempo esgotado")],
+    ];
+
+    [Theory]
+    [MemberData(nameof(Failures))]
+    public async Task Sap_failure_becomes_a_business_error_in_list_and_find(Exception failure)
+    {
+        await SeedLoadAsync();
+        var service = new FailingSapService(_db.Context, _sap, new FakeFiscal(false),
+            new ShipmentLoadsBillingGuardService(_db.Context), failure);
+
+        var list = await Assert.ThrowsAsync<BusinessException>(() => ListAsync(service));
+        var find = await Assert.ThrowsAsync<BusinessException>(() => service.FindAsync(_load.Key, 1));
+
+        const string message = "Não foi possível consultar as notas fiscais no SAP. Tente novamente em instantes.";
+        Assert.Equal(message, list.Message);
+        Assert.Equal(message, find.Message);
+    }
+
+    [Fact]
+    public async Task Unexpected_sap_error_is_not_swallowed()
+    {
+        await SeedLoadAsync();
+        var service = new FailingSapService(_db.Context, _sap, new FakeFiscal(false),
+            new ShipmentLoadsBillingGuardService(_db.Context), new InvalidOperationException("bug"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ListAsync(service));
+    }
+
+    [Theory]
+    [MemberData(nameof(Failures))]
+    public async Task Fiscal_addon_failure_becomes_a_business_error_in_list_and_find(Exception failure)
+    {
+        await SeedLoadAsync();
+        await AddInvoiceAsync(1);
+        var service = Service(new FailingFiscal(failure));
+
+        var list = await Assert.ThrowsAsync<BusinessException>(() => ListAsync(service));
+        var find = await Assert.ThrowsAsync<BusinessException>(() => service.FindAsync(_load.Key, 1));
+
+        const string message = "Não foi possível consultar a situação das notas fiscais no add-on fiscal. Tente novamente em instantes.";
+        Assert.Equal(message, list.Message);
+        Assert.Equal(message, find.Message);
+    }
+
     [Fact]
     public void Sap_queries_translate_to_sql_server()
     {
@@ -406,9 +485,22 @@ public class SapLinkableInvoicesServiceTests
         var find = SapLinkableInvoicesService.BuildSapQuery(
             sap, Item, 3, Quantity, null, null, 42).ToQueryString();
 
-        Assert.Contains("OINV", list);
-        Assert.Contains("INV12", list);
-        Assert.Contains("@", list); // datas e filtros viajam como parâmetro
-        Assert.Contains("OINV", find);
+        foreach (var sql in new[] { list, find })
+        {
+            Assert.Contains("OINV", sql);
+            Assert.Contains("INV1", sql);
+            Assert.Contains("INV12", sql);
+            Assert.Contains("CANCELED", sql);
+            Assert.Contains("Model", sql);
+            Assert.Contains("Serial", sql);
+            Assert.Contains("BPLId", sql);
+            Assert.Contains("Incoterms", sql);
+            Assert.Contains("COUNT", sql.ToUpperInvariant());
+        }
+
+        // Período e DocEntry viajam como parâmetro, nunca concatenados.
+        Assert.Contains("DocDate", list);
+        Assert.Contains("@", list);
+        Assert.Contains("DocEntry] = @", find);
     }
 }
