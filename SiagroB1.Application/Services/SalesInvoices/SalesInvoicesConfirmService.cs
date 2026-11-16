@@ -52,16 +52,11 @@ public class SalesInvoicesConfirmService(
         if (sapErp is null || invoice.SapDocEntry is not { } docEntry)
             return;
 
-        string? canceled;
         bool exists;
+        string? canceled;
         try
         {
-            var row = await sapErp.SapInvoices.AsNoTracking()
-                .Where(x => x.DocEntry == docEntry)
-                .Select(x => new { x.Canceled })
-                .FirstOrDefaultAsync();
-            exists = row is not null;
-            canceled = row?.Canceled;
+            (exists, canceled) = await FindSapInvoiceAsync(sapErp, docEntry);
         }
         catch (Exception e) when (e is System.Data.Common.DbException or TimeoutException)
         {
@@ -70,6 +65,20 @@ public class SalesInvoicesConfirmService(
 
         if (!exists || canceled != "N")
             throw new DefaultException("A NF do SAP vinculada foi cancelada. Exclua este documento.");
+    }
+
+    /// <summary>
+    /// A leitura da invoice no SAP é <c>protected virtual</c> só para o teste simular o banco fora do ar
+    /// (<c>DbException</c>/<c>TimeoutException</c>), que o provider InMemory não reproduz.
+    /// </summary>
+    protected virtual async Task<(bool Exists, string? Canceled)> FindSapInvoiceAsync(
+        SiagroB1.Infra.Context.SapErpDbContext sap, int docEntry)
+    {
+        var row = await sap.SapInvoices.AsNoTracking()
+            .Where(x => x.DocEntry == docEntry)
+            .Select(x => new { x.Canceled })
+            .FirstOrDefaultAsync();
+        return (row is not null, row?.Canceled);
     }
 
     /// <param name="commitMode">

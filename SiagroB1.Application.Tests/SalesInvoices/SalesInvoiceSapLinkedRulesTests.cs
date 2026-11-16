@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.SalesContracts;
@@ -107,6 +107,26 @@ public class SalesInvoiceSapLinkedRulesTests
             new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>(),
             sapErp: withSap ? _sap : null);
+
+    /// <summary>Confirmação cuja leitura do SAP falha, como o banco fora do ar.</summary>
+    private sealed class SapDownConfirm(
+        UnitOfWork db, ShipmentLoadsBalanceHookService hook, SapErpDbContext sap, Exception failure)
+        : SalesInvoicesConfirmService(db,
+            new SalesShipmentReleasesRecalculateShippedService(db.Context),
+            new SalesContractsAllocationCreateService(db, new SalesContractsFixedVolumeService(db.Context)),
+            new SalesContractsAllocationCreateForReturnService(db, new SalesContractsFixedVolumeService(db.Context)),
+            new SalesInvoicesUsageGuardService(new Services.UsageService(db, NullLogger<Services.UsageService>.Instance)),
+            new SalesContractsAllocationCreateForFiscalAdjustmentService(db, new SalesContractsFixedVolumeService(db.Context)),
+            hook,
+            new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
+            new FakeStringLocalizer<Resource>(),
+            sapErp: sap)
+    {
+        protected override Task<(bool Exists, string? Canceled)> FindSapInvoiceAsync(SapErpDbContext sap, int docEntry) =>
+            throw failure;
+    }
+
+    private sealed class FakeDbException(string message) : System.Data.Common.DbException(message);
 
     private SalesInvoicesReverseConfirmService ReverseConfirm() =>
         new(_db,
@@ -488,5 +508,34 @@ public class SalesInvoiceSapLinkedRulesTests
         await Confirm().ExecuteAsync(invoice.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Confirmed, (await _db.Context.SalesInvoices.AsNoTracking().SingleAsync()).InvoiceStatus);
+    }
+
+    [Fact]
+    public async Task Reconfirming_refuses_when_the_sap_database_fails()
+    {
+        var invoice = await LinkedAsync();
+        await ReverseConfirm().ExecuteAsync(invoice.Key, "tester");
+        _db.Context.ChangeTracker.Clear();
+
+        foreach (Exception failure in new Exception[] { new FakeDbException("fora do ar"), new TimeoutException() })
+        {
+            var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+                new SapDownConfirm(_db, Hook(), _sap, failure).ExecuteAsync(invoice.Key, "tester"));
+
+            Assert.Equal("Não foi possível consultar as notas fiscais no SAP. Tente novamente em instantes.", ex.Message);
+            Assert.Equal(InvoiceStatus.Pending,
+                (await _db.Context.SalesInvoices.AsNoTracking().SingleAsync()).InvoiceStatus);
+        }
+    }
+
+    [Fact]
+    public async Task Reconfirming_does_not_swallow_unexpected_sap_failures()
+    {
+        var invoice = await LinkedAsync();
+        await ReverseConfirm().ExecuteAsync(invoice.Key, "tester");
+        _db.Context.ChangeTracker.Clear();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new SapDownConfirm(_db, Hook(), _sap, new InvalidOperationException("bug")).ExecuteAsync(invoice.Key, "tester"));
     }
 }
