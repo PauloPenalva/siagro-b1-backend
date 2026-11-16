@@ -264,6 +264,17 @@ public class ShipmentLoadEdmModelTests
             function.ReturnType.AsCollection().ElementType().FullName());
     }
 
+    /// <summary>GAC-1226 — ação que vincula a NF do SAP à carga.</summary>
+    [Fact]
+    public void ShipmentLoadsLinkSapInvoice_is_an_action_with_key_doc_entry_and_release()
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>().Single(a => a.Name == "ShipmentLoadsLinkSapInvoice");
+
+        Assert.Equal("Edm.Guid", action.Parameters.Single(p => p.Name == "Key").Type.FullName());
+        Assert.Equal("Edm.Int32", action.Parameters.Single(p => p.Name == "SapDocEntry").Type.FullName());
+        Assert.Equal("Edm.Guid", action.Parameters.Single(p => p.Name == "SalesShipmentReleaseKey").Type.FullName());
+    }
+
     [Fact]
     public void Comments_and_change_logs_are_exposed_as_entity_sets()
     {

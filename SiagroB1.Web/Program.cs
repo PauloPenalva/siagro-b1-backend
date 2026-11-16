@@ -131,6 +131,7 @@ switch (erp.ToUpper().Trim())
 
         // Lista de invoices vinculáveis a uma carga (GAC-1226): lê o SAP, então só existe neste modo.
         builder.Services.AddScoped<SiagroB1.Application.Services.SAP.SapLinkableInvoicesService>();
+        builder.Services.AddScoped<SiagroB1.Application.Services.ShipmentLoads.ShipmentLoadsLinkSapInvoiceService>();
 
         // Add-on fiscal do cliente (chave de acesso e status da NF-e das invoices do SAP).
         if (string.Equals(builder.Configuration["SAPB1:FiscalAddon"]?.Trim(), "InvOne", StringComparison.OrdinalIgnoreCase)

@@ -1651,6 +1651,13 @@ public static class ODataConfigurations
         shipmentLoadsShip.Parameter<string>("RoyaltyTestCode").Optional();
         shipmentLoadsShip.Returns<IActionResult>();
 
+        // GAC-1226: vincula a NF do SAP à carga. SapDocEntry é Edm.Int32 (DocEntry do OINV).
+        var shipmentLoadsLinkSapInvoice = modelBuilder.Action("ShipmentLoadsLinkSapInvoice");
+        shipmentLoadsLinkSapInvoice.Parameter<Guid>("Key");
+        shipmentLoadsLinkSapInvoice.Parameter<int>("SapDocEntry");
+        shipmentLoadsLinkSapInvoice.Parameter<Guid>("SalesShipmentReleaseKey");
+        shipmentLoadsLinkSapInvoice.Returns<IActionResult>();
+
         var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");
         shipmentLoadsDetach.Parameter<Guid>("Key");
         shipmentLoadsDetach.CollectionParameter<Guid>("StorageTransactionKeys");
