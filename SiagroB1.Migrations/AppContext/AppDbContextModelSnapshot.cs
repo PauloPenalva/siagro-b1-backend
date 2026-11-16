@@ -7692,6 +7692,21 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("SalesInvoiceOriginKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("SapCancelDetectedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("SapCancelPending")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SapCancelPendingReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<int?>("SapDocEntry")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SapDocNum")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("ShipmentLoadKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -7760,6 +7775,10 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("RefusalStorageTransactionKey");
 
                     b.HasIndex("SalesInvoiceOriginKey");
+
+                    b.HasIndex("SapDocEntry")
+                        .IsUnique()
+                        .HasFilter("[SapDocEntry] IS NOT NULL AND [InvoiceStatus] <> 2 AND [InvoiceStatus] <> 3");
 
                     b.HasIndex("ShipmentLoadKey");
 

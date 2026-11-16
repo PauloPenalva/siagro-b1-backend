@@ -563,6 +563,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .IsUnique()
             .HasFilter($"[ChaveNFe] IS NOT NULL AND [InvoiceStatus] <> {(int)InvoiceStatus.Cancelled}");
 
+        // Uma invoice do SAP, um documento de saída ativo (GAC-1226). Filtrado porque cancelar/devolver o documento
+        // LIBERA a invoice para um novo vínculo.
+        modelBuilder.Entity<SalesInvoice>()
+            .HasIndex(x => x.SapDocEntry)
+            .IsUnique()
+            .HasFilter($"[SapDocEntry] IS NOT NULL AND [InvoiceStatus] <> {(int)InvoiceStatus.Cancelled} AND [InvoiceStatus] <> {(int)InvoiceStatus.Returned}");
+
         modelBuilder.Entity<PurchaseInvoiceNfeXml>()
             .HasIndex(x => new { x.PurchaseInvoiceKey, x.Kind });
 

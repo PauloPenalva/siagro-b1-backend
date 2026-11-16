@@ -49,6 +49,13 @@ public static class SalesInvoiceNfeLock
         nameof(SalesInvoice.TaxDocumentNumber), nameof(SalesInvoice.TaxDocumentSeries), nameof(SalesInvoice.ChaveNFe),
     ];
 
+    /// <summary>Campos do vínculo com a invoice do SAP: do servidor, nunca do corpo (GAC-1226).</summary>
+    private static readonly string[] SapLinkFields =
+    [
+        nameof(SalesInvoice.SapDocEntry), nameof(SalesInvoice.SapDocNum), nameof(SalesInvoice.SapCancelPending),
+        nameof(SalesInvoice.SapCancelPendingReason), nameof(SalesInvoice.SapCancelDetectedAt),
+    ];
+
     public const string ConfirmedMessage = "Documento confirmado: estorne a confirmação para alterar.";
 
     /// <summary>
@@ -101,6 +108,10 @@ public static class SalesInvoiceNfeLock
             entry.OriginalValues[nameof(SalesInvoice.ShipmentLoadRefusalKey)];
         entry.Property(nameof(SalesInvoice.RefusalStorageTransactionKey)).CurrentValue =
             entry.OriginalValues[nameof(SalesInvoice.RefusalStorageTransactionKey)];
+
+        // O vínculo com a invoice do SAP (GAC-1226) só muda pela ação de vincular/desvincular.
+        foreach (var field in SapLinkFields)
+            entry.Property(field).CurrentValue = entry.OriginalValues[field];
     }
 
     /// <summary>A criação nunca nasce emitida, venha o que vier no corpo.</summary>
@@ -120,6 +131,11 @@ public static class SalesInvoiceNfeLock
         invoice.NfeCancellationError = null;
         invoice.ShipmentLoadRefusalKey = null;
         invoice.RefusalStorageTransactionKey = null;
+        invoice.SapDocEntry = null;
+        invoice.SapDocNum = null;
+        invoice.SapCancelPending = false;
+        invoice.SapCancelPendingReason = null;
+        invoice.SapCancelDetectedAt = null;
     }
 
     /// <summary>Chamado DEPOIS do SetValues da linha. A Conferência de entregas mexe em campos fora do XML e passa.</summary>

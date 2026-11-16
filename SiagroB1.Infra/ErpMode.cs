@@ -15,4 +15,10 @@ public static class ErpMode
             (configuration["Erp"] ?? "STANDALONE").Trim(),
             "STANDALONE",
             StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Modo SAP Business One (Yokotobi). Também POSITIVO: só "SAPB1" liga as regras de vínculo com a invoice do SAP.
+    /// </summary>
+    public static bool IsSapB1(IConfiguration? configuration) =>
+        string.Equals(configuration?["Erp"]?.Trim(), "SAPB1", StringComparison.OrdinalIgnoreCase);
 }
