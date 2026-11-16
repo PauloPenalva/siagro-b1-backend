@@ -115,20 +115,11 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
                 $"transportadora da carga {load.Code} (({load.CarrierCardCode}) {load.CarrierName}). " +
                 "Ajuste antes de faturar.");
 
-        var invoiced = await ShipmentLoadsRecalculateInvoicedService.CalculateInvoicedAsync(
-            context, shipmentLoadKey, excludedInvoiceKeys: null);
-
-        var returned = await ShipmentLoadsRecalculateReturnedService
-            .CalculateReturnedToWarehouseAsync(context, shipmentLoadKey);
-
-        var transshipped = await ShipmentLoadsRecalculateTransshippedService
-            .CalculateTransshippedAsync(context, shipmentLoadKey);
-
-        var transitLoss = await ShipmentLoadsRecalculateTransitLossService
-            .CalculateTransitLossAsync(context, shipmentLoadKey);
-
-        var available = ShipmentLoad.CalculateAvailableQuantity(
-            load.TotalQuantity, invoiced, returned, transshipped, transitLoss);
+        var balance = await CalculateBalanceAsync(shipmentLoadKey, load.TotalQuantity);
+        var available = balance.Available;
+        var invoiced = balance.Invoiced;
+        var returned = balance.Returned;
+        var transitLoss = balance.TransitLoss;
 
         if (quantity > available + Tolerance)
             throw new ApplicationException(
@@ -136,5 +127,43 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
                 $"({available:N3}). Total da carga: {load.TotalQuantity:N3}, já faturado: {invoiced:N3}" +
                 (returned > decimal.Zero ? $", devolvido ao armazém: {returned:N3}" : string.Empty) +
                 (transitLoss > decimal.Zero ? $", quebra de trajeto: {transitLoss:N3}" : string.Empty) + ".");
+    }
+
+    /// <summary>
+    /// Saldo físico recalculado da carga (total − faturado − devolvido − transbordado − quebra),
+    /// o mesmo que <see cref="EnsureCanBillAsync"/> usa para decidir. Não valida situação da
+    /// carga: quem chama decide o que fazer com o número. Carga inexistente devolve zero.
+    /// </summary>
+    public async Task<decimal> CalculateAvailableAsync(Guid loadKey)
+    {
+        var totalQuantity = await context.ShipmentLoads
+            .AsNoTracking()
+            .Where(x => x.Key == loadKey)
+            .Select(x => x.TotalQuantity)
+            .FirstOrDefaultAsync();
+
+        return (await CalculateBalanceAsync(loadKey, totalQuantity)).Available;
+    }
+
+    private sealed record LoadBalance(decimal Available, decimal Invoiced, decimal Returned, decimal TransitLoss);
+
+    private async Task<LoadBalance> CalculateBalanceAsync(Guid loadKey, decimal totalQuantity)
+    {
+        var invoiced = await ShipmentLoadsRecalculateInvoicedService.CalculateInvoicedAsync(
+            context, loadKey, excludedInvoiceKeys: null);
+
+        var returned = await ShipmentLoadsRecalculateReturnedService
+            .CalculateReturnedToWarehouseAsync(context, loadKey);
+
+        var transshipped = await ShipmentLoadsRecalculateTransshippedService
+            .CalculateTransshippedAsync(context, loadKey);
+
+        var transitLoss = await ShipmentLoadsRecalculateTransitLossService
+            .CalculateTransitLossAsync(context, loadKey);
+
+        var available = ShipmentLoad.CalculateAvailableQuantity(
+            totalQuantity, invoiced, returned, transshipped, transitLoss);
+
+        return new LoadBalance(available, invoiced, returned, transitLoss);
     }
 }

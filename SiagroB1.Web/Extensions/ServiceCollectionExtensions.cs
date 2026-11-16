@@ -598,6 +598,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesReturnableShipmentsService>();
         services.AddScoped<SalesInvoicesReturnService>();
         services.AddScoped<SalesInvoicesConfirmService>();
+        services.AddScoped<SalesInvoiceTaxDocumentDuplicateGuard>();
         services.AddScoped<SalesInvoicesSetDocumentNumberService>();
         services.AddScoped<SalesInvoicesReverseConfirmService>();
         services.AddScoped<SalesInvoicesChangeLogService>();
