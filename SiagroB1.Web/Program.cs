@@ -133,6 +133,10 @@ switch (erp.ToUpper().Trim())
         builder.Services.AddScoped<SiagroB1.Application.Services.SAP.SapLinkableInvoicesService>();
         builder.Services.AddScoped<SiagroB1.Application.Services.ShipmentLoads.ShipmentLoadsLinkSapInvoiceService>();
 
+        // Sincronização do cancelamento das invoices vinculadas (GAC-1226): também lê o SAP.
+        builder.Services.AddScoped<SiagroB1.Application.Services.SAP.SapInvoiceSyncService>();
+        builder.Services.AddScoped<SiagroB1.Application.Jobs.SapInvoiceSyncJob>();
+
         // Add-on fiscal do cliente (chave de acesso e status da NF-e das invoices do SAP).
         if (string.Equals(builder.Configuration["SAPB1:FiscalAddon"]?.Trim(), "InvOne", StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("SapFiscalAddonDB")))
@@ -400,6 +404,20 @@ else
     // Trocar o modo de integração não pode deixar um job órfão tentando ler um banco do SAP
     // que não está mais configurado.
     RecurringJob.RemoveIfExists("sap-user-sync");
+}
+
+// GAC-1226: a cada minuto o Hangfire chama o runner; o serviço de cada empresa só executa quando o intervalo
+// configurado na tela "Integração SAP" venceu. Só SAPB1 (depende do SapErpDbContext).
+if (ErpMode.IsSapB1(app.Configuration))
+{
+    RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
+        CompanyScopedJobRunner.SapInvoiceSync,
+        runner => runner.RunForAllCompaniesNonOverlappingAsync(CompanyScopedJobRunner.SapInvoiceSync, CancellationToken.None),
+        SiagroB1.Application.Jobs.SapInvoiceSyncJob.CronExpression);
+}
+else
+{
+    RecurringJob.RemoveIfExists(CompanyScopedJobRunner.SapInvoiceSync);
 }
 
 // Rede de segurança do webhook do D4Sign — só faz sentido rodar com a assinatura habilitada.

@@ -673,6 +673,21 @@ public static class ODataConfigurations
         emailSettingsSendTest.Parameter<string>("To");
         emailSettingsSendTest.Returns<EmailSendResult>();
 
+        // Integração SAP (SAPB1, ADMIN): sincronização do cancelamento das invoices vinculadas (GAC-1226).
+        // InvoiceSyncLastRunAt é só leitura: o servidor ignora o que vier do cliente.
+        var sapIntegrationSettingsGet = modelBuilder.Function("SapIntegrationSettingsGet");
+        sapIntegrationSettingsGet.Returns<SapIntegrationSettingsModel>();
+
+        var sapIntegrationSettingsSave = modelBuilder.Action("SapIntegrationSettingsSave");
+        sapIntegrationSettingsSave.Parameter<bool>("InvoiceSyncEnabled");
+        sapIntegrationSettingsSave.Parameter<int>("InvoiceSyncIntervalMinutes");
+        sapIntegrationSettingsSave.Returns<SapIntegrationSettingsModel>();
+
+        // "Sincronizar agora": roda a sincronização da empresa corrente sem esperar o intervalo e devolve a
+        // configuração atualizada (a tela mostra a nova "última execução").
+        var sapInvoiceSyncRunNow = modelBuilder.Action("SapInvoiceSyncRunNow");
+        sapInvoiceSyncRunNow.Returns<SapIntegrationSettingsModel>();
+
         // E-mail da NF-e (STANDALONE): reenvio manual, destinatários padrão do diálogo e histórico (somente leitura).
         foreach (var prefix in new[] { "SalesInvoices", "PurchaseInvoices" })
         {

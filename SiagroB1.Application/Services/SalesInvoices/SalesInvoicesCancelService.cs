@@ -133,6 +133,12 @@ public class SalesInvoicesCancelService(
             existingInvoice.CanceledAt = DateTime.Now;
             existingInvoice.CanceledBy = userName;
 
+            // GAC-1226: cancelado (pelo usuário ou pela sincronização com o SAP), a pendência de
+            // cancelamento do SAP deixa de existir.
+            existingInvoice.SapCancelPending = false;
+            existingInvoice.SapCancelPendingReason = null;
+            existingInvoice.SapCancelDetectedAt = null;
+
             // Ledger: remove as alocações da nota (inclui pares de realocação) e recalcula
             // contratos e liberações derivado-da-soma, na mesma transação.
             await allocationDelete.ExecuteAsync(key, userName, CommitMode.Deferred);

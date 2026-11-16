@@ -8224,6 +8224,25 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("SALES_SHIPMENT_RELEASES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.SapIntegrationSettings", b =>
+                {
+                    b.Property<int>("Key")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("InvoiceSyncEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("InvoiceSyncIntervalMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("InvoiceSyncLastRunAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("SAP_INTEGRATION_SETTINGS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoad", b =>
                 {
                     b.Property<Guid>("Key")
