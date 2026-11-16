@@ -148,7 +148,11 @@ Yokotobi (NF digitada, sem `SapDocEntry`) ficam como estão.
 
 ### Cancelamento vindo do SAP (job `sap-invoice-sync`)
 
-A cada 15 minutos, só em SAPB1, por empresa:
+Só em SAPB1, por empresa, no **intervalo configurado pelo usuário** na tela "Integração SAP"
+(`SapIntegrationSettings`: `InvoiceSyncEnabled`, padrão ligado; `InvoiceSyncIntervalMinutes`, padrão
+15, de 1 a 1440; `InvoiceSyncLastRunAt`, só leitura). O Hangfire dispara a cada minuto e o serviço só
+executa quando o intervalo da empresa já venceu; desligado, não executa. A tela mostra a última
+execução e tem o botão "Sincronizar agora". Em cada execução:
 
 - Para cada documento vinculado ativo cuja invoice está `CANCELED = 'Y'` no SAP (ou cancelada no
   add-on), chama `SalesInvoicesCancelService` com o usuário `sap-sync`.
@@ -178,7 +182,13 @@ Seleção por `SAPB1:FiscalAddon` (`InvOne` ou vazio), registrada só no ramo SA
 null`. Índice único filtrado em `SapDocEntry` (`IS NOT NULL` e status diferente de Cancelled e de
 Returned). Esses campos nunca são aceitos do cliente no create/patch.
 
+Tabela nova `SAP_INTEGRATION_SETTINGS` (uma linha por empresa), na mesma migration, e o item de menu
+"Integração SAP" (visível só em SAPB1) por migration de menu.
+
 ## Tela
+
+- **Integração SAP** (nova, padrão das telas de configuração como `emailSettings`): liga/desliga a
+  sincronização, intervalo em minutos, última execução e "Sincronizar agora".
 
 - **Detalhe da carga:** botão "Vincular NF do SAP" ao lado de "Faturar", com a mesma condição de
   status/saldo, só em SAPB1 (flag iniciada `false`). Abre um diálogo com o período, a tabela de

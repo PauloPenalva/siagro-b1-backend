@@ -89,7 +89,9 @@
 - [ ] **Step 5:** Registro em `Program.cs` (ramo SAPB1): `InvOneDbContext` + `InvOneFiscalDocumentSource` quando `SAPB1:FiscalAddon == "InvOne"` e a connection string existir; senão `NullSapFiscalDocumentSource`. Em STANDALONE, `Null`. Nos appsettings da Yokotobi, usar a mesma credencial do `SapDB` trocando o banco para `DBInvOne`.
 - [ ] **Step 6:** Commit `feat(sap): mapeia a A/R Invoice do SAP e o provedor fiscal InvOne`.
 
-### Task 3: Extrair a trava de duplicidade da NF e o saldo da carga
+### Task 3: Compartilhar a trava de duplicidade da NF e o cálculo do saldo da carga
+
+Nenhuma trava é removida nem afrouxada: o código sai de dentro de um serviço para uma classe usada pelos dois caminhos (informar NF e vincular NF do SAP), com as mesmas mensagens. Os testes existentes dessas travas precisam continuar verdes sem alteração.
 
 **Files:**
 - Create: `SiagroB1.Application/Services/SalesInvoices/SalesInvoiceTaxDocumentDuplicateGuard.cs`
@@ -192,14 +194,17 @@
 
 **Files:**
 - Create: `SiagroB1.Application/Services/SAP/SapInvoiceSyncService.cs`, `SiagroB1.Application/Jobs/SapInvoiceSyncJob.cs`
-- Modify: `SiagroB1.Application/Jobs/Companies/CompanyScopedJobRunner.cs` (nova chave `SapInvoiceSync`), `Program.cs` (registro `*/15 * * * *` no ramo SAPB1 com `RunForAllCompaniesWithoutRetryAsync`; `RemoveIfExists` no else), `SalesInvoicesCancelService.cs` (limpa `SapCancelPending*` ao cancelar)
+- Create: `SiagroB1.Domain/Entities/SapIntegrationSettings.cs` (+ DbSet, entity set OData, serviço get/update no padrão de `EmailSettings`), ação `SapInvoiceSyncRunNow`; migration de menu "Integração SAP" (seguir a última migration de menu existente; lembrar o script de menu da Yokotobi no deploy)
+- Modify: `SiagroB1.Application/Jobs/Companies/CompanyScopedJobRunner.cs` (nova chave `SapInvoiceSync`), `Program.cs` (registro `* * * * *` no ramo SAPB1 com `RunForAllCompaniesWithoutRetryAsync`; `RemoveIfExists` no else), `SalesInvoicesCancelService.cs` (limpa `SapCancelPending*` ao cancelar)
 - Test: `SiagroB1.Application.Tests/Sap/SapInvoiceSyncServiceTests.cs`
 
 **Interfaces:**
 - Produces: `SapInvoiceSyncService.ExecuteAsync(CancellationToken)`; usuário do cancelamento: `"sap-sync"`.
+- `SapIntegrationSettings`: `InvoiceSyncEnabled (bool, padrão true)`, `InvoiceSyncIntervalMinutes (int, padrão 15, 1..1440)`, `InvoiceSyncLastRunAt (DateTime?)`. A tabela entra na migration `AddSalesInvoiceSapLink` da Task 1 se ainda não commitada; senão, migration própria `AddSapIntegrationSettings` com trailer `DB:`.
+- `ExecuteAsync(ct, bool force = false)`: sem `force`, sai sem fazer nada quando desligado ou quando `now - InvoiceSyncLastRunAt < InvoiceSyncIntervalMinutes`; grava `InvoiceSyncLastRunAt` ao terminar. "Sincronizar agora" chama com `force: true`. Relógio injetável (`TimeProvider`) para o teste.
 - Cada documento é processado em escopo de DI próprio (`IServiceScopeFactory`): um cancelamento que falha deixa o contexto sujo.
 
-- [ ] **Step 1: Testes que falham** — invoice `CANCELED='Y'` → documento Confirmado fica Cancelled e a NF fica livre; cancelada só no add-on (`Cancelled == true`) → idem; trava do cancelamento (ex.: título baixado) → documento intacto, `SapCancelPending = true`, motivo = mensagem da trava, `SapCancelDetectedAt` preenchido; rodada seguinte com a trava resolvida → cancela e limpa; documento vinculado Pendente com invoice cancelada → excluído/cancelado e NF livre; documento vinculado sem chave e provedor com chave → chave preenchida; exceção ao consultar o SAP → não propaga; cancelar à mão um documento com pendência limpa os campos.
+- [ ] **Step 1: Testes que falham** — intervalo: desligado não executa; antes de vencer o intervalo não executa; vencido executa e grava a última execução; `force` executa sempre; intervalo fora de 1..1440 é recusado no update com "Informe um intervalo entre 1 e 1440 minutos."; sem linha de configuração usa os padrões. Sincronização: invoice `CANCELED='Y'` → documento Confirmado fica Cancelled e a NF fica livre; cancelada só no add-on (`Cancelled == true`) → idem; trava do cancelamento (ex.: título baixado) → documento intacto, `SapCancelPending = true`, motivo = mensagem da trava, `SapCancelDetectedAt` preenchido; rodada seguinte com a trava resolvida → cancela e limpa; documento vinculado Pendente com invoice cancelada → excluído/cancelado e NF livre; documento vinculado sem chave e provedor com chave → chave preenchida; exceção ao consultar o SAP → não propaga; cancelar à mão um documento com pendência limpa os campos.
 - [ ] **Step 2–4:** Ver falhar, implementar, ver passar.
 - [ ] **Step 5:** Commit `feat(sap): cancela o documento de saída quando a invoice é cancelada no SAP`.
 
@@ -213,6 +218,7 @@ Repositório `siagro-b1-frontend`, branch `feature/gac-1226-sap-invoice-link` (c
 
 - [ ] **Step 1:** `ShipmentBillingDialog.open()`: quando `SessionService.isSapMode()`, `billing>/TaxDocumentKind = "Other"`, `billing>/SapMode = true`; o Select de tipo fica oculto e aparece um `MessageStrip` informativo: "Com integração SAP, o Faturar gera documento sem NF-e. Para nota fiscal use Vincular NF do SAP."
 - [ ] **Step 2:** Remover da view o botão "Informar Nota Fiscal" (`Main.view.xml:62`), o handler `onNotaFiscal`, os handlers do diálogo e o fragment `NotaFiscalDialog.fragment.xml` se não tiverem outro uso (conferir com Grep antes de apagar). Ajustar o `$select` que existia só para o diálogo.
+- [ ] **Step 2b:** Tela "Integração SAP" (`webapp/view/sapIntegrationSettings`, controller, rota e target no `manifest.json`), copiando a estrutura de `emailSettings`: Switch "Sincronizar cancelamentos do SAP", StepInput "Intervalo (minutos)" 1–1440, texto "Última execução", botão "Sincronizar agora". Depende da Task 8.
 - [ ] **Step 3:** Colunas "Doc. SAP" (`SapDocNum`) e `ObjectStatus` "Canc. SAP pendente" (estado Error, tooltip `SapCancelPendingReason`, visível com `${path:'SapCancelPending', targetType:'any'} === true`) na lista; visíveis só em SAPB1 por uma flag `ui>/sapMode` iniciada `false`.
 - [ ] **Step 4:** `yarn ts-typecheck && yarn lint && yarn test`.
 - [ ] **Step 5:** Commit (formato do `CLAUDE.md` do frontend, `Refs: GAC-1226`).
