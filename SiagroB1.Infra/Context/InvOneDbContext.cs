@@ -10,9 +10,20 @@ public class InvOneDbContext(DbContextOptions<InvOneDbContext> options) : DbCont
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Chave só para o EF/InMemory; no banco a tabela não tem chave. Ver InvOneProcess.
-        // ProtocolNumber entra para reenvios do mesmo status não colidirem (as consultas são NoTracking).
-        modelBuilder.Entity<InvOneProcess>()
-            .HasKey(p => new { p.CompanyId, p.DocType, p.DocEntry, p.StatusId, p.ProtocolNumber });
+        var process = modelBuilder.Entity<InvOneProcess>();
+
+        if (Database.IsSqlServer())
+        {
+            // No SQL Server a tabela não tem chave e todas as colunas são anuláveis: uma chave no
+            // modelo tornaria a coluna obrigatória e um NULL derrubaria a leitura inteira.
+            process.HasNoKey();
+        }
+        else
+        {
+            // Só para os testes (provider em memória não aceita entidade sem chave). A chave é uma
+            // propriedade sombra gerada pelo EF, então nenhuma coluna real vira chave.
+            process.Property<Guid>("RowId").ValueGeneratedOnAdd();
+            process.HasKey("RowId");
+        }
     }
 }

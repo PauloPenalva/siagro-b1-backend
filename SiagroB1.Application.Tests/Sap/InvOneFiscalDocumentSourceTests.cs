@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities.SAP;
 using SiagroB1.Domain.Interfaces;
@@ -171,5 +172,55 @@ public class InvOneFiscalDocumentSourceTests
         var backward = Run(true);
 
         Assert.Equal(forward, backward);
+    }
+
+    [Fact]
+    public async Task Null_protocol_and_null_key_rows_are_tolerated()
+    {
+        using var db = CreateDb();
+        db.Processes.AddRange(
+            P(1, status: 2, key: null, protocol: null),
+            P(1, status: 3, key: null, protocol: null),
+            P(2, status: 4, key: null, protocol: null));
+        await db.SaveChangesAsync();
+
+        var result = await new InvOneFiscalDocumentSource(db).GetForInvoicesAsync(Refs([1, 2]));
+
+        Assert.Null(result[1].AccessKey);
+        Assert.Null(result[1].Protocol);
+        Assert.True(result[2].Authorized);
+        Assert.Null(result[2].AccessKey);
+    }
+
+    [Fact]
+    public async Task Row_with_null_company_or_doc_entry_is_ignored()
+    {
+        using var db = CreateDb();
+        db.Add(new InvOneProcess { CompanyId = null, DocType = 13, DocEntry = 1, StatusId = 4 });
+        db.Add(new InvOneProcess { CompanyId = 1, DocType = null, DocEntry = 1, StatusId = 4 });
+        db.Add(new InvOneProcess { CompanyId = 1, DocType = 13, DocEntry = null, StatusId = 4 });
+        db.Add(new InvOneProcess { CompanyId = 1, DocType = 13, DocEntry = 1, StatusId = null });
+        await db.SaveChangesAsync();
+
+        var result = await new InvOneFiscalDocumentSource(db).GetForInvoicesAsync(Refs([1]));
+
+        // Só a linha com StatusId nulo tem identidade completa; sem status ela não é autorizada.
+        Assert.False(result[1].Authorized);
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public void Real_sqlserver_model_is_keyless_and_query_translates()
+    {
+        using var db = new InvOneDbContext(new DbContextOptionsBuilder<InvOneDbContext>()
+            .UseSqlServer("Server=localhost;Database=DBInvOne;User Id=x;Password=x;TrustServerCertificate=True;")
+            .Options);
+
+        var entity = db.Model.FindEntityType(typeof(InvOneProcess))!;
+        Assert.Null(entity.FindPrimaryKey());
+
+        var sql = InvOneFiscalDocumentSource.BuildQuery(db, [1, 2], [1]).ToQueryString();
+        Assert.Contains("[Process]", sql);
+        Assert.Contains("[DocType] = 13", sql);
     }
 }

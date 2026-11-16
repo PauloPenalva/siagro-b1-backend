@@ -16,8 +16,8 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
     public bool IsAvailable => true;
 
     /// <remarks>
-    /// O resultado é indexado por DocEntry: se o mesmo DocEntry for pedido para duas filiais, vale a
-    /// última encontrada. Quem chama não deve misturar filiais com o mesmo DocEntry (no SAP o
+    /// O resultado é indexado por DocEntry: se o mesmo DocEntry for pedido para duas filiais, as
+    /// linhas das duas filiais concorrem e vale a melhor delas pela ordem abaixo (autorizada primeiro). Quem chama não deve misturar filiais com o mesmo DocEntry (no SAP o
     /// DocEntry é único por base).
     /// </remarks>
     public async Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
@@ -37,14 +37,11 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
         foreach (var batch in wanted.Select(w => w.DocEntry).Distinct().Chunk(BatchSize))
         {
             // A tabela guarda várias bases (CompanyId = OINV.BPLId): filtra por filial também.
-            var rows = await db.Processes.AsNoTracking()
-                .Where(p => p.DocType == ArInvoiceDocType
-                            && batch.Contains(p.DocEntry)
-                            && branches.Contains(p.CompanyId))
-                .ToListAsync(ct);
+            var rows = await BuildQuery(db, batch, branches).ToListAsync(ct);
 
-            foreach (var group in rows.Where(p => pairs.Contains((p.DocEntry, p.CompanyId)))
-                         .GroupBy(p => p.DocEntry))
+            foreach (var group in rows.Where(p => p.DocEntry.HasValue && p.CompanyId.HasValue
+                                             && pairs.Contains((p.DocEntry.Value, p.CompanyId.Value)))
+                         .GroupBy(p => p.DocEntry!.Value))
             {
                 // Reenvios geram várias linhas. Ordem explícita (o SQL não garante nenhuma): autorizada,
                 // depois cancelada, depois as demais; empate resolvido por protocolo e chave.
@@ -65,6 +62,18 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
         }
 
         return result;
+    }
+
+    /// <summary>Consulta de um lote; separada para o teste provar que traduz para SQL.</summary>
+    internal static IQueryable<InvOneProcess> BuildQuery(
+        InvOneDbContext db, IReadOnlyCollection<int> docEntries, IReadOnlyCollection<int> branches)
+    {
+        var entries = docEntries.Select(d => (int?)d).ToList();
+        var branchList = branches.Select(b => (int?)b).ToList();
+        return db.Processes.AsNoTracking()
+            .Where(p => p.DocType == ArInvoiceDocType
+                        && entries.Contains(p.DocEntry)
+                        && branchList.Contains(p.CompanyId));
     }
 
     private static bool IsAuthorized(InvOneProcess p) => p.StatusId == AuthorizedStatus;
