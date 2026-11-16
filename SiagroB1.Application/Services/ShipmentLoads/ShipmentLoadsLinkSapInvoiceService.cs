@@ -22,10 +22,9 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// alocação no contrato, saldo da liberação, títulos firmes, status da carga e log de movimento
 /// saem exatamente como no faturamento manual.
 /// <para>
-/// <b>Escala do frete.</b> <c>ShipmentLoad.FreightPrice</c> ("Valor do Frete", mesma escala de
-/// <c>StorageTransaction.FreightPrice</c>, um total em R$) vai direto para <c>FreightCostStandard</c>
-/// ("Frete p/Tonelada" no faturamento manual), sem conversão, como decidido no spec: a carga não guarda
-/// o método de cálculo nem a unidade que permitiriam converter com segurança.
+/// <b>Escala do frete.</b> <c>ShipmentLoad.FreightPrice</c> é R$ por tonelada nesta base — confirmado nos
+/// dados de produção (GAC-1226). Por isso é copiado direto para <c>FreightCostStandard</c> ("Frete p/Tonelada"
+/// no faturamento manual), sem conversão; nulo vira 0.
 /// </para>
 /// </remarks>
 public class ShipmentLoadsLinkSapInvoiceService(

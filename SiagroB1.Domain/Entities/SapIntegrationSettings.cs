@@ -24,6 +24,9 @@ public class SapIntegrationSettings
     /// <summary>Intervalo mínimo entre duas sincronizações, de 1 a 1440 minutos.</summary>
     public int InvoiceSyncIntervalMinutes { get; set; } = DefaultIntervalMinutes;
 
-    /// <summary>Última sincronização concluída (horário do servidor). Só o serviço grava.</summary>
+    /// <summary>
+    /// Última sincronização concluída, em horário LOCAL do servidor (não UTC — diferente de
+    /// <c>SalesInvoice.SapCancelDetectedAt</c>). Só o serviço grava.
+    /// </summary>
     public DateTime? InvoiceSyncLastRunAt { get; set; }
 }

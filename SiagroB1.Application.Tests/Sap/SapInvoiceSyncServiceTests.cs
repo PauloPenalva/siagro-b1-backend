@@ -104,9 +104,17 @@ public class SapInvoiceSyncServiceTests
     }
 
     private SpySapSyncService Service(
-        ISapFiscalDocumentSource? fiscal = null, Exception? sapFailure = null, IServiceScopeFactory? scopes = null) =>
+        ISapFiscalDocumentSource? fiscal = null, Exception? sapFailure = null, IServiceScopeFactory? scopes = null,
+        ISapInvoiceSyncLock? syncLock = null) =>
         new(new AppDbContext(TestDb.Options(_dbName)), _sap, fiscal ?? new FakeFiscal(),
-            scopes ?? _provider.GetRequiredService<IServiceScopeFactory>(), _clock, _lock, sapFailure);
+            scopes ?? _provider.GetRequiredService<IServiceScopeFactory>(), _clock, syncLock ?? _lock, sapFailure);
+
+    /// <summary>Trava que estoura ao ADQUIRIR (ex.: banco da empresa fora do ar).</summary>
+    private sealed class ThrowingLock(Exception failure) : ISapInvoiceSyncLock
+    {
+        public Task<IAsyncDisposable?> TryAcquireAsync(string companyCode, CancellationToken ct = default) =>
+            throw failure;
+    }
 
     // ---------- semeadura ----------
 
@@ -682,5 +690,57 @@ public class SapInvoiceSyncServiceTests
 
         Assert.Equal(InvoiceStatus.Confirmed, (await ReloadAsync(invoice.Key)).InvoiceStatus);
         Assert.Null((await SettingsRowAsync())!.InvoiceSyncLastRunAt);
+    }
+
+    // ---------- falha ao adquirir a trava (revisão final, item 8) ----------
+
+    [Fact]
+    public async Task Scheduled_run_skips_without_stamping_when_the_lock_cannot_be_acquired()
+    {
+        var invoice = await SeedInvoiceAsync(1);
+        await AddSapInvoiceAsync(1, canceled: "Y");
+        await SetSettingsAsync();
+
+        await Service(syncLock: new ThrowingLock(new FakeDbException())).ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(InvoiceStatus.Confirmed, (await ReloadAsync(invoice.Key)).InvoiceStatus);
+        Assert.Null((await SettingsRowAsync())!.InvoiceSyncLastRunAt);
+    }
+
+    [Fact]
+    public async Task Run_now_returns_a_business_message_when_the_lock_cannot_be_acquired()
+    {
+        await SetSettingsAsync();
+
+        var error = await Assert.ThrowsAsync<DefaultException>(() =>
+            Service(syncLock: new ThrowingLock(new TimeoutException())).ExecuteAsync(CancellationToken.None, force: true));
+
+        Assert.Equal(SapInvoiceSyncService.LockUnavailableMessage, error.Message);
+        Assert.Equal("Não foi possível iniciar a sincronização. Tente novamente em instantes.", error.Message);
+        Assert.Null((await SettingsRowAsync())!.InvoiceSyncLastRunAt);
+    }
+
+    [Fact]
+    public async Task Cancellation_while_acquiring_the_lock_is_not_swallowed()
+    {
+        await SetSettingsAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Service(syncLock: new ThrowingLock(new OperationCanceledException())).ExecuteAsync(CancellationToken.None));
+    }
+
+    // ---------- filial da invoice (revisão final, item 13) ----------
+
+    [Fact]
+    public async Task Sap_invoice_of_another_branch_never_cancels_the_document()
+    {
+        var invoice = await SeedInvoiceAsync(1);
+        await AddSapInvoiceAsync(1, canceled: "Y", branch: 7);
+        await SetSettingsAsync();
+
+        await Service().ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(InvoiceStatus.Confirmed, (await ReloadAsync(invoice.Key)).InvoiceStatus);
+        Assert.False((await ReloadAsync(invoice.Key)).SapCancelPending);
     }
 }

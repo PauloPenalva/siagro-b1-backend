@@ -67,6 +67,18 @@ public static class SalesInvoiceNfeLock
     public const string SapLinkedLinesMessage =
         "Documento vinculado à nota fiscal do SAP: quantidade, preço e item não podem ser alterados.";
 
+    public const string SapLinkedHeaderMessage =
+        "Documento vinculado à nota fiscal do SAP: cliente, data e filial não podem ser alterados.";
+
+    /// <summary>
+    /// Cabeçalho que alimenta o recálculo de tributos (GAC-1226): no documento vinculado os totais têm de continuar
+    /// batendo com a NF do SAP, então cliente, data e filial não mudam.
+    /// </summary>
+    private static readonly string[] SapLinkedHeaderFields =
+    [
+        nameof(SalesInvoice.CardCode), nameof(SalesInvoice.InvoiceDate), nameof(SalesInvoice.BranchCode),
+    ];
+
     public const string ConfirmedMessage = "Documento confirmado: estorne a confirmação para alterar.";
 
     /// <summary>
@@ -87,6 +99,11 @@ public static class SalesInvoiceNfeLock
 
         if (status == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
+
+        // Vinculado à NF do SAP (GAC-1226): a NF-e saiu no SAP; cliente, data e filial são os dela.
+        if (entry.OriginalValues[nameof(SalesInvoice.SapDocEntry)] is not null
+            && NfeLockRules.AnyChanged(entry, SapLinkedHeaderFields))
+            throw new DefaultException(SapLinkedHeaderMessage);
 
         if (NfeLockRules.IsFrozen(status) && NfeLockRules.AnyChanged(entry, HeaderFiscalFields))
             throw new DefaultException(NfeLockRules.FrozenMessage(status));
@@ -110,6 +127,12 @@ public static class SalesInvoiceNfeLock
         var fields = emitted ? IssuanceFields.Concat(TaxDocumentFields) : IssuanceFields;
 
         NfeLockRules.Restore(entry, fields);
+
+        // Vinculado à NF do SAP (GAC-1226): NfeStatus fica None (a NF-e saiu no SAP), então o teste acima não pega.
+        // Número, série, chave, tipo e "sem nota" são os da NF do SAP e nunca mudam pelo PATCH/PUT.
+        if (entry.OriginalValues[nameof(SalesInvoice.SapDocEntry)] is not null)
+            NfeLockRules.Restore(entry, TaxDocumentFields.Concat(
+                [nameof(SalesInvoice.TaxDocumentKind), nameof(SalesInvoice.WithoutTaxDocument)]));
 
         // A marca da devolução própria nasce no Devolver e nunca muda pela API.
         entry.Property(nameof(SalesInvoice.IsNfeReturn)).CurrentValue = entry.OriginalValues[nameof(SalesInvoice.IsNfeReturn)];

@@ -6,6 +6,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Application.Services.SAP;
 
 /// <summary>Lê chave de acesso e status da NF-e no banco do add-on InvOne.</summary>
+/// <remarks>
+/// Como a linha AUTORIZADA vence o desempate, um cancelamento na SEFAZ gravado pelo add-on como NOVA linha de
+/// <c>Process</c> ao lado da autorizada original não é visto por aqui — para esse caso a sincronização conta com
+/// <c>OINV.CANCELED = 'Y'</c> no SAP.
+/// </remarks>
 public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocumentSource
 {
     private const int ArInvoiceDocType = 13;

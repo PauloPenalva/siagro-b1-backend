@@ -28,6 +28,9 @@ public class SalesInvoicesDeleteService(
             await StorageCustodyGuard.EnsureSalesHasNoLaterStepAsync(db.Context, entity.Key);
             await SalesInvoicesRefusalLink.EnsureNotInPendingRefusalAsync(db.Context, entity);
 
+            // GAC-1226: a origem devolvida voltaria a segurar uma NF do SAP já vinculada a outro documento.
+            await SalesInvoicesReturnOriginRestoreService.EnsureOriginSapLinkFreeAsync(db.Context, entity);
+
             // GAC-1171: as FKs de SHIPMENT_LOAD_DISCHARGE_ITEMS (o rateio do ticket) para a nota e
             // para a linha da nota são NoAction, de propósito — o ticket de descarga é a evidência
             // física que libera o pagamento do frete e não pode ser levado embora junto com o

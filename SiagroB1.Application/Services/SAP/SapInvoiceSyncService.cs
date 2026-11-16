@@ -49,6 +49,9 @@ public class SapInvoiceSyncService(
     /// <summary>Resposta do "Sincronizar agora" quando outra execução da mesma empresa está em andamento.</summary>
     public const string BusyMessage = "Já existe uma sincronização em andamento. Tente novamente em instantes.";
 
+    /// <summary>Resposta do "Sincronizar agora" quando a trava da empresa não pôde nem ser pedida (banco fora do ar).</summary>
+    public const string LockUnavailableMessage = "Não foi possível iniciar a sincronização. Tente novamente em instantes.";
+
     /// <summary>Usuário gravado nos cancelamentos feitos pela sincronização.</summary>
     public const string SyncUser = "sap-sync";
 
@@ -61,7 +64,7 @@ public class SapInvoiceSyncService(
     /// <summary>Empresa da execução corrente, repetida em cada escopo filho.</summary>
     private CompanyInfo _company = null!;
 
-    private sealed record LinkedInvoice(Guid Key, int DocEntry, InvoiceStatus Status, string? AccessKey);
+    private sealed record LinkedInvoice(Guid Key, int DocEntry, InvoiceStatus Status, string? AccessKey, string? BranchCode);
 
     /// <param name="ct">Cancelamento.</param>
     /// <param name="force">"Sincronizar agora": ignora o liga/desliga e o intervalo.</param>
@@ -73,7 +76,23 @@ public class SapInvoiceSyncService(
                        "Sincronização das invoices do SAP sem empresa definida: não pode rodar no banco padrão.");
 
         // Manual x agendado da mesma empresa nunca ao mesmo tempo. O agendado volta no próximo minuto.
-        await using var held = await syncLock.TryAcquireAsync(_company.Code, ct);
+        IAsyncDisposable? acquired;
+        try
+        {
+            acquired = await syncLock.TryAcquireAsync(_company.Code, ct);
+        }
+        catch (Exception e) when (e is DbException or TimeoutException)
+        {
+            // Banco da empresa fora do ar ao pedir a trava: o agendado pula sem carimbar a última execução (o
+            // próximo minuto tenta de novo); o "Sincronizar agora" recebe mensagem de negócio, não o erro cru.
+            logger.LogWarning(e, "Sincronização das invoices do SAP da empresa {Company}: trava indisponível; pulada.",
+                _company.Code);
+            if (force)
+                throw new DefaultException(LockUnavailableMessage);
+            return;
+        }
+
+        await using var held = acquired;
         if (held is null)
         {
             if (force)
@@ -169,10 +188,11 @@ public class SapInvoiceSyncService(
             .Where(x => x.SapDocEntry != null
                         && (x.InvoiceStatus == InvoiceStatus.Pending || x.InvoiceStatus == InvoiceStatus.Confirmed))
             .OrderBy(x => x.SapDocEntry)
-            .Select(x => new { x.Key, DocEntry = x.SapDocEntry!.Value, x.InvoiceStatus, x.ChaveNFe })
+            .Select(x => new { x.Key, DocEntry = x.SapDocEntry!.Value, x.InvoiceStatus, x.ChaveNFe, x.BranchCode })
             .ToListAsync(ct);
 
-        return rows.Select(x => new LinkedInvoice(x.Key, x.DocEntry, x.InvoiceStatus!.Value, x.ChaveNFe)).ToList();
+        return rows.Select(x =>
+            new LinkedInvoice(x.Key, x.DocEntry, x.InvoiceStatus!.Value, x.ChaveNFe, x.BranchCode)).ToList();
     }
 
     private async Task SyncOneAsync(
@@ -186,6 +206,16 @@ public class SapInvoiceSyncService(
         {
             logger.LogWarning("Invoice {DocEntry} do documento de saída {Key} não foi encontrada no SAP.",
                 item.DocEntry, item.Key);
+            return;
+        }
+
+        // Seguro barato: a linha do SAP só é deste documento se a filial bate (OINV.BPLId é o Branch.Code, como
+        // texto). Filial diferente com o mesmo DocEntry = base ou vínculo errado: não cancela nada, só avisa.
+        if (!string.Equals(row.BranchId?.ToString(), item.BranchCode?.Trim(), StringComparison.Ordinal))
+        {
+            logger.LogWarning(
+                "Invoice {DocEntry} do SAP é da filial {SapBranch}, mas o documento de saída {Key} é da filial {Branch}; ignorada.",
+                item.DocEntry, row.BranchId, item.Key, item.BranchCode);
             return;
         }
 
@@ -232,7 +262,6 @@ public class SapInvoiceSyncService(
 
     private async Task MarkCancelPendingAsync(AppDbContext db, Guid key, string reason, CancellationToken ct)
     {
-
         var invoice = await db.SalesInvoices.FirstOrDefaultAsync(x => x.Key == key, ct);
 
         // Já cancelado/devolvido por outro caminho no meio da rodada: nada a sinalizar.

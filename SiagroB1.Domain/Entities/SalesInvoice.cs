@@ -190,7 +190,10 @@ public class SalesInvoice : DocumentEntity, INfeDocument, IAccountingAssignment
     [Column(TypeName = "VARCHAR(500)")]
     public string? SapCancelPendingReason { get; set; }
 
-    /// <summary>Quando o cancelamento no SAP foi detectado (UTC).</summary>
+    /// <summary>
+    /// Quando o cancelamento no SAP foi detectado, em UTC (diferente de
+    /// <c>SapIntegrationSettings.InvoiceSyncLastRunAt</c>, que é horário local do servidor).
+    /// </summary>
     public DateTime? SapCancelDetectedAt { get; set; }
 
     /// <summary>Documento vinculado a uma invoice do SAP. Derivado; não entra no banco nem no EDM.</summary>

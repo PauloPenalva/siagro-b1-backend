@@ -39,6 +39,7 @@ public class SalesInvoiceSapLinkedRulesTests
     private const string LinesMessage =
         "Documento vinculado à nota fiscal do SAP: quantidade, preço e item não podem ser alterados.";
     private const string CanceledMessage = "A NF do SAP vinculada foi cancelada. Exclua este documento.";
+    private const string NotFoundMessage = "A NF do SAP vinculada não foi encontrada. Exclua este documento.";
 
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
     private readonly SapErpDbContext _sap = new(
@@ -460,7 +461,7 @@ public class SalesInvoiceSapLinkedRulesTests
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() => Confirm().ExecuteAsync(invoice.Key, "tester"));
 
-        Assert.Equal(CanceledMessage, ex.Message);
+        Assert.Equal(NotFoundMessage, ex.Message);
     }
 
     [Fact]

@@ -179,7 +179,7 @@ public class ShipmentBillingCreateSalesInvoiceService(
         }
     }
 
-    private static void ApplySapLink(SalesInvoice salesInvoice, SapInvoiceLink sapLink)
+    internal static void ApplySapLink(SalesInvoice salesInvoice, SapInvoiceLink sapLink)
     {
         salesInvoice.SapDocEntry = sapLink.DocEntry;
         salesInvoice.SapDocNum = sapLink.DocNum;
@@ -188,7 +188,7 @@ public class ShipmentBillingCreateSalesInvoiceService(
         salesInvoice.ChaveNFe = sapLink.AccessKey;
 
         foreach (var item in salesInvoice.Items)
-            item.Cfop = sapLink.Cfop;
+            item.Cfop = sapLink.Cfop ?? item.Cfop; // SAP sem CFOP na linha: fica o resolvido pela natureza.
     }
 
     private static void Validate(SalesInvoice salesInvoice)

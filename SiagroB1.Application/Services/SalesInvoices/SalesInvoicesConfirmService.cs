@@ -63,7 +63,10 @@ public class SalesInvoicesConfirmService(
             throw new DefaultException("Não foi possível consultar as notas fiscais no SAP. Tente novamente em instantes.");
         }
 
-        if (!exists || canceled != "N")
+        if (!exists)
+            throw new DefaultException("A NF do SAP vinculada não foi encontrada. Exclua este documento.");
+
+        if (canceled != "N")
             throw new DefaultException("A NF do SAP vinculada foi cancelada. Exclua este documento.");
     }
 

@@ -227,7 +227,8 @@ Tabela nova `SAP_INTEGRATION_SETTINGS` (uma linha por empresa), na mesma migrati
   identifica parceiro. Escolha do autor: `DeliveryCardCode` = `DeliveryLocationCode` da liberação de
   venda escolhida (cadastro que já vem do SAP). `ShipToCode` não é mapeado.
 - **Frete por tonelada:** `ShipmentLoad.FreightPrice` → `SalesInvoice.FreightCostStandard`
-  (conferir a escala entre os dois campos na implementação; nulo vira 0).
+  (confirmado em produção: `ShipmentLoad.FreightPrice` já é R$ por tonelada nesta base, a mesma escala de
+  `FreightCostStandard`, então é copiado direto, sem conversão; nulo vira 0).
 
 ## Deixado ao construtor
 

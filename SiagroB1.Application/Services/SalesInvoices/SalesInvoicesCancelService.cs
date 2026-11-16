@@ -74,6 +74,9 @@ public class SalesInvoicesCancelService(
 
         await EnsureBusinessRulesAsync(existingInvoice);
 
+        // GAC-1226: a origem devolvida voltaria a segurar uma NF do SAP já vinculada a outro documento.
+        await SalesInvoicesReturnOriginRestoreService.EnsureOriginSapLinkFreeAsync(db.Context, existingInvoice);
+
         // Pós-SEFAZ (2b) passa: a NF-e já foi cancelada e o documento precisa acompanhar (Review Focus 3).
         if (!afterNfe && !fromRefusal)
             await SalesInvoicesRefusalLink.EnsureNotInPendingRefusalAsync(db.Context, existingInvoice);
