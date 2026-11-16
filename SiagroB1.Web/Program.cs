@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Text.Json.Serialization;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication;
@@ -128,11 +128,28 @@ switch (erp.ToUpper().Trim())
         // SapErpDbContext registrado logo acima.
         builder.Services.AddScoped<SapUserSyncService>();
         builder.Services.AddScoped<ISapUserSyncJob, SapUserSyncJob>();
+
+        // Add-on fiscal do cliente (chave de acesso e status da NF-e das invoices do SAP).
+        if (string.Equals(builder.Configuration["SAPB1:FiscalAddon"]?.Trim(), "InvOne", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("SapFiscalAddonDB")))
+        {
+            builder.Services.AddDbContext<SiagroB1.Infra.Context.InvOneDbContext>(options =>
+                options.UseSqlServer(builder.Configuration.GetConnectionString("SapFiscalAddonDB")));
+            builder.Services.AddScoped<SiagroB1.Domain.Interfaces.ISapFiscalDocumentSource,
+                SiagroB1.Application.Services.SAP.InvOneFiscalDocumentSource>();
+        }
+        else
+        {
+            builder.Services.AddScoped<SiagroB1.Domain.Interfaces.ISapFiscalDocumentSource,
+                SiagroB1.Application.Services.SAP.NullSapFiscalDocumentSource>();
+        }
         break;
     
     case "STANDALONE":
         
         builder.Services.AddStandAloneServices();
+        builder.Services.AddScoped<SiagroB1.Domain.Interfaces.ISapFiscalDocumentSource,
+            SiagroB1.Application.Services.SAP.NullSapFiscalDocumentSource>();
         break;
     
     default:

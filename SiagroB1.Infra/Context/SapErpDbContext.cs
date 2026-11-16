@@ -32,6 +32,15 @@ namespace SiagroB1.Infra.Context
         /// <summary>Cadastro de usuários do SAP (OUSR), espelhado em USERS quando Erp = SAPB1.</summary>
         public DbSet<SapUser> SapUsers { get; set; }
 
+        /// <summary>A/R Invoice do SAP (OINV), somente leitura.</summary>
+        public DbSet<SapInvoice> SapInvoices { get; set; }
+
+        /// <summary>Linhas da A/R Invoice (INV1), somente leitura.</summary>
+        public DbSet<SapInvoiceLine> SapInvoiceLines { get; set; }
+
+        /// <summary>Transporte da A/R Invoice (INV12), somente leitura.</summary>
+        public DbSet<SapInvoiceTransport> SapInvoiceTransports { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Address>()
@@ -44,6 +53,19 @@ namespace SiagroB1.Infra.Context
                 .HasOne(a => a.BusinessPartner)
                 .WithMany(bp => bp.Addresses)
                 .HasForeignKey(a => a.CardCode);
+
+            modelBuilder.Entity<SapInvoiceLine>()
+                .HasKey(l => new { l.DocEntry, l.LineNum });
+
+            modelBuilder.Entity<SapInvoiceLine>()
+                .HasOne(l => l.Invoice)
+                .WithMany(i => i.Lines)
+                .HasForeignKey(l => l.DocEntry);
+
+            modelBuilder.Entity<SapInvoiceTransport>()
+                .HasOne(t => t.Invoice)
+                .WithOne(i => i.Transport)
+                .HasForeignKey<SapInvoiceTransport>(t => t.DocEntry);
         }
 
     }
