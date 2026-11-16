@@ -15,6 +15,7 @@ using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Tests.Sap;
@@ -32,6 +33,7 @@ public class SapInvoiceSyncServiceTests
     private readonly TestClock _clock = new(new DateTimeOffset(2026, 11, 16, 12, 0, 0, TimeSpan.Zero));
     private readonly ServiceProvider _provider;
     private readonly AppDbContext _context;
+    private readonly InMemorySapInvoiceSyncLock _lock = new();
 
     public SapInvoiceSyncServiceTests()
     {
@@ -47,6 +49,7 @@ public class SapInvoiceSyncServiceTests
         services.AddScoped<SalesInvoiceTaxDocumentDuplicateGuard>();
         services.AddScoped<SalesInvoicesCancelService>();
         services.AddScoped<SalesInvoicesDeleteService>();
+        services.AddScoped<ICompanyContext>(_ => new FakeCompanyContext());
         _provider = services.BuildServiceProvider();
         _context = new AppDbContext(TestDb.Options(_dbName));
     }
@@ -78,8 +81,9 @@ public class SapInvoiceSyncServiceTests
     /// <summary>Costura de teste da leitura do SAP: simula o banco fora do ar e registra o tamanho dos lotes.</summary>
     private sealed class SpySapSyncService(
         AppDbContext context, SapErpDbContext sap, ISapFiscalDocumentSource fiscal,
-        IServiceScopeFactory scopes, TimeProvider clock, Exception? sapFailure = null)
-        : SapInvoiceSyncService(context, sap, fiscal, scopes, clock, NullLogger<SapInvoiceSyncService>.Instance)
+        IServiceScopeFactory scopes, TimeProvider clock, ISapInvoiceSyncLock syncLock, Exception? sapFailure = null)
+        : SapInvoiceSyncService(context, sap, fiscal, scopes, clock, NullLogger<SapInvoiceSyncService>.Instance,
+            new FakeCompanyContext(), syncLock)
     {
         public List<int> ChunkSizes { get; } = [];
 
@@ -102,7 +106,7 @@ public class SapInvoiceSyncServiceTests
     private SpySapSyncService Service(
         ISapFiscalDocumentSource? fiscal = null, Exception? sapFailure = null, IServiceScopeFactory? scopes = null) =>
         new(new AppDbContext(TestDb.Options(_dbName)), _sap, fiscal ?? new FakeFiscal(),
-            scopes ?? _provider.GetRequiredService<IServiceScopeFactory>(), _clock, sapFailure);
+            scopes ?? _provider.GetRequiredService<IServiceScopeFactory>(), _clock, _lock, sapFailure);
 
     // ---------- semeadura ----------
 
@@ -390,7 +394,7 @@ public class SapInvoiceSyncServiceTests
     }
 
     [Fact]
-    public async Task A_repeated_refusal_keeps_the_first_detection_time_and_the_reason_is_truncated()
+    public async Task A_repeated_refusal_keeps_the_first_detection_time()
     {
         var invoice = await SeedInvoiceAsync(1);
         await AddBlockingReturnAsync(invoice.Key);
@@ -422,23 +426,90 @@ public class SapInvoiceSyncServiceTests
         Assert.Equal(500, saved.SapCancelPendingReason!.Length);
     }
 
-    /// <summary>Faz o cancelamento do documento recusar com uma mensagem longa, sem depender de uma regra real.</summary>
-    private sealed class RefusingScopeFactory(IServiceScopeFactory inner, string message) : IServiceScopeFactory
-    {
-        public IServiceScope CreateScope() => new RefusingScope(inner.CreateScope(), message);
+    // ---------- concorrência: manual x agendado ----------
 
-        private sealed class RefusingScope(IServiceScope scope, string message) : IServiceScope
+    [Fact]
+    public async Task A_scheduled_run_skips_silently_while_another_run_of_the_company_holds_the_lock()
+    {
+        await SetSettingsAsync(lastRunAt: null);
+        var invoice = await SeedInvoiceAsync(1);
+        await AddSapInvoiceAsync(1, canceled: "Y");
+
+        await using (await _lock.TryAcquireAsync("0001"))
+            await Service().ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(InvoiceStatus.Confirmed, (await ReloadAsync(invoice.Key)).InvoiceStatus);
+        Assert.Null((await _context.SapIntegrationSettings.AsNoTracking().SingleAsync()).InvoiceSyncLastRunAt);
+    }
+
+    [Fact]
+    public async Task Run_now_refuses_while_another_run_of_the_company_holds_the_lock()
+    {
+        var invoice = await SeedInvoiceAsync(1);
+        await AddSapInvoiceAsync(1, canceled: "Y");
+
+        await using (await _lock.TryAcquireAsync("0001"))
         {
-            public IServiceProvider ServiceProvider { get; } = new RefusingProvider(scope.ServiceProvider, message);
+            var e = await Assert.ThrowsAsync<DefaultException>(() => Service().ExecuteAsync(CancellationToken.None, force: true));
+            Assert.Equal("Já existe uma sincronização em andamento. Tente novamente em instantes.", e.Message);
+        }
+
+        Assert.Equal(InvoiceStatus.Confirmed, (await ReloadAsync(invoice.Key)).InvoiceStatus);
+    }
+
+    [Fact]
+    public async Task The_lock_is_released_at_the_end_of_the_run()
+    {
+        await Service().ExecuteAsync(CancellationToken.None, force: true);
+
+        await using var again = await _lock.TryAcquireAsync("0001");
+        Assert.NotNull(again);
+    }
+
+    [Fact]
+    public async Task A_refusal_does_not_flag_a_document_cancelled_meanwhile_by_another_run()
+    {
+        var invoice = await SeedInvoiceAsync(1);
+        await AddSapInvoiceAsync(1, canceled: "Y");
+
+        // A outra execução cancela o documento e a nossa tentativa é recusada logo depois.
+        var scopes = new RefusingScopeFactory(_provider.GetRequiredService<IServiceScopeFactory>(), ReturnRefusal,
+            beforeRefusal: () =>
+            {
+                using var other = new AppDbContext(TestDb.Options(_dbName));
+                other.SalesInvoices.Single(x => x.Key == invoice.Key).InvoiceStatus = InvoiceStatus.Cancelled;
+                other.SaveChanges();
+            });
+        await Service(scopes: scopes).ExecuteAsync(CancellationToken.None, force: true);
+
+        var saved = await ReloadAsync(invoice.Key);
+        Assert.Equal(InvoiceStatus.Cancelled, saved.InvoiceStatus);
+        Assert.False(saved.SapCancelPending);
+        Assert.Null(saved.SapCancelPendingReason);
+    }
+
+    /// <summary>Faz o cancelamento do documento recusar com uma mensagem longa, sem depender de uma regra real.</summary>
+    private sealed class RefusingScopeFactory(IServiceScopeFactory inner, string message, Action? beforeRefusal = null)
+        : IServiceScopeFactory
+    {
+        public IServiceScope CreateScope() => new RefusingScope(inner.CreateScope(), message, beforeRefusal);
+
+        private sealed class RefusingScope(IServiceScope scope, string message, Action? beforeRefusal) : IServiceScope
+        {
+            public IServiceProvider ServiceProvider { get; } = new RefusingProvider(scope.ServiceProvider, message, beforeRefusal);
             public void Dispose() => scope.Dispose();
         }
 
-        private sealed class RefusingProvider(IServiceProvider inner, string message) : IServiceProvider
+        private sealed class RefusingProvider(IServiceProvider inner, string message, Action? beforeRefusal) : IServiceProvider
         {
-            public object? GetService(Type serviceType) =>
-                serviceType == typeof(SalesInvoicesCancelService)
-                    ? throw new DefaultException(message)
-                    : inner.GetService(serviceType);
+            public object? GetService(Type serviceType)
+            {
+                if (serviceType != typeof(SalesInvoicesCancelService))
+                    return inner.GetService(serviceType);
+
+                beforeRefusal?.Invoke();
+                throw new DefaultException(message);
+            }
         }
     }
 

@@ -7,6 +7,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.SAP;
@@ -29,6 +30,11 @@ public class SapInvoiceStatus
 /// O Hangfire dispara o job a cada minuto, por empresa; quem decide se o intervalo da empresa venceu é este
 /// serviço (<see cref="SapIntegrationSettings"/>). Cada documento é tratado em escopo de DI PRÓPRIO: um
 /// cancelamento que falha no meio deixa o contexto com entidades sujas e ele não pode ser reaproveitado.
+/// <para>
+/// Armadilha: escopo novo do <see cref="IServiceScopeFactory"/> NÃO herda a empresa do escopo da requisição (no
+/// HTTP ela é só explícita, sem <see cref="CompanyAmbient"/>) e cairia no banco padrão. Todo escopo filho passa por
+/// <see cref="RunInCompanyScopeAsync"/>, que repete a empresa (mesmo padrão do CompanyScopedJobRunner/CmaCompanyScope).
+/// </para>
 /// </remarks>
 public class SapInvoiceSyncService(
     AppDbContext context,
@@ -36,8 +42,13 @@ public class SapInvoiceSyncService(
     ISapFiscalDocumentSource fiscal,
     IServiceScopeFactory scopes,
     TimeProvider clock,
-    ILogger<SapInvoiceSyncService> logger)
+    ILogger<SapInvoiceSyncService> logger,
+    ICompanyContext companyContext,
+    ISapInvoiceSyncLock syncLock)
 {
+    /// <summary>Resposta do "Sincronizar agora" quando outra execução da mesma empresa está em andamento.</summary>
+    public const string BusyMessage = "Já existe uma sincronização em andamento. Tente novamente em instantes.";
+
     /// <summary>Usuário gravado nos cancelamentos feitos pela sincronização.</summary>
     public const string SyncUser = "sap-sync";
 
@@ -47,12 +58,32 @@ public class SapInvoiceSyncService(
     private const int ReasonMaxLength = 500;
     private const int AccessKeyLength = 44;
 
+    /// <summary>Empresa da execução corrente, repetida em cada escopo filho.</summary>
+    private CompanyInfo _company = null!;
+
     private sealed record LinkedInvoice(Guid Key, int DocEntry, InvoiceStatus Status, string? AccessKey);
 
     /// <param name="ct">Cancelamento.</param>
     /// <param name="force">"Sincronizar agora": ignora o liga/desliga e o intervalo.</param>
     public async Task ExecuteAsync(CancellationToken ct, bool force = false)
     {
+        // Sem empresa resolvida os escopos filhos cancelariam no banco padrão: melhor falhar.
+        _company = companyContext.Current
+                   ?? throw new InvalidOperationException(
+                       "Sincronização das invoices do SAP sem empresa definida: não pode rodar no banco padrão.");
+
+        // Manual x agendado da mesma empresa nunca ao mesmo tempo. O agendado volta no próximo minuto.
+        await using var held = await syncLock.TryAcquireAsync(_company.Code, ct);
+        if (held is null)
+        {
+            if (force)
+                throw new DefaultException(BusyMessage);
+
+            logger.LogInformation("Sincronização das invoices do SAP da empresa {Company} já em andamento; pulada.",
+                _company.Code);
+            return;
+        }
+
         var settings = await context.SapIntegrationSettings.FirstOrDefaultAsync(ct);
         var now = clock.GetLocalNow().DateTime;
 
@@ -174,15 +205,10 @@ public class SapInvoiceSyncService(
     {
         try
         {
-            using var scope = scopes.CreateScope();
-
             // O cancelamento limpa a pendência por conta própria; a exclusão leva o documento junto.
-            if (item.Status == InvoiceStatus.Confirmed)
-                await scope.ServiceProvider.GetRequiredService<SalesInvoicesCancelService>()
-                    .ExecuteAsync(item.Key, SyncUser);
-            else
-                await scope.ServiceProvider.GetRequiredService<SalesInvoicesDeleteService>()
-                    .ExecuteAsync(item.Key, SyncUser);
+            await RunInCompanyScopeAsync(sp => item.Status == InvoiceStatus.Confirmed
+                ? sp.GetRequiredService<SalesInvoicesCancelService>().ExecuteAsync(item.Key, SyncUser)
+                : sp.GetRequiredService<SalesInvoicesDeleteService>().ExecuteAsync(item.Key, SyncUser));
         }
         catch (Exception e) when (e is DefaultException or BusinessException or ApplicationException)
         {
@@ -192,10 +218,20 @@ public class SapInvoiceSyncService(
         }
     }
 
-    private async Task MarkCancelPendingAsync(Guid key, string reason, CancellationToken ct)
+    /// <summary>Escopo de DI novo na empresa da execução: ambiente + explícita, como no CompanyScopedJobRunner.</summary>
+    private async Task RunInCompanyScopeAsync(Func<IServiceProvider, Task> work)
     {
+        using var _ = CompanyAmbient.Use(_company.Code);
         using var scope = scopes.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<ICompanyContext>().Set(_company);
+        await work(scope.ServiceProvider);
+    }
+
+    private Task MarkCancelPendingAsync(Guid key, string reason, CancellationToken ct) =>
+        RunInCompanyScopeAsync(sp => MarkCancelPendingAsync(sp.GetRequiredService<AppDbContext>(), key, reason, ct));
+
+    private async Task MarkCancelPendingAsync(AppDbContext db, Guid key, string reason, CancellationToken ct)
+    {
 
         var invoice = await db.SalesInvoices.FirstOrDefaultAsync(x => x.Key == key, ct);
 
@@ -223,8 +259,12 @@ public class SapInvoiceSyncService(
             return;
         }
 
-        using var scope = scopes.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await RunInCompanyScopeAsync(sp => BackfillAccessKeyAsync(sp, item, accessKey, ct));
+    }
+
+    private async Task BackfillAccessKeyAsync(IServiceProvider sp, LinkedInvoice item, string accessKey, CancellationToken ct)
+    {
+        var db = sp.GetRequiredService<AppDbContext>();
 
         var invoice = await db.SalesInvoices.FirstOrDefaultAsync(x => x.Key == item.Key, ct);
 
@@ -233,7 +273,7 @@ public class SapInvoiceSyncService(
 
         try
         {
-            await scope.ServiceProvider.GetRequiredService<SalesInvoiceTaxDocumentDuplicateGuard>()
+            await sp.GetRequiredService<SalesInvoiceTaxDocumentDuplicateGuard>()
                 .EnsureUniqueAsync(invoice.BranchCode ?? string.Empty, null, null, accessKey, invoice.Key);
         }
         catch (ApplicationException e)

@@ -71,13 +71,21 @@ public class SapIntegrationSettingsController(
     [HttpPost("odata/SapInvoiceSyncRunNow")]
     public async Task<IActionResult> RunNowAsync(CancellationToken ct)
     {
+        if (await GuardAsync() is { } denied) return denied;
+
         // O serviço só é registrado no ramo SAPB1 do Program (precisa do SapErpDbContext).
         var sync = services.GetService<SapInvoiceSyncService>();
         if (sync is null) return BadRequest(SapOnly);
 
-        if (await GuardAsync() is { } denied) return denied;
-
-        await sync.ExecuteAsync(ct, force: true);
+        try
+        {
+            await sync.ExecuteAsync(ct, force: true);
+        }
+        catch (DefaultException e)
+        {
+            // Outra sincronização da empresa em andamento (manual ou agendada).
+            return BadRequest(e.Message);
+        }
 
         return Ok(await settings.GetAsync());
     }

@@ -135,6 +135,7 @@ switch (erp.ToUpper().Trim())
 
         // Sincronização do cancelamento das invoices vinculadas (GAC-1226): também lê o SAP.
         builder.Services.AddScoped<SiagroB1.Application.Services.SAP.SapInvoiceSyncService>();
+        builder.Services.AddScoped<SiagroB1.Application.Services.SAP.ISapInvoiceSyncLock, SiagroB1.Application.Services.SAP.SqlServerSapInvoiceSyncLock>();
         builder.Services.AddScoped<SiagroB1.Application.Jobs.SapInvoiceSyncJob>();
 
         // Add-on fiscal do cliente (chave de acesso e status da NF-e das invoices do SAP).
