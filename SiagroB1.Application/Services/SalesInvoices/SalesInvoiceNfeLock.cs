@@ -56,6 +56,17 @@ public static class SalesInvoiceNfeLock
         nameof(SalesInvoice.SapCancelPendingReason), nameof(SalesInvoice.SapCancelDetectedAt),
     ];
 
+    /// <summary>Campos comerciais da linha que vêm da NF do SAP (GAC-1226): a conferência de entrega não os toca.</summary>
+    private static readonly string[] SapLinkedItemFields =
+    [
+        nameof(SalesInvoiceItem.ItemCode), nameof(SalesInvoiceItem.Quantity), nameof(SalesInvoiceItem.UnitPrice),
+    ];
+
+    public const string SapLinkedTaxDocumentMessage = "Número, série e chave deste documento vêm da nota fiscal do SAP.";
+
+    public const string SapLinkedLinesMessage =
+        "Documento vinculado à nota fiscal do SAP: quantidade, preço e item não podem ser alterados.";
+
     public const string ConfirmedMessage = "Documento confirmado: estorne a confirmação para alterar.";
 
     /// <summary>
@@ -140,8 +151,13 @@ public static class SalesInvoiceNfeLock
 
     /// <summary>Chamado DEPOIS do SetValues da linha. A Conferência de entregas mexe em campos fora do XML e passa.</summary>
     /// <param name="confirmedFrozen">Ver <see cref="IsConfirmedFrozen"/>.</param>
-    public static void EnsureItemEditable(NfeStatus invoiceStatus, EntityEntry<SalesInvoiceItem> entry, bool confirmedFrozen = false)
+    /// <param name="sapLinked">Documento vinculado a uma NF do SAP: item, quantidade e preço ficam travados.</param>
+    public static void EnsureItemEditable(NfeStatus invoiceStatus, EntityEntry<SalesInvoiceItem> entry,
+        bool confirmedFrozen = false, bool sapLinked = false)
     {
+        if (sapLinked && NfeLockRules.AnyChanged(entry, SapLinkedItemFields))
+            throw new DefaultException(SapLinkedLinesMessage);
+
         if (invoiceStatus == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
@@ -154,8 +170,12 @@ public static class SalesInvoiceNfeLock
 
     /// <summary>Incluir ou excluir linha.</summary>
     /// <param name="confirmedFrozen">Ver <see cref="IsConfirmedFrozen"/>.</param>
-    public static void EnsureLinesChangeable(NfeStatus invoiceStatus, bool confirmedFrozen = false)
+    /// <param name="sapLinked">Documento vinculado a uma NF do SAP: as linhas vêm da nota e não mudam.</param>
+    public static void EnsureLinesChangeable(NfeStatus invoiceStatus, bool confirmedFrozen = false, bool sapLinked = false)
     {
+        if (sapLinked)
+            throw new DefaultException(SapLinkedLinesMessage);
+
         if (invoiceStatus == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
@@ -189,6 +209,10 @@ public static class SalesInvoiceNfeLock
 
     public static void EnsureManualTaxDocument(SalesInvoice invoice)
     {
+        // Inclui "Sem NF" e limpar a NF: o vínculo desfaz-se excluindo ou cancelando o documento.
+        if (invoice.IsSapLinked)
+            throw new DefaultException(SapLinkedTaxDocumentMessage);
+
         if (invoice.IsNfeReturn)
             throw new DefaultException("Número, série e chave da devolução vêm da emissão da NF-e pelo Siagro.");
 

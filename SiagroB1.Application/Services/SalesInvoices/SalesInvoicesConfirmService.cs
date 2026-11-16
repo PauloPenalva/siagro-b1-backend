@@ -35,12 +35,42 @@ public class SalesInvoicesConfirmService(
     FinancialDocumentsSalesNoContractService? salesNoContract = null,
     FiscalStockPeriodGuard? periodGuard = null,
     AccountingAssignmentGuard? dimensionGuard = null,
-    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null,
+    SiagroB1.Infra.Context.SapErpDbContext? sapErp = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
     /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
     private const decimal Tolerance = 0.001m;
+
+    /// <summary>
+    /// Só com o contexto do SAP (modo SAPB1) e documento vinculado. Fora do ar, recusa com a mesma mensagem da listagem
+    /// de NFs vinculáveis: confirmar sem conseguir olhar a NF deixaria passar uma cancelada.
+    /// </summary>
+    private async Task EnsureSapInvoiceStillValidAsync(SalesInvoice invoice)
+    {
+        if (sapErp is null || invoice.SapDocEntry is not { } docEntry)
+            return;
+
+        string? canceled;
+        bool exists;
+        try
+        {
+            var row = await sapErp.SapInvoices.AsNoTracking()
+                .Where(x => x.DocEntry == docEntry)
+                .Select(x => new { x.Canceled })
+                .FirstOrDefaultAsync();
+            exists = row is not null;
+            canceled = row?.Canceled;
+        }
+        catch (Exception e) when (e is System.Data.Common.DbException or TimeoutException)
+        {
+            throw new DefaultException("Não foi possível consultar as notas fiscais no SAP. Tente novamente em instantes.");
+        }
+
+        if (!exists || canceled != "N")
+            throw new DefaultException("A NF do SAP vinculada foi cancelada. Exclua este documento.");
+    }
 
     /// <param name="commitMode">
     /// <c>Auto</c> abre e comita transação própria. <c>Deferred</c> compõe dentro da transação
@@ -94,6 +124,10 @@ public class SalesInvoicesConfirmService(
             throw new ApplicationException(
                 "Invoice is not pending.");
         }
+
+        // Documento vinculado a uma NF do SAP (GAC-1226): a NF pode ter sido cancelada no SAP enquanto o documento
+        // esteve Pendente (após estornar a confirmação). A primeira confirmação do vínculo não passa por aqui.
+        await EnsureSapInvoiceStillValidAsync(invoice);
 
         // A saída cai no estoque fiscal na InvoiceDate: mês fechado recusa.
         await _periodGuard.EnsureOpenAsync(invoice);
