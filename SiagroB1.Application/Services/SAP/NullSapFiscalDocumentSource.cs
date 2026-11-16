@@ -8,7 +8,7 @@ public class NullSapFiscalDocumentSource : ISapFiscalDocumentSource
     public bool IsAvailable => false;
 
     public Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
-        IReadOnlyCollection<int> docEntries, CancellationToken ct = default) =>
+        IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyDictionary<int, SapFiscalDocumentInfo>>(
             new Dictionary<int, SapFiscalDocumentInfo>());
 }

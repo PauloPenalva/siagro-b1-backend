@@ -3,6 +3,9 @@ namespace SiagroB1.Domain.Interfaces;
 /// <summary>Situação fiscal de uma A/R Invoice do SAP, vinda do add-on fiscal do cliente.</summary>
 public record SapFiscalDocumentInfo(int DocEntry, string? AccessKey, bool Authorized, bool Cancelled, string? Protocol);
 
+/// <summary>Invoice a consultar: DocEntry mais a filial (OINV.BPLId) que a identifica no add-on.</summary>
+public record SapInvoiceRef(int DocEntry, int? BranchId);
+
 /// <summary>
 /// Fonte da chave de acesso e do status da NF-e das invoices do SAP. O SAP não guarda esses dados:
 /// ficam no banco do add-on fiscal (InvOne, na Yokotobi).
@@ -13,5 +16,5 @@ public interface ISapFiscalDocumentSource
     bool IsAvailable { get; }
 
     Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
-        IReadOnlyCollection<int> docEntries, CancellationToken ct = default);
+        IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default);
 }
