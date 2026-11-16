@@ -58,7 +58,8 @@ public class SapInvoiceSyncServiceTests
     {
         public DateTimeOffset Now { get; set; } = now;
         public override DateTimeOffset GetUtcNow() => Now;
-        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+        // Fuso fixo -03:00 para distinguir horário local de UTC nas asserções.
+        public override TimeZoneInfo LocalTimeZone { get; } = TimeZoneInfo.CreateCustomTimeZone("test-local", TimeSpan.FromHours(-3), "test-local", "test-local");
     }
 
     private sealed class FakeDbException() : DbException("SAP fora do ar");
@@ -263,7 +264,7 @@ public class SapInvoiceSyncServiceTests
     {
         var invoice = await SeedInvoiceAsync(1);
         await AddSapInvoiceAsync(1, canceled: "Y");
-        var lastRun = _clock.Now.DateTime.AddMinutes(-5);
+        var lastRun = _clock.GetLocalNow().DateTime.AddMinutes(-5);
         await SetSettingsAsync(interval: 15, lastRunAt: lastRun);
 
         await Service().ExecuteAsync(CancellationToken.None);
@@ -277,12 +278,12 @@ public class SapInvoiceSyncServiceTests
     {
         var invoice = await SeedInvoiceAsync(1);
         await AddSapInvoiceAsync(1, canceled: "Y");
-        await SetSettingsAsync(interval: 15, lastRunAt: _clock.Now.DateTime.AddMinutes(-15));
+        await SetSettingsAsync(interval: 15, lastRunAt: _clock.GetLocalNow().DateTime.AddMinutes(-15));
 
         await Service().ExecuteAsync(CancellationToken.None);
 
         Assert.Equal(InvoiceStatus.Cancelled, (await ReloadAsync(invoice.Key)).InvoiceStatus);
-        Assert.Equal(_clock.Now.DateTime, (await SettingsRowAsync())!.InvoiceSyncLastRunAt);
+        Assert.Equal(_clock.GetLocalNow().DateTime, (await SettingsRowAsync())!.InvoiceSyncLastRunAt);
     }
 
     [Fact]
@@ -290,12 +291,12 @@ public class SapInvoiceSyncServiceTests
     {
         var invoice = await SeedInvoiceAsync(1);
         await AddSapInvoiceAsync(1, canceled: "Y");
-        await SetSettingsAsync(enabled: false, interval: 60, lastRunAt: _clock.Now.DateTime.AddMinutes(-1));
+        await SetSettingsAsync(enabled: false, interval: 60, lastRunAt: _clock.GetLocalNow().DateTime.AddMinutes(-1));
 
         await Service().ExecuteAsync(CancellationToken.None, force: true);
 
         Assert.Equal(InvoiceStatus.Cancelled, (await ReloadAsync(invoice.Key)).InvoiceStatus);
-        Assert.Equal(_clock.Now.DateTime, (await SettingsRowAsync())!.InvoiceSyncLastRunAt);
+        Assert.Equal(_clock.GetLocalNow().DateTime, (await SettingsRowAsync())!.InvoiceSyncLastRunAt);
     }
 
     [Fact]
@@ -310,7 +311,7 @@ public class SapInvoiceSyncServiceTests
         var row = await SettingsRowAsync();
         Assert.True(row!.InvoiceSyncEnabled);
         Assert.Equal(15, row.InvoiceSyncIntervalMinutes);
-        Assert.Equal(_clock.Now.DateTime, row.InvoiceSyncLastRunAt);
+        Assert.Equal(_clock.GetLocalNow().DateTime, row.InvoiceSyncLastRunAt);
     }
 
     // ---------- cancelamento ----------
@@ -397,7 +398,7 @@ public class SapInvoiceSyncServiceTests
         Assert.Equal(InvoiceStatus.Confirmed, saved.InvoiceStatus);
         Assert.True(saved.SapCancelPending);
         Assert.Equal(ReturnRefusal, saved.SapCancelPendingReason);
-        Assert.Equal(_clock.Now.UtcDateTime, saved.SapCancelDetectedAt);
+        Assert.Equal(_clock.GetLocalNow().DateTime, saved.SapCancelDetectedAt);
         Assert.Null(saved.CanceledAt);
     }
 
@@ -407,7 +408,7 @@ public class SapInvoiceSyncServiceTests
         var invoice = await SeedInvoiceAsync(1);
         await AddBlockingReturnAsync(invoice.Key);
         await AddSapInvoiceAsync(1, canceled: "Y");
-        var first = _clock.Now.UtcDateTime;
+        var first = _clock.GetLocalNow().DateTime;
 
         await Service().ExecuteAsync(CancellationToken.None, force: true);
         _clock.Now = _clock.Now.AddHours(1);

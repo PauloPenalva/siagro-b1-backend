@@ -191,8 +191,8 @@ public class SalesInvoice : DocumentEntity, INfeDocument, IAccountingAssignment
     public string? SapCancelPendingReason { get; set; }
 
     /// <summary>
-    /// Quando o cancelamento no SAP foi detectado, em UTC (diferente de
-    /// <c>SapIntegrationSettings.InvoiceSyncLastRunAt</c>, que é horário local do servidor).
+    /// Quando o cancelamento no SAP foi detectado, em horário local do servidor
+    /// (o mesmo critério de <c>SapIntegrationSettings.InvoiceSyncLastRunAt</c>).
     /// </summary>
     public DateTime? SapCancelDetectedAt { get; set; }
 

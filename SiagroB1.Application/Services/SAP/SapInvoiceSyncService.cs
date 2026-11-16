@@ -271,7 +271,7 @@ public class SapInvoiceSyncService(
         invoice.SapCancelPending = true;
         invoice.SapCancelPendingReason = reason.Length > ReasonMaxLength ? reason[..ReasonMaxLength] : reason;
         // A primeira detecção é a que vale para o usuário, mesmo que a recusa se repita.
-        invoice.SapCancelDetectedAt ??= clock.GetUtcNow().UtcDateTime;
+        invoice.SapCancelDetectedAt ??= clock.GetLocalNow().DateTime;
 
         await db.SaveChangesAsync(ct);
     }
