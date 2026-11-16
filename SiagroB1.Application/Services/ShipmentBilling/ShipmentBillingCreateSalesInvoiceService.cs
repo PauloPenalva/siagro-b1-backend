@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.SalesContracts;
@@ -7,6 +8,7 @@ using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.FiscalStock;
 
@@ -47,13 +49,38 @@ public class ShipmentBillingCreateSalesInvoiceService(
     ShipmentLoadsMovementLogService movementLog,
     ILogger<ShipmentBillingCreateSalesInvoiceService> logger,
     FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
-    FiscalStockPeriodGuard? periodGuard = null)
+    FiscalStockPeriodGuard? periodGuard = null,
+    IConfiguration? configuration = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
-    public async Task ExecuteAsync(SalesInvoice salesInvoice, string username)
+    /// <param name="sapLink">
+    /// Invoice de saída do SAP a espelhar (GAC-1226). Só o fluxo de vínculo passa; o controller público
+    /// nunca. Fora do SAPB1 é recusado: o vínculo não existe lá.
+    /// </param>
+    public async Task ExecuteAsync(SalesInvoice salesInvoice, string username, SapInvoiceLink? sapLink = null)
     {
         Validate(salesInvoice);
+
+        var isSapB1 = ErpMode.IsSapB1(configuration);
+
+        if (sapLink is not null && !isSapB1)
+            throw new DefaultException("Vínculo com nota fiscal do SAP disponível somente com integração SAP Business One.");
+
+        if (isSapB1)
+        {
+            // Em SAPB1 a NF-e é emitida no SAP: o faturamento manual nasce "Sem NF" (coagido, não recusado —
+            // telas em cache ainda mandam Nfe). Com vínculo, o documento espelha a NF-e do SAP e o vínculo vence.
+            salesInvoice.TaxDocumentKind = sapLink is null ? TaxDocumentKind.Other : TaxDocumentKind.Nfe;
+            salesInvoice.WithoutTaxDocument = sapLink is null;
+
+            if (sapLink is null)
+            {
+                salesInvoice.TaxDocumentNumber = null;
+                salesInvoice.TaxDocumentSeries = null;
+                salesInvoice.ChaveNFe = null;
+            }
+        }
 
         var releaseKey = salesInvoice.Items
             .First(i => i.SalesShipmentReleaseKey != null).SalesShipmentReleaseKey!.Value;
@@ -89,6 +116,11 @@ public class ShipmentBillingCreateSalesInvoiceService(
             await db.BeginTransactionAsync();
 
             await salesInvoicesCreateService.ExecuteAsync(salesInvoice, username);
+
+            // DEPOIS da criação: ela zera os campos do SAP (ResetIssuanceFields) e apaga o CFOP da linha quando
+            // a tributação está inativa. O SaveChanges do Confirmado, logo abaixo, grava o vínculo.
+            if (sapLink is not null)
+                ApplySapLink(salesInvoice, sapLink);
 
             // Grava Confirmado direto (sem o SalesInvoicesConfirmService): a trava do mês fechado vale aqui também.
             await _periodGuard.EnsureOpenAsync(salesInvoice);
@@ -145,6 +177,18 @@ public class ShipmentBillingCreateSalesInvoiceService(
             logger.LogError(e, e.Message);
             throw new ApplicationException(e.Message);
         }
+    }
+
+    private static void ApplySapLink(SalesInvoice salesInvoice, SapInvoiceLink sapLink)
+    {
+        salesInvoice.SapDocEntry = sapLink.DocEntry;
+        salesInvoice.SapDocNum = sapLink.DocNum;
+        salesInvoice.TaxDocumentNumber = sapLink.TaxDocumentNumber;
+        salesInvoice.TaxDocumentSeries = sapLink.TaxDocumentSeries;
+        salesInvoice.ChaveNFe = sapLink.AccessKey;
+
+        foreach (var item in salesInvoice.Items)
+            item.Cfop = sapLink.Cfop;
     }
 
     private static void Validate(SalesInvoice salesInvoice)
