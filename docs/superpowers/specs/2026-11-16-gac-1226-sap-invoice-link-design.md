@@ -105,7 +105,7 @@ O documento de saída nasce **Confirmado**, pelo mesmo orquestrador do faturamen
 | Número (9 dígitos, zeros à esquerda), série (3 dígitos) | `OINV.Serial`, `OINV.SeriesStr` |
 | Chave | provedor do add-on (pode ficar nula e ser preenchida depois pelo job) |
 | Tipo de frete (CIF/FOB) | incoterm da invoice do SAP |
-| Local de entrega | endereço de entrega da invoice do SAP (`ShipToCode` do cliente) |
+| Local de entrega | local de entrega da liberação escolhida (`DeliveryLocationCode`) |
 | Frete por tonelada | o informado na carga |
 | Transportadora, caminhão, motorista, carga | carga |
 | Contrato, liberação, unidade de medida | liberação escolhida |
@@ -208,17 +208,26 @@ Tabela nova `SAP_INTEGRATION_SETTINGS` (uma linha por empresa), na mesma migrati
   item travados no documento vinculado.
 - O job trata também documento vinculado **Pendente** cuja invoice foi cancelada no SAP.
 
-## A confirmar no início da implementação (consulta somente leitura)
+## Confirmado em produção (consulta somente leitura, 16/11/2026)
 
-- Como `OINV.BPLId` se relaciona com `Branch.Code` do Siagro (não há mapeamento hoje) e como
-  `Process.CompanyId` se relaciona com a empresa/filial.
-- Formato de `KeyNfe` (44 dígitos puros ou com prefixo) e demais valores de `StatusId`.
-- Formato de número e série já gravados em `SALES_INVOICES` da Yokotobi, para a trava de
-  duplicidade casar com os registros antigos.
-- Tipos reais das colunas mapeadas (lição do `CRD1.County`).
-- Onde a invoice guarda incoterm e endereço de entrega (`INV12.Incoterms`, `OINV.ShipToCode`) e como
-  viram `FreightTerms` e `DeliveryCardCode` do Siagro; se o incoterm vier vazio ou fora de CIF/FOB,
-  o vínculo recusa com mensagem clara.
+- **Filial:** `OINV.BPLId` é o próprio `Branch.Code` do Siagro (3, 6, 7, 8), comparado como texto.
+  `Process.CompanyId` do InvOne também é o `BPLId`.
+- **InvOne:** `KeyNfe` vem com 44 dígitos puros; `StatusId` 4 = Autorizado, 10 = Cancelado (5 e 25
+  rejeitado/denegado, 12 erro, 17 inutilizado); `IsCanceled` é bit **anulável** (nulo = não).
+  Cancelado no add-on = `StatusId == 10` ou `IsCanceled == true`.
+- **Número e série** já gravados em `SALES_INVOICES`: `000198105` / `001` — o vínculo grava igual.
+- **Tipos:** `OINV.Model` nvarchar(6) (valor `'39'`), `Serial` int, `SeriesStr` nvarchar(3),
+  `CANCELED` char(1), `ShipToCode` nvarchar(50); `INV1.Usage` int, `CFOPCode` nvarchar(6),
+  `Quantity`/`Price`/`LineTotal` numeric(19,6), `unitMsr` nvarchar(100); `INV12.Carrier`
+  nvarchar(15), `Incoterms` nvarchar(3).
+- **Tipo de frete:** `INV12.Incoterms` é o modFrete da NF-e — `0` → `Cif`, `1` → `Fob`, `2` → `Ter`,
+  `9` → `None`. Outro valor ou vazio: a invoice não é vinculável.
+- **Local de entrega:** no Siagro é um código de parceiro (`DeliveryCardCode`, às vezes diferente do
+  cliente); a invoice do SAP só traz o nome do endereço (`ShipToCode`, ex.: "FATURAMENTO"), que não
+  identifica parceiro. Escolha do autor: `DeliveryCardCode` = `DeliveryLocationCode` da liberação de
+  venda escolhida (cadastro que já vem do SAP). `ShipToCode` não é mapeado.
+- **Frete por tonelada:** `ShipmentLoad.FreightPrice` → `SalesInvoice.FreightCostStandard`
+  (conferir a escala entre os dois campos na implementação; nulo vira 0).
 
 ## Deixado ao construtor
 

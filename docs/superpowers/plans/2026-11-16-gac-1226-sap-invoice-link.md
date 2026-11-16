@@ -32,19 +32,13 @@
 
 ---
 
-### Task 0: Confirmar os fatos do SAP (somente leitura)
+### Task 0: Confirmar os fatos do SAP — CONCLUÍDA em 16/11/2026
 
-**Files:**
-- Modify: `docs/superpowers/specs/2026-11-16-gac-1226-sap-invoice-link-design.md` (seção "A confirmar…" vira "Confirmado em …")
-
-- [ ] **Step 1:** Com autorização do usuário para leitura em produção, consultar por `sqlcmd -I` (com `SET DATEFORMAT ymd`):
-  - tipos de `OINV`/`INV1`/`INV12` das colunas a mapear (`INFORMATION_SCHEMA.COLUMNS`);
-  - `OBPL` (`BPLId`, `BPLName`, `TaxIdNum`) contra `BRANCHS` do `IDX_SIAGRO_PRD` → regra `BPLId → Branch.Code`;
-  - `DBInvOne.dbo.Process` de 5 invoices de grãos: `CompanyId`, `KeyNfe`, `StatusId`, `IsCanceled`; lista de `StatusId` distintos com a view `YJ_VW_NFE_STATUS`;
-  - `INV12.Incoterms` e `OINV.ShipToCode` das mesmas invoices; como `DeliveryCardCode` está gravado em `SALES_INVOICES` recentes da Yokotobi;
-  - formato de `TaxDocumentNumber`/`TaxDocumentSeries` em `SALES_INVOICES` recentes.
-- [ ] **Step 2:** Registrar os resultados no spec e ajustar as constantes das Tasks 2, 4 e 6 (mapeamento de filial, de incoterm e de local de entrega). Se algum mapeamento não for determinável pelos dados, parar e perguntar ao usuário.
-- [ ] **Step 3:** Commit (`docs(sap): registra os fatos confirmados no SAP da Yokotobi`).
+Resultados na seção "Confirmado em produção" do spec. Valem para as tarefas seguintes: filial =
+`BPLId.ToString() == Branch.Code`; `Process.CompanyId == BPLId`; autorizado = `StatusId == 4`;
+cancelado no add-on = `StatusId == 10 || IsCanceled == true`; incoterm `0/1/2/9` →
+`Cif/Fob/Ter/None`; `DeliveryCardCode` = `DeliveryLocationCode` da liberação; `ShipToCode` não é
+mapeado; frete = `ShipmentLoad.FreightPrice`.
 
 ### Task 1: Modo SAPB1, campos do vínculo e migration
 
@@ -80,7 +74,7 @@
       Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(IReadOnlyCollection<int> docEntries, CancellationToken ct = default);
   }
   ```
-- `SapInvoice` (tabela `OINV`, chave `DocEntry`): `DocNum`, `DocDate`, `CardCode`, `CardName`, `BPLId`, `Canceled` (coluna `CANCELED`), `Serial`, `SeriesStr`, `Model`, `ShipToCode`; coleção `Lines`; referência `Transport`. `SapInvoiceLine` (`INV1`, chave `DocEntry`+`LineNum`): `ItemCode`, `Quantity`, `Price`, `LineTotal`, `UnitMsr`, `Usage`, `CfopCode`. `SapInvoiceTransport` (`INV12`, chave `DocEntry`): `Carrier`, `Incoterms`. Tipos conforme a Task 0.
+- `SapInvoice` (tabela `OINV`, chave `DocEntry`): `DocNum`, `DocDate`, `CardCode`, `CardName`, `BPLId`, `Canceled` (coluna `CANCELED`), `Serial`, `SeriesStr`, `Model`; coleção `Lines`; referência `Transport`. `SapInvoiceLine` (`INV1`, chave `DocEntry`+`LineNum`): `ItemCode`, `Quantity`, `Price`, `LineTotal`, `UnitMsr`, `Usage`, `CfopCode`. `SapInvoiceTransport` (`INV12`, chave `DocEntry`): `Carrier`, `Incoterms`. Tipos conforme a Task 0.
 - `InvOneProcess` (`Process`): `DocType`, `DocEntry`, `CompanyId`, `KeyNfe`, `StatusId`, `IsCanceled`, `ProtocolNumber`. Sem chave declarada no banco → `HasNoKey()`.
 - Config: `ConnectionStrings:SapFiscalAddonDB`, `SAPB1:FiscalAddon` (`InvOne` | ausente). `Authorized` = `StatusId == 4`.
 
