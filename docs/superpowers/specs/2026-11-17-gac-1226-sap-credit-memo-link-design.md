@@ -141,3 +141,22 @@ fecharia); destinos sem nota no SAP (quebra no trajeto, transbordo), em que o se
 
 Nomes internos de métodos, organização dos testes, textos exatos das mensagens de erro (pt-BR) e o detalhe
 visual do diálogo, seguindo o padrão do "Vincular NF do SAP".
+
+## Verificação (17/11/2026)
+
+- Testes: suíte inteira do `SiagroB1.Application.Tests` verde (8.891). Frontend: `ts-typecheck` e `lint` limpos; os
+  7 testes unitários novos passam. A suíte do frontend tem 1 falha anterior a este trabalho
+  (`PaymentReleaseExportHelpers`, ordem das colunas de departamento).
+- Navegador, em `Erp=SAPB1`, contra as cópias `IDX_SIAGRO_DEV_GAC1226`/`IDX_SIAGRO_COMMON_GAC1226` e um SAP e um
+  InvOne **de mentira** em localhost (`STUB_SBO_GAC1226`, `STUB_INVONE_GAC1226`), carga CG000009: selo e tabela
+  nova; listagem (quantidade diferente marcada; outro cliente, cancelada e sem autorização fora); vínculo;
+  nota usada some da outra devolução; cancelamento no SAP desvincula pela sincronização; desvínculo manual.
+  Carga, documentos, romaneios, movimentos e alocações comparados por SQL antes e depois: idênticos.
+- **Não verificado:** nada contra o SAP/InvOne reais da Yokotobi; modo STANDALONE no navegador; lista e
+  formulário de documento de saída no navegador.
+
+## Limitação conhecida
+
+`SalesInvoice` não tem token de concorrência. Dois usuários vinculando notas DIFERENTES à mesma devolução ao mesmo
+tempo recebem sucesso e vale a última gravada (o índice único só impede a MESMA nota em duas devoluções). Pelo
+mesmo motivo, um estorno da devolução disparado no mesmo instante do vínculo pode passar pela trava.
