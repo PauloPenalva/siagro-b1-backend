@@ -133,6 +133,11 @@ switch (erp.ToUpper().Trim())
         builder.Services.AddScoped<SiagroB1.Application.Services.SAP.SapLinkableInvoicesService>();
         builder.Services.AddScoped<SiagroB1.Application.Services.ShipmentLoads.ShipmentLoadsLinkSapInvoiceService>();
 
+        // NF de devolução do SAP (A/R Credit Memo) na devolução da carga (GAC-1226): mesma razão.
+        builder.Services.AddScoped<SiagroB1.Application.Services.SAP.SapLinkableCreditMemosService>();
+        builder.Services.AddScoped<SiagroB1.Application.Services.ShipmentLoads.ShipmentLoadsLinkSapCreditMemoService>();
+        builder.Services.AddScoped<SiagroB1.Application.Services.ShipmentLoads.ShipmentLoadsUnlinkSapCreditMemoService>();
+
         // Sincronização do cancelamento das invoices vinculadas (GAC-1226): também lê o SAP.
         builder.Services.AddScoped<SiagroB1.Application.Services.SAP.SapInvoiceSyncService>();
         builder.Services.AddScoped<SiagroB1.Application.Services.SAP.ISapInvoiceSyncLock, SiagroB1.Application.Services.SAP.SqlServerSapInvoiceSyncLock>();
