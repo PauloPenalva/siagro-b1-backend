@@ -14,6 +14,12 @@ namespace SiagroB1.Application.Services.SAP;
 public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocumentSource
 {
     private const int ArInvoiceDocType = 13;
+
+    /// <summary>
+    /// DocType do A/R Credit Memo em <c>Process</c>. HIPÓTESE (ObjType de ORIN no SAP), ainda não conferida na base
+    /// da Yokotobi: com o valor errado nenhuma NF de devolução aparece para vincular (falha fechada).
+    /// </summary>
+    internal const int ArCreditMemoDocType = 14;
     private const int AuthorizedStatus = 4;
     private const int CancelledStatus = 10;
     private const int BatchSize = 1000;
@@ -25,8 +31,19 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
     /// linhas das duas filiais concorrem e vale a melhor delas pela ordem abaixo (autorizada primeiro). Quem chama não deve misturar filiais com o mesmo DocEntry (no SAP o
     /// DocEntry é único por base).
     /// </remarks>
-    public async Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
-        IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default)
+    public Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
+        IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default) =>
+        GetAsync(invoices, BuildQuery, ct);
+
+    /// <summary>Mesma leitura para as NF de devolução (A/R Credit Memo): só muda o DocType.</summary>
+    public Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForCreditMemosAsync(
+        IReadOnlyCollection<SapInvoiceRef> creditMemos, CancellationToken ct = default) =>
+        GetAsync(creditMemos, BuildCreditMemoQuery, ct);
+
+    private async Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetAsync(
+        IReadOnlyCollection<SapInvoiceRef> invoices,
+        Func<InvOneDbContext, IReadOnlyCollection<int>, IReadOnlyCollection<int>, IQueryable<InvOneProcess>> buildQuery,
+        CancellationToken ct)
     {
         var result = new Dictionary<int, SapFiscalDocumentInfo>();
 
@@ -42,7 +59,7 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
         foreach (var batch in wanted.Select(w => w.DocEntry).Distinct().Chunk(BatchSize))
         {
             // A tabela guarda várias bases (CompanyId = OINV.BPLId): filtra por filial também.
-            var rows = await BuildQuery(db, batch, branches).ToListAsync(ct);
+            var rows = await buildQuery(db, batch, branches).ToListAsync(ct);
 
             foreach (var group in rows.Where(p => p.DocEntry.HasValue && p.CompanyId.HasValue
                                              && pairs.Contains((p.DocEntry.Value, p.CompanyId.Value)))
@@ -71,14 +88,21 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
 
     /// <summary>Consulta de um lote; separada para o teste provar que traduz para SQL.</summary>
     internal static IQueryable<InvOneProcess> BuildQuery(
+        InvOneDbContext db, IReadOnlyCollection<int> docEntries, IReadOnlyCollection<int> branches) =>
+        BuildBatchQuery(db, docEntries, branches).Where(p => p.DocType == ArInvoiceDocType);
+
+    /// <summary>O lote das NF de devolução (A/R Credit Memo).</summary>
+    internal static IQueryable<InvOneProcess> BuildCreditMemoQuery(
+        InvOneDbContext db, IReadOnlyCollection<int> docEntries, IReadOnlyCollection<int> branches) =>
+        BuildBatchQuery(db, docEntries, branches).Where(p => p.DocType == ArCreditMemoDocType);
+
+    private static IQueryable<InvOneProcess> BuildBatchQuery(
         InvOneDbContext db, IReadOnlyCollection<int> docEntries, IReadOnlyCollection<int> branches)
     {
         var entries = docEntries.Select(d => (int?)d).ToList();
         var branchList = branches.Select(b => (int?)b).ToList();
         return db.Processes.AsNoTracking()
-            .Where(p => p.DocType == ArInvoiceDocType
-                        && entries.Contains(p.DocEntry)
-                        && branchList.Contains(p.CompanyId));
+            .Where(p => entries.Contains(p.DocEntry) && branchList.Contains(p.CompanyId));
     }
 
     private static bool IsAuthorized(InvOneProcess p) => p.StatusId == AuthorizedStatus;
