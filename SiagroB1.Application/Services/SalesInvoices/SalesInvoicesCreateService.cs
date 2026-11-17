@@ -238,7 +238,7 @@ public class SalesInvoicesCreateService(
         catch (Exception e)
         {
             logger.LogError("Error: {message}", e.Message);
-            throw new ApplicationException(e.Message);
+            throw new ApplicationException(e.Message, e);
         }
     }
 

@@ -206,7 +206,7 @@ public class SalesInvoiceSapLinkedRulesTests
     {
         await SeedAsync();
         await AddSapInvoiceAsync();
-        var invoice = await LinkService().ExecuteAsync(_load.Key, 1, _release.Key, "tester");
+        var invoice = (await LinkService().ExecuteAsync(_load.Key, [1], _release.Key, "tester")).Single();
         _db.Context.ChangeTracker.Clear();
         return invoice;
     }

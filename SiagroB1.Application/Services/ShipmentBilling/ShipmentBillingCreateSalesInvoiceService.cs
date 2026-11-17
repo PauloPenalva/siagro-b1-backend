@@ -10,6 +10,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Application.Services.ShipmentBilling;
@@ -58,7 +59,15 @@ public class ShipmentBillingCreateSalesInvoiceService(
     /// Invoice de saída do SAP a espelhar (GAC-1226). Só o fluxo de vínculo passa; o controller público
     /// nunca. Fora do SAPB1 é recusado: o vínculo não existe lá.
     /// </param>
-    public async Task ExecuteAsync(SalesInvoice salesInvoice, string username, SapInvoiceLink? sapLink = null)
+    /// <param name="commitMode">
+    /// <see cref="CommitMode.Deferred"/>: quem chama já abriu a transação e decide commit/rollback — é o
+    /// vínculo de várias NFs do SAP (GAC-1226 rodada 2), tudo ou nada. Todos os efeitos (alocação, saldo da
+    /// liberação, títulos, recálculo da carga, log) continuam aqui, gravados dentro dessa transação; não há
+    /// trabalho pós-commit. O faturamento manual usa o padrão (<see cref="CommitMode.Auto"/>).
+    /// </param>
+    public async Task ExecuteAsync(
+        SalesInvoice salesInvoice, string username, SapInvoiceLink? sapLink = null,
+        CommitMode commitMode = CommitMode.Auto)
     {
         Validate(salesInvoice);
 
@@ -113,7 +122,7 @@ public class ShipmentBillingCreateSalesInvoiceService(
             // Tudo numa transação só: sem ela o RollbackAsync abaixo era no-op e uma falha
             // depois do primeiro SaveChanges deixava invoice e vínculo gravados, mas com
             // erro na tela — convidando o usuário a refaturar.
-            await db.BeginTransactionAsync();
+            if (commitMode == CommitMode.Auto) await db.BeginTransactionAsync();
 
             await salesInvoicesCreateService.ExecuteAsync(salesInvoice, username);
 
@@ -169,13 +178,13 @@ public class ShipmentBillingCreateSalesInvoiceService(
                 await db.SaveChangesAsync();
             }
 
-            await db.CommitAsync();
+            if (commitMode == CommitMode.Auto) await db.CommitAsync();
         }
         catch (Exception e)
         {
-            await db.RollbackAsync();
+            if (commitMode == CommitMode.Auto) await db.RollbackAsync();
             logger.LogError(e, e.Message);
-            throw new ApplicationException(e.Message);
+            throw new ApplicationException(e.Message, e);
         }
     }
 

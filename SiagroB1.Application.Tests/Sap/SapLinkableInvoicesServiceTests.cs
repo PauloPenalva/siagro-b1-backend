@@ -182,12 +182,17 @@ public class SapLinkableInvoicesServiceTests
         Assert.Empty(await ListAsync());
     }
 
+    /// <summary>
+    /// GAC-1226 rodada 2: a NF entra se a quantidade for maior que zero, inclusive acima do saldo — ver
+    /// a NF ajuda a achar uma quantidade de carga digitada errada; quem barra é a regra da soma no vínculo.
+    /// </summary>
     [Theory]
-    [InlineData(0.001, true)]
-    [InlineData(-0.001, true)]
-    [InlineData(0.002, false)]
-    [InlineData(-0.002, false)]
-    public async Task Quantity_must_match_the_available_balance_within_a_thousandth(double delta, bool listed)
+    [InlineData(0, true)]
+    [InlineData(-50_000, true)]
+    [InlineData(10_000, true)]
+    [InlineData(-90_000, false)]
+    [InlineData(-100_000, false)]
+    public async Task Quantity_must_be_positive_with_no_upper_bound(double delta, bool listed)
     {
         await SeedLoadAsync();
         await AddInvoiceAsync(1, tweakLine: l => l.Quantity = Quantity + (decimal)delta);
@@ -199,7 +204,7 @@ public class SapLinkableInvoicesServiceTests
     public async Task Available_balance_discounts_what_was_already_invoiced()
     {
         await SeedLoadAsync();
-        // Nota viva de 30.000 na carga: o saldo cai para 60.000 e a invoice de 90.000 sai.
+        // Nota viva de 30.000 na carga: o saldo cai para 60.000; as duas invoices aparecem (sem teto).
         var invoice = new SalesInvoice
         {
             Key = Guid.NewGuid(), CardCode = "C0001", BranchCode = "3", ShipmentLoadKey = _load.Key,
@@ -212,7 +217,7 @@ public class SapLinkableInvoicesServiceTests
         await AddInvoiceAsync(1);
         await AddInvoiceAsync(2, tweakLine: l => l.Quantity = 60_000m);
 
-        Assert.Equal(2, Assert.Single(await ListAsync()).DocEntry);
+        Assert.Equal([1, 2], (await ListAsync()).Select(d => d.DocEntry).OrderBy(d => d));
     }
 
     [Fact]
@@ -481,9 +486,9 @@ public class SapLinkableInvoicesServiceTests
             .UseSqlServer("Server=localhost;Database=dummy;User Id=x;Password=x;TrustServerCertificate=True").Options);
 
         var list = SapLinkableInvoicesService.BuildSapQuery(
-            sap, Item, 3, Quantity, Today.AddDays(-15), Today.AddDays(1), null).ToQueryString();
+            sap, Item, 3, Today.AddDays(-15), Today.AddDays(1), null).ToQueryString();
         var find = SapLinkableInvoicesService.BuildSapQuery(
-            sap, Item, 3, Quantity, null, null, 42).ToQueryString();
+            sap, Item, 3, null, null, 42).ToQueryString();
 
         foreach (var sql in new[] { list, find })
         {

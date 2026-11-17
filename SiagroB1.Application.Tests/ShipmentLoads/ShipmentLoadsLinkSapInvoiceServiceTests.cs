@@ -60,9 +60,26 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
             Task.FromResult<IReadOnlyDictionary<int, SapFiscalDocumentInfo>>(infos.ToDictionary(i => i.DocEntry));
     }
 
+    /// <summary>
+    /// Registra Begin/Commit/Rollback: o InMemory não desfaz nada no rollback, então a atomicidade do
+    /// lote é provada pelo protocolo (uma transação, commit só no fim, rollback na falha).
+    /// </summary>
+    private sealed class RecordingUnitOfWork(UnitOfWork inner) : IUnitOfWork
+    {
+        public List<string> Log { get; } = [];
+        public AppDbContext Context => inner.Context;
+        public Task BeginTransactionAsync() { Log.Add("Begin"); return inner.BeginTransactionAsync(); }
+        public Task CommitAsync() { Log.Add("Commit"); return inner.CommitAsync(); }
+        public Task RollbackAsync() { Log.Add("Rollback"); return inner.RollbackAsync(); }
+        public Task SaveChangesAsync() => inner.SaveChangesAsync();
+    }
+
+    private RecordingUnitOfWork? _recorder;
+
     private ShipmentLoadsLinkSapInvoiceService Service(
         string erp = "SAPB1", ISapFiscalDocumentSource? fiscal = null)
     {
+        _recorder = new RecordingUnitOfWork(_db);
         var usages = new Services.UsageService(_db, NullLogger<Services.UsageService>.Instance);
         IBusinessPartnerService partners = new FakeBusinessPartnerService(
             names: new Dictionary<string, string> { [CardCode] = "CLIENTE TESTE" },
@@ -70,7 +87,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         var config = AccountingTestData.Config(erp);
 
         var billing = new ShipmentBillingCreateSalesInvoiceService(
-            _db,
+            _recorder,
             new SalesInvoicesCreateService(
                 _db,
                 partners,
@@ -92,7 +109,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
             configuration: config);
 
         return new ShipmentLoadsLinkSapInvoiceService(
-            _db,
+            _recorder,
             new SapLinkableInvoicesService(
                 _db.Context, _sap, fiscal ?? new FakeFiscal(), new ShipmentLoadsBillingGuardService(_db.Context)),
             new SalesInvoiceTaxDocumentDuplicateGuard(_db.Context),
@@ -134,7 +151,8 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
     }
 
     private async Task AddSapInvoiceAsync(int docEntry = 1, decimal quantity = Quantity,
-        string carrier = Carrier, string incoterms = "1", string? canceled = "N", string cardCode = CardCode)
+        string carrier = Carrier, string incoterms = "1", string? canceled = "N", string cardCode = CardCode,
+        int? serial = null)
     {
         _sap.SapInvoices.Add(new SapInvoice
         {
@@ -145,7 +163,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
             CardName = "CLIENTE TESTE",
             BPLId = 3,
             Canceled = canceled,
-            Serial = 198105,
+            Serial = serial ?? 198104 + docEntry,
             SeriesStr = "1",
             Model = "39",
         });
@@ -169,8 +187,10 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         Assert.Equal(0m, load.InvoicedQuantity);
     }
 
-    private Task<SalesInvoice> LinkAsync(ShipmentLoadsLinkSapInvoiceService? service = null, int docEntry = 1) =>
-        (service ?? Service()).ExecuteAsync(_load.Key, docEntry, _release.Key, "tester");
+    private Task<IReadOnlyList<SalesInvoice>> LinkAsync(
+        ShipmentLoadsLinkSapInvoiceService? service = null, params int[] docEntries) =>
+        (service ?? Service()).ExecuteAsync(
+            _load.Key, docEntries.Length == 0 ? [1] : docEntries, _release.Key, "tester");
 
     [Fact]
     public async Task Links_creating_a_confirmed_document_mirroring_the_sap_invoice()
@@ -181,7 +201,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         var created = await LinkAsync();
 
         var saved = await _db.Context.SalesInvoices.AsNoTracking().Include(i => i.Items).SingleAsync();
-        Assert.Equal(created.Key, saved.Key);
+        Assert.Equal(Assert.Single(created).Key, saved.Key);
         Assert.Equal(InvoiceStatus.Confirmed, saved.InvoiceStatus);
         Assert.Equal(TaxDocumentKind.Nfe, saved.TaxDocumentKind);
         Assert.False(saved.WithoutTaxDocument);
@@ -228,7 +248,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
 
         var movement = await _db.Context.ShipmentLoadMovements.AsNoTracking().SingleAsync();
         Assert.Equal(ShipmentLoadMovementType.Billed, movement.MovementType);
-        Assert.Equal(created.Key, movement.SalesInvoiceKey);
+        Assert.Equal(Assert.Single(created).Key, movement.SalesInvoiceKey);
     }
 
     [Fact]
@@ -310,21 +330,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         await AddSapInvoiceAsync();
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            Service().ExecuteAsync(Guid.NewGuid(), 1, _release.Key, "tester"));
-    }
-
-    [Fact]
-    public async Task Quantity_different_from_the_load_balance_is_refused_with_both_numbers()
-    {
-        await SeedAsync();
-        await AddSapInvoiceAsync(quantity: 80_000m);
-
-        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync());
-
-        Assert.Equal(
-            "A quantidade da NF do SAP (80.000,000) é diferente do saldo da carga CG000010 (90.000,000). " +
-            "O vínculo exige quantidades iguais.", ex.Message);
-        await AssertNothingPersistedAsync();
+            Service().ExecuteAsync(Guid.NewGuid(), [1], _release.Key, "tester"));
     }
 
     [Fact]
@@ -335,7 +341,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
 
         var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync());
 
-        Assert.Equal("A NF do SAP não está mais disponível para vínculo.", ex.Message);
+        Assert.Equal("A NF do SAP 000198105 não está mais disponível para vínculo.", ex.Message);
         await AssertNothingPersistedAsync();
     }
 
@@ -344,9 +350,9 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
     {
         await SeedAsync();
 
-        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(docEntry: 99));
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, 99));
 
-        Assert.Equal("A NF do SAP não está mais disponível para vínculo.", ex.Message);
+        Assert.Equal("A NF do SAP 99 não está mais disponível para vínculo.", ex.Message);
     }
 
     [Fact]
@@ -442,7 +448,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         await AddSapInvoiceAsync();
 
         var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
-            Service().ExecuteAsync(_load.Key, 1, Guid.NewGuid(), "tester"));
+            Service().ExecuteAsync(_load.Key, [1], Guid.NewGuid(), "tester"));
 
         Assert.Equal("A liberação de entrega informada não está disponível para esta carga.", ex.Message);
     }
@@ -522,5 +528,284 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         var ex = await Assert.ThrowsAsync<ApplicationException>(() => test.LinkAsync());
 
         Assert.Equal("A NF 000198105 do SAP já está vinculada ao documento de saída 000777.", ex.Message);
+    }
+
+    // ---------- GAC-1226 rodada 2: várias NFs na mesma carga ----------
+
+    [Fact]
+    public async Task Two_invoices_summing_the_balance_create_one_document_each_in_input_order()
+    {
+        await SeedAsync();
+        await AddSapInvoiceAsync(1, quantity: 60_000m);
+        await AddSapInvoiceAsync(2, quantity: 30_000m);
+
+        var created = await LinkAsync(null, 2, 1);
+
+        Assert.Equal(2, created.Count);
+        Assert.Equal(2, created[0].SapDocEntry);
+        Assert.Equal(1, created[1].SapDocEntry);
+        Assert.NotEqual(created[0].InvoiceNumber, created[1].InvoiceNumber);
+
+        var saved = await _db.Context.SalesInvoices.AsNoTracking().Include(i => i.Items).ToListAsync();
+        Assert.Equal(2, saved.Count);
+        var first = saved.Single(i => i.SapDocEntry == 1);
+        var second = saved.Single(i => i.SapDocEntry == 2);
+        Assert.Equal("000198105", first.TaxDocumentNumber);
+        Assert.Equal("000198106", second.TaxDocumentNumber);
+        Assert.Equal(1001, first.SapDocNum);
+        Assert.Equal(1002, second.SapDocNum);
+        Assert.Equal(60_000m, Assert.Single(first.Items).Quantity);
+        Assert.Equal(30_000m, Assert.Single(second.Items).Quantity);
+        Assert.All(saved, i => Assert.Equal(InvoiceStatus.Confirmed, i.InvoiceStatus));
+
+        var load = await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync();
+        Assert.Equal(ShipmentLoadStatus.Invoiced, load.Status);
+        Assert.Equal(Quantity, load.InvoicedQuantity);
+
+        var release = await _db.Context.SalesShipmentReleases.AsNoTracking().SingleAsync();
+        Assert.Equal(Quantity, release.ShippedQuantity);
+
+        Assert.NotEmpty(await _db.Context.SalesContractsAllocations.AsNoTracking().ToListAsync());
+
+        var movements = await _db.Context.ShipmentLoadMovements.AsNoTracking().ToListAsync();
+        Assert.Equal(2, movements.Count);
+        Assert.All(movements, m => Assert.Equal(ShipmentLoadMovementType.Billed, m.MovementType));
+        Assert.Equal(
+            saved.Select(i => i.Key).OrderBy(k => k),
+            movements.Select(m => m.SalesInvoiceKey!.Value).OrderBy(k => k));
+
+        // Uma transação para o lote inteiro: o orquestrador não comita por documento.
+        Assert.Equal(["Begin", "Commit"], _recorder!.Log);
+    }
+
+    [Fact]
+    public async Task One_invoice_equal_to_the_balance_still_links_in_one_transaction()
+    {
+        await SeedAsync();
+        await AddSapInvoiceAsync();
+
+        var created = await LinkAsync();
+
+        Assert.Single(created);
+        Assert.Equal(["Begin", "Commit"], _recorder!.Log);
+    }
+
+    [Theory]
+    [InlineData(50_000, 30_000, "80.000,000")]
+    [InlineData(60_000, 40_000, "100.000,000")]
+    [InlineData(80_000, 0, "80.000,000")]
+    [InlineData(95_000, 0, "95.000,000")]
+    public async Task Sum_different_from_the_balance_is_refused_and_nothing_is_persisted(
+        int q1, int q2, string sum)
+    {
+        await SeedAsync();
+        await AddSapInvoiceAsync(1, quantity: q1);
+        int[] entries = [1];
+        if (q2 > 0)
+        {
+            await AddSapInvoiceAsync(2, quantity: q2);
+            entries = [1, 2];
+        }
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, entries));
+
+        Assert.Equal(
+            $"A soma das notas fiscais do SAP ({sum}) é diferente do saldo da carga CG000010 (90.000,000). " +
+            "O vínculo exige que a soma seja igual ao saldo.", ex.Message);
+        await AssertNothingPersistedAsync();
+    }
+
+    [Fact]
+    public async Task Invoices_of_different_customers_are_refused()
+    {
+        await SeedAsync();
+        await AddSapInvoiceAsync(1, quantity: 60_000m);
+        await AddSapInvoiceAsync(2, quantity: 30_000m, cardCode: "C0002");
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, 1, 2));
+
+        Assert.Equal("As notas fiscais selecionadas devem ser do mesmo cliente.", ex.Message);
+        await AssertNothingPersistedAsync();
+    }
+
+    [Fact]
+    public async Task Empty_list_is_refused()
+    {
+        await SeedAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            Service().ExecuteAsync(_load.Key, [], _release.Key, "tester"));
+
+        Assert.Equal("Selecione ao menos uma nota fiscal do SAP.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Repeated_doc_entry_is_refused()
+    {
+        await SeedAsync();
+        await AddSapInvoiceAsync(1, quantity: 45_000m);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, 1, 1));
+
+        Assert.Equal("A mesma nota fiscal do SAP foi informada mais de uma vez.", ex.Message);
+        await AssertNothingPersistedAsync();
+    }
+
+    [Fact]
+    public async Task One_invoice_cancelled_in_sap_blocks_the_whole_batch()
+    {
+        await SeedAsync();
+        await AddSapInvoiceAsync(1, quantity: 60_000m);
+        await AddSapInvoiceAsync(2, quantity: 30_000m, canceled: "Y");
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, 1, 2));
+
+        Assert.Equal("A NF do SAP 000198106 não está mais disponível para vínculo.", ex.Message);
+        await AssertNothingPersistedAsync();
+    }
+
+    [Fact]
+    public async Task One_invoice_already_linked_blocks_the_whole_batch()
+    {
+        await SeedAsync();
+        await AddSapInvoiceAsync(1, quantity: 60_000m);
+        await AddSapInvoiceAsync(2, quantity: 30_000m);
+        _db.Context.SalesInvoices.Add(new SalesInvoice
+        {
+            Key = Guid.NewGuid(), InvoiceNumber = "000321", CardCode = CardCode, BranchCode = SapBranch,
+            InvoiceStatus = InvoiceStatus.Confirmed, TaxDocumentNumber = "000198106", SapDocEntry = 2,
+        });
+        await _db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, 1, 2));
+
+        Assert.Equal("A NF 000198106 do SAP já está vinculada ao documento de saída 000321.", ex.Message);
+        Assert.Equal(1, await InvoiceCountAsync());
+    }
+
+    /// <summary>
+    /// Prova de atomicidade: duas NFs do SAP com o mesmo número/série — a segunda cai na trava de
+    /// duplicidade DEPOIS de o primeiro documento ter sido gravado. O InMemory não desfaz gravação, então
+    /// a prova é o protocolo: uma única transação, nenhum commit e rollback na falha (no SQL Server o
+    /// rollback apaga o primeiro documento e todos os seus efeitos).
+    /// </summary>
+    [Fact]
+    public async Task Failure_on_the_second_document_rolls_back_the_whole_batch_without_committing()
+    {
+        await SeedAsync();
+        await AddSapInvoiceAsync(1, quantity: 60_000m, serial: 500);
+        await AddSapInvoiceAsync(2, quantity: 30_000m, serial: 500);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, 1, 2));
+
+        Assert.StartsWith("Nota fiscal 000000500, série 001 já informada no documento de saída", ex.Message);
+        Assert.Equal(["Begin", "Rollback"], _recorder!.Log);
+    }
+
+    /// <summary>Falha do orquestrador no segundo documento (simulada no SaveChanges): mesmo protocolo.</summary>
+    private sealed class FailOnSecondInvoiceInterceptor : SaveChangesInterceptor
+    {
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken ct = default)
+        {
+            if (eventData.Context!.ChangeTracker.Entries<SalesInvoice>()
+                .Any(e => e.State == EntityState.Added && e.Entity.Items.Any(i => i.Quantity == 30_000m)))
+                throw new InvalidOperationException("falha simulada no segundo documento");
+
+            return base.SavingChangesAsync(eventData, result, ct);
+        }
+    }
+
+    [Fact]
+    public async Task Orchestrator_failure_on_the_second_document_rolls_back_without_committing()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var test = new ShipmentLoadsLinkSapInvoiceServiceTests(new FailOnSecondInvoiceInterceptor(), dbName);
+        await test.SeedAsync();
+        await test.AddSapInvoiceAsync(1, quantity: 60_000m);
+        await test.AddSapInvoiceAsync(2, quantity: 30_000m);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => test.LinkAsync(null, 1, 2));
+
+        Assert.Equal("falha simulada no segundo documento", ex.Message);
+        Assert.Equal(["Begin", "Rollback"], test._recorder!.Log);
+    }
+
+    /// <summary>Falha inesperada de gravação (DbUpdateException) no segundo documento.</summary>
+    private sealed class DbUpdateFailureOnSecondInvoiceInterceptor : SaveChangesInterceptor
+    {
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken ct = default)
+        {
+            if (eventData.Context!.ChangeTracker.Entries<SalesInvoice>()
+                .Any(e => e.State == EntityState.Added && e.Entity.Items.Any(i => i.Quantity == 30_000m)))
+                throw new DbUpdateException(
+                    "An error occurred while saving the entity changes. See the inner exception for details.");
+
+            return base.SavingChangesAsync(eventData, result, ct);
+        }
+    }
+
+    [Fact]
+    public async Task Unexpected_db_update_failure_surfaces_as_a_clear_business_error()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var test = new ShipmentLoadsLinkSapInvoiceServiceTests(new DbUpdateFailureOnSecondInvoiceInterceptor(), dbName);
+        await test.SeedAsync();
+        await test.AddSapInvoiceAsync(1, quantity: 60_000m);
+        await test.AddSapInvoiceAsync(2, quantity: 30_000m);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => test.LinkAsync(null, 1, 2));
+
+        Assert.Equal(
+            "Não foi possível vincular as notas fiscais do SAP. Nenhuma alteração foi gravada. Tente novamente.",
+            ex.Message);
+        Assert.Equal(["Begin", "Rollback"], test._recorder!.Log);
+    }
+
+    [Fact]
+    public async Task Guard_business_error_keeps_its_own_message()
+    {
+        await SeedAsync();
+        await AddSapInvoiceAsync(1, quantity: 60_000m, serial: 500);
+        await AddSapInvoiceAsync(2, quantity: 30_000m, serial: 500);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, 1, 2));
+
+        Assert.StartsWith("Nota fiscal 000000500", ex.Message);
+    }
+
+    [Fact]
+    public async Task Orchestrator_keeps_the_original_exception_as_inner_exception()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var test = new ShipmentLoadsLinkSapInvoiceServiceTests(new FailOnSecondInvoiceInterceptor(), dbName);
+        await test.SeedAsync();
+        await test.AddSapInvoiceAsync(1, quantity: 60_000m);
+        await test.AddSapInvoiceAsync(2, quantity: 30_000m);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => test.LinkAsync(null, 1, 2));
+
+        Assert.NotNull(ex.InnerException);
+        var root = ex.InnerException;
+        while (root!.InnerException != null) root = root.InnerException;
+        Assert.IsType<InvalidOperationException>(root);
+    }
+
+    [Fact]
+    public void Parses_a_valid_list_of_doc_entries()
+    {
+        Assert.True(ShipmentLoadsLinkSapInvoiceService.TryParseDocEntries(new List<int> { 5, 7 }, out var entries));
+        Assert.Equal([5, 7], entries);
+    }
+
+    [Fact]
+    public void Rejects_null_zero_negative_and_non_collection_doc_entries()
+    {
+        Assert.False(ShipmentLoadsLinkSapInvoiceService.TryParseDocEntries(new List<int?> { 5, null }, out _));
+        Assert.False(ShipmentLoadsLinkSapInvoiceService.TryParseDocEntries(new List<int> { 5, 0 }, out _));
+        Assert.False(ShipmentLoadsLinkSapInvoiceService.TryParseDocEntries(new List<int> { -3 }, out _));
+        Assert.False(ShipmentLoadsLinkSapInvoiceService.TryParseDocEntries("12", out _));
+        Assert.False(ShipmentLoadsLinkSapInvoiceService.TryParseDocEntries(null, out _));
     }
 }

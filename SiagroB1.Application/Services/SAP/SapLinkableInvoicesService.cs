@@ -29,7 +29,7 @@ public class SapLinkableInvoicesService(
     /// <summary>Modelo '39' do SAP = NF-e (modelo 55 na tabela ONFM).</summary>
     private const string NfeModel = "39";
 
-    /// <summary>Tolerância de um milésimo na comparação da quantidade com o saldo da carga.</summary>
+    /// <summary>Tolerância de um milésimo: carga com saldo até este valor não tem o que vincular.</summary>
     private const decimal QuantityTolerance = 0.001m;
 
     /// <summary>Máximo de linhas devolvidas, as mais recentes primeiro.</summary>
@@ -47,34 +47,42 @@ public class SapLinkableInvoicesService(
         var from = dateFrom.Date;
         var toExclusive = dateTo.Date.AddDays(1);
 
-        return await QueryAsync(loadKey, from, toExclusive, null, false, ct);
+        return await QueryAsync(loadKey, from, toExclusive, null, ct);
     }
 
     /// <summary>Mesmas regras da listagem para um único documento, sem filtro de período.</summary>
     public async Task<SapLinkableInvoiceDto?> FindAsync(
         Guid loadKey, int docEntry, CancellationToken ct = default) =>
-        (await QueryAsync(loadKey, null, null, docEntry, false, ct)).FirstOrDefault();
+        (await QueryAsync(loadKey, null, null, docEntry, ct)).FirstOrDefault();
 
     /// <summary>
-    /// Como <see cref="FindAsync"/>, mas SEM a regra da quantidade: devolve a invoice quando só a
-    /// quantidade a barra. Existe para a ação de vínculo distinguir "quantidade diferente" de "não
-    /// está mais disponível" sem repetir a consulta.
+    /// Número da NF (9 dígitos) de uma invoice do SAP, sem regra nenhuma — só para a mensagem de recusa
+    /// do vínculo. Nulo quando o documento não existe, não tem número ou o SAP não responde.
     /// </summary>
-    public async Task<SapLinkableInvoiceDto?> FindIgnoringQuantityAsync(
-        Guid loadKey, int docEntry, CancellationToken ct = default) =>
-        (await QueryAsync(loadKey, null, null, docEntry, true, ct)).FirstOrDefault();
+    public async Task<string?> FindTaxDocumentNumberAsync(int docEntry, CancellationToken ct = default)
+    {
+        try
+        {
+            var serial = await sap.SapInvoices.AsNoTracking()
+                .Where(i => i.DocEntry == docEntry)
+                .Select(i => i.Serial)
+                .FirstOrDefaultAsync(ct);
+            return serial?.ToString("D9");
+        }
+        catch (Exception e) when (e is DbException or TimeoutException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>
     /// Filtros que o SQL do SAP consegue aplicar. "Exatamente uma linha" e "item da linha" ficam
     /// traduzíveis (<c>Count()</c> e <c>Any</c>) e só depois vem a projeção.
     /// </summary>
     public static IQueryable<SapInvoiceProjection> BuildSapQuery(
-        SapErpDbContext sap, string itemCode, int branchId, decimal available,
-        DateTime? from, DateTime? toExclusive, int? docEntry, bool ignoreQuantity = false)
+        SapErpDbContext sap, string itemCode, int branchId,
+        DateTime? from, DateTime? toExclusive, int? docEntry)
     {
-        var min = available - QuantityTolerance;
-        var max = available + QuantityTolerance;
-
         var query = sap.SapInvoices.AsNoTracking()
             .Where(i => i.Canceled == "N"
                         && i.Model == NfeModel
@@ -84,10 +92,10 @@ public class SapLinkableInvoicesService(
                         && (i.Transport.Incoterms == "0" || i.Transport.Incoterms == "1"
                             || i.Transport.Incoterms == "2" || i.Transport.Incoterms == "9")
                         && i.Lines.Count() == 1
-                        && i.Lines.Any(l => l.ItemCode == itemCode));
-
-        if (!ignoreQuantity)
-            query = query.Where(i => i.Lines.Any(l => l.Quantity >= min && l.Quantity <= max));
+                        && i.Lines.Any(l => l.ItemCode == itemCode)
+                        // GAC-1226 rodada 2: sem teto — a NF maior que o saldo aparece (ajuda a achar a
+                        // quantidade de carga digitada errada); quem barra é a regra da soma no vínculo.
+                        && i.Lines.Any(l => l.Quantity > 0));
 
         if (from is { } f) query = query.Where(i => i.DocDate >= f);
         if (toExclusive is { } t) query = query.Where(i => i.DocDate < t);
@@ -143,7 +151,7 @@ public class SapLinkableInvoicesService(
         query.ToListAsync(ct);
 
     private async Task<List<SapLinkableInvoiceDto>> QueryAsync(
-        Guid loadKey, DateTime? from, DateTime? toExclusive, int? docEntry, bool ignoreQuantity, CancellationToken ct)
+        Guid loadKey, DateTime? from, DateTime? toExclusive, int? docEntry, CancellationToken ct)
     {
         var load = await context.ShipmentLoads
             .AsNoTracking()
@@ -159,15 +167,14 @@ public class SapLinkableInvoicesService(
             return [];
 
         var available = await loadGuard.CalculateAvailableAsync(loadKey);
-        // Sem a regra da quantidade o saldo não filtra nada: o zero também precisa chegar ao diagnóstico.
-        if (available <= QuantityTolerance && !ignoreQuantity)
+        if (available <= QuantityTolerance)
             return [];
 
         List<SapInvoiceProjection> rows;
         try
         {
             rows = await ExecuteSapQueryAsync(
-                BuildSapQuery(sap, load.ItemCode, branchId, available, from, toExclusive, docEntry, ignoreQuantity), ct);
+                BuildSapQuery(sap, load.ItemCode, branchId, from, toExclusive, docEntry), ct);
         }
         catch (Exception e) when (e is DbException or TimeoutException)
         {
