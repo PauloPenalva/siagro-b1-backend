@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.SalesContracts;
@@ -49,6 +50,11 @@ public class SapInvoiceSyncServiceTests
         services.AddScoped<SalesInvoiceTaxDocumentDuplicateGuard>();
         services.AddScoped<SalesInvoicesCancelService>();
         services.AddScoped<SalesInvoicesDeleteService>();
+        services.AddScoped<SalesInvoicesChangeLogService>();
+        services.AddScoped(sp => new ShipmentLoadsUnlinkSapCreditMemoService(
+            sp.GetRequiredService<IUnitOfWork>(), sp.GetRequiredService<SalesInvoicesChangeLogService>(),
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["Erp"] = "SAPB1" }).Build()));
         services.AddScoped<ICompanyContext>(_ => new FakeCompanyContext());
         _provider = services.BuildServiceProvider();
         _context = new AppDbContext(TestDb.Options(_dbName));
@@ -82,11 +88,15 @@ public class SapInvoiceSyncServiceTests
     /// <summary>Costura de teste da leitura do SAP: simula o banco fora do ar e registra o tamanho dos lotes.</summary>
     private sealed class SpySapSyncService(
         AppDbContext context, SapErpDbContext sap, ISapFiscalDocumentSource fiscal,
-        IServiceScopeFactory scopes, TimeProvider clock, ISapInvoiceSyncLock syncLock, Exception? sapFailure = null)
+        IServiceScopeFactory scopes, TimeProvider clock, ISapInvoiceSyncLock syncLock, Exception? sapFailure = null,
+        Exception? creditMemoFailure = null)
         : SapInvoiceSyncService(context, sap, fiscal, scopes, clock, NullLogger<SapInvoiceSyncService>.Instance,
             new FakeCompanyContext(), syncLock)
     {
         public List<int> ChunkSizes { get; } = [];
+
+        protected override Task<List<SapInvoiceStatus>> ReadSapCreditMemoChunkAsync(int[] docEntries, CancellationToken ct) =>
+            creditMemoFailure is not null ? throw creditMemoFailure : base.ReadSapCreditMemoChunkAsync(docEntries, ct);
 
         protected override Task<List<SapInvoiceStatus>> ReadSapChunkAsync(int[] docEntries, CancellationToken ct)
         {
@@ -106,9 +116,46 @@ public class SapInvoiceSyncServiceTests
 
     private SpySapSyncService Service(
         ISapFiscalDocumentSource? fiscal = null, Exception? sapFailure = null, IServiceScopeFactory? scopes = null,
-        ISapInvoiceSyncLock? syncLock = null) =>
+        ISapInvoiceSyncLock? syncLock = null, Exception? creditMemoFailure = null) =>
         new(new AppDbContext(TestDb.Options(_dbName)), _sap, fiscal ?? new FakeFiscal(),
-            scopes ?? _provider.GetRequiredService<IServiceScopeFactory>(), _clock, syncLock ?? _lock, sapFailure);
+            scopes ?? _provider.GetRequiredService<IServiceScopeFactory>(), _clock, syncLock ?? _lock, sapFailure,
+            creditMemoFailure);
+
+    /// <summary>Add-on que só conhece NF de devolução (A/R Credit Memo); para invoice responde vazio.</summary>
+    private sealed class CreditMemoFiscal(params SapFiscalDocumentInfo[] infos) : ISapFiscalDocumentSource
+    {
+        public bool IsAvailable => true;
+
+        public Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
+            IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyDictionary<int, SapFiscalDocumentInfo>>(new Dictionary<int, SapFiscalDocumentInfo>());
+
+        public Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForCreditMemosAsync(
+            IReadOnlyCollection<SapInvoiceRef> creditMemos, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyDictionary<int, SapFiscalDocumentInfo>>(infos.ToDictionary(i => i.DocEntry));
+    }
+
+    /// <summary>Devolução confirmada com a NF de devolução do SAP vinculada.</summary>
+    private async Task<SalesInvoice> SeedLinkedReturnAsync(int docEntry, string? chave = null)
+    {
+        var invoice = new SalesInvoice
+        {
+            Key = Guid.NewGuid(), CardCode = "C0001", BranchCode = "3", InvoiceNumber = $"DV{docEntry:D6}",
+            InvoiceType = SalesInvoiceType.Return, InvoiceStatus = InvoiceStatus.Confirmed,
+            SapCreditMemoDocEntry = docEntry, SapCreditMemoDocNum = docEntry + 2000,
+            TaxDocumentNumber = "000004512", TaxDocumentSeries = "001", ChaveNFe = chave,
+        };
+        _context.SalesInvoices.Add(invoice);
+        await _context.SaveChangesAsync();
+        return invoice;
+    }
+
+    private async Task AddSapCreditMemoAsync(int docEntry, string canceled = "N", int branch = 3)
+    {
+        _sap.SapCreditMemos.Add(new SapCreditMemo
+            { DocEntry = docEntry, DocNum = docEntry + 2000, BPLId = branch, Canceled = canceled });
+        await _sap.SaveChangesAsync();
+    }
 
     /// <summary>Trava que estoura ao ADQUIRIR (ex.: banco da empresa fora do ar).</summary>
     private sealed class ThrowingLock(Exception failure) : ISapInvoiceSyncLock
@@ -743,5 +790,151 @@ public class SapInvoiceSyncServiceTests
 
         Assert.Equal(InvoiceStatus.Confirmed, (await ReloadAsync(invoice.Key)).InvoiceStatus);
         Assert.False((await ReloadAsync(invoice.Key)).SapCancelPending);
+    }
+
+    // ---------- NF de devolução (A/R Credit Memo) ----------
+
+    private static void AssertUnlinked(SalesInvoice saved)
+    {
+        // Desvinculada, nunca cancelada: o físico da devolução não depende da nota.
+        Assert.Equal(InvoiceStatus.Confirmed, saved.InvoiceStatus);
+        Assert.Null(saved.SapCreditMemoDocEntry);
+        Assert.Null(saved.SapCreditMemoDocNum);
+        Assert.Null(saved.TaxDocumentNumber);
+        Assert.Null(saved.TaxDocumentSeries);
+        Assert.Null(saved.ChaveNFe);
+    }
+
+    [Fact]
+    public async Task Credit_memo_canceled_in_orin_unlinks_the_return_and_keeps_it_confirmed()
+    {
+        var ret = await SeedLinkedReturnAsync(1, chave: new string('1', 44));
+        await AddSapCreditMemoAsync(1, canceled: "Y");
+
+        await Service().ExecuteAsync(CancellationToken.None);
+
+        AssertUnlinked(await ReloadAsync(ret.Key));
+        await using var fresh = new AppDbContext(TestDb.Options(_dbName));
+        var log = await fresh.SalesInvoicesChangeLogs.AsNoTracking().SingleAsync();
+        Assert.Equal("sap-sync", log.ChangedBy);
+        Assert.Equal(ContractChangeLogFields.SapReturnInvoice, log.Field);
+        Assert.Equal("NF de devolução cancelada no SAP.", log.NewValue);
+        Assert.NotNull((await SettingsRowAsync())!.InvoiceSyncLastRunAt);
+    }
+
+    [Fact]
+    public async Task Credit_memo_cancelled_only_in_the_addon_unlinks_the_return()
+    {
+        var ret = await SeedLinkedReturnAsync(1);
+        await AddSapCreditMemoAsync(1);
+
+        await Service(new CreditMemoFiscal(new SapFiscalDocumentInfo(1, null, true, true, null)))
+            .ExecuteAsync(CancellationToken.None);
+
+        AssertUnlinked(await ReloadAsync(ret.Key));
+    }
+
+    [Fact]
+    public async Task Active_credit_memo_and_credit_memo_missing_from_sap_are_left_alone()
+    {
+        var active = await SeedLinkedReturnAsync(1);
+        var missing = await SeedLinkedReturnAsync(2);
+        await AddSapCreditMemoAsync(1);
+
+        await Service().ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(1, (await ReloadAsync(active.Key)).SapCreditMemoDocEntry);
+        Assert.Equal(2, (await ReloadAsync(missing.Key)).SapCreditMemoDocEntry);
+    }
+
+    [Fact]
+    public async Task Credit_memo_of_another_branch_never_unlinks_the_return()
+    {
+        var ret = await SeedLinkedReturnAsync(1);
+        await AddSapCreditMemoAsync(1, canceled: "Y", branch: 7);
+
+        await Service().ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(1, (await ReloadAsync(ret.Key)).SapCreditMemoDocEntry);
+    }
+
+    [Fact]
+    public async Task A_canceled_sales_invoice_with_the_same_doc_entry_does_not_touch_the_return()
+    {
+        // OINV 1 cancelada e ORIN 1 viva: sequências independentes, documentos diferentes.
+        var ret = await SeedLinkedReturnAsync(1);
+        await AddSapCreditMemoAsync(1);
+        await AddSapInvoiceAsync(1, canceled: "Y");
+        var fiscal = new FakeFiscal(true, null, new SapFiscalDocumentInfo(1, null, false, true, null));
+
+        await Service(fiscal).ExecuteAsync(CancellationToken.None);
+
+        var saved = await ReloadAsync(ret.Key);
+        Assert.Equal(InvoiceStatus.Confirmed, saved.InvoiceStatus);
+        Assert.Equal(1, saved.SapCreditMemoDocEntry);
+        Assert.Equal("000004512", saved.TaxDocumentNumber);
+    }
+
+    [Fact]
+    public async Task A_canceled_credit_memo_with_the_same_doc_entry_does_not_cancel_the_sales_document()
+    {
+        var invoice = await SeedInvoiceAsync(1);
+        await AddSapInvoiceAsync(1);
+        await AddSapCreditMemoAsync(1, canceled: "Y");
+
+        await Service(new CreditMemoFiscal(new SapFiscalDocumentInfo(1, null, false, true, null)))
+            .ExecuteAsync(CancellationToken.None);
+
+        var saved = await ReloadAsync(invoice.Key);
+        Assert.Equal(InvoiceStatus.Confirmed, saved.InvoiceStatus);
+        Assert.Equal(1, saved.SapDocEntry);
+    }
+
+    [Fact]
+    public async Task A_linked_return_without_key_gets_the_addon_access_key()
+    {
+        var ret = await SeedLinkedReturnAsync(1);
+        await AddSapCreditMemoAsync(1);
+        var accessKey = new string('4', 44);
+
+        await Service(new CreditMemoFiscal(new SapFiscalDocumentInfo(1, accessKey, true, false, "135")))
+            .ExecuteAsync(CancellationToken.None);
+
+        var saved = await ReloadAsync(ret.Key);
+        Assert.Equal(accessKey, saved.ChaveNFe);
+        Assert.Equal(1, saved.SapCreditMemoDocEntry);
+    }
+
+    [Fact]
+    public async Task Returns_that_are_not_confirmed_are_not_read()
+    {
+        var ret = await SeedLinkedReturnAsync(1);
+        await using (var fresh = new AppDbContext(TestDb.Options(_dbName)))
+        {
+            (await fresh.SalesInvoices.SingleAsync(x => x.Key == ret.Key)).InvoiceStatus = InvoiceStatus.Cancelled;
+            await fresh.SaveChangesAsync();
+        }
+        await AddSapCreditMemoAsync(1, canceled: "Y");
+
+        await Service().ExecuteAsync(CancellationToken.None);
+
+        // Cancelada pelo usuário: os campos da nota ficam como evidência.
+        Assert.Equal(1, (await ReloadAsync(ret.Key)).SapCreditMemoDocEntry);
+    }
+
+    [Fact]
+    public async Task Sap_down_while_reading_credit_memos_unlinks_nothing_and_does_not_stamp_the_last_run()
+    {
+        var ret = await SeedLinkedReturnAsync(1);
+        var invoice = await SeedInvoiceAsync(2);
+        await AddSapInvoiceAsync(2, canceled: "Y");
+        await SetSettingsAsync();
+
+        await Service(creditMemoFailure: new FakeDbException()).ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(1, (await ReloadAsync(ret.Key)).SapCreditMemoDocEntry);
+        // A rodada inteira é adiada: nem o passo de venda age com leitura pela metade.
+        Assert.Equal(InvoiceStatus.Confirmed, (await ReloadAsync(invoice.Key)).InvoiceStatus);
+        Assert.Null((await SettingsRowAsync())!.InvoiceSyncLastRunAt);
     }
 }
