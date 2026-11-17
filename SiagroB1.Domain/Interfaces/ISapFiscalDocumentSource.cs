@@ -17,4 +17,14 @@ public interface ISapFiscalDocumentSource
 
     Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
         IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default);
+
+    /// <summary>
+    /// O mesmo para as NF de devolução de venda (A/R Credit Memo, ORIN). O DocEntry de ORIN é outra sequência:
+    /// nunca consulte um Credit Memo por <see cref="GetForInvoicesAsync"/>. Padrão: nada (sem informação = não
+    /// autorizada), para a fonte que não conhece Credit Memo.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForCreditMemosAsync(
+        IReadOnlyCollection<SapInvoiceRef> creditMemos, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyDictionary<int, SapFiscalDocumentInfo>>(
+            new Dictionary<int, SapFiscalDocumentInfo>());
 }

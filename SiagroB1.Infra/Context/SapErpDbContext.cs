@@ -41,6 +41,12 @@ namespace SiagroB1.Infra.Context
         /// <summary>Transporte da A/R Invoice (INV12), somente leitura.</summary>
         public DbSet<SapInvoiceTransport> SapInvoiceTransports { get; set; }
 
+        /// <summary>A/R Credit Memo do SAP (ORIN): NF de devolução de venda. Somente leitura.</summary>
+        public DbSet<SapCreditMemo> SapCreditMemos { get; set; }
+
+        /// <summary>Linhas do A/R Credit Memo (RIN1), somente leitura.</summary>
+        public DbSet<SapCreditMemoLine> SapCreditMemoLines { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Address>()
@@ -60,6 +66,14 @@ namespace SiagroB1.Infra.Context
             modelBuilder.Entity<SapInvoiceLine>()
                 .HasOne(l => l.Invoice)
                 .WithMany(i => i.Lines)
+                .HasForeignKey(l => l.DocEntry);
+
+            modelBuilder.Entity<SapCreditMemoLine>()
+                .HasKey(l => new { l.DocEntry, l.LineNum });
+
+            modelBuilder.Entity<SapCreditMemoLine>()
+                .HasOne(l => l.CreditMemo)
+                .WithMany(c => c.Lines)
                 .HasForeignKey(l => l.DocEntry);
 
             modelBuilder.Entity<SapInvoiceTransport>()

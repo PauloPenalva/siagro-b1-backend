@@ -54,7 +54,13 @@ public static class SalesInvoiceNfeLock
     [
         nameof(SalesInvoice.SapDocEntry), nameof(SalesInvoice.SapDocNum), nameof(SalesInvoice.SapCancelPending),
         nameof(SalesInvoice.SapCancelPendingReason), nameof(SalesInvoice.SapCancelDetectedAt),
+        nameof(SalesInvoice.SapCreditMemoDocEntry), nameof(SalesInvoice.SapCreditMemoDocNum),
     ];
+
+    /// <summary>Gravado com vínculo a uma nota do SAP: invoice de venda ou Credit Memo de devolução.</summary>
+    private static bool WasSapLinked(EntityEntry<SalesInvoice> entry) =>
+        entry.OriginalValues[nameof(SalesInvoice.SapDocEntry)] is not null
+        || entry.OriginalValues[nameof(SalesInvoice.SapCreditMemoDocEntry)] is not null;
 
     /// <summary>Campos comerciais da linha que vêm da NF do SAP (GAC-1226): a conferência de entrega não os toca.</summary>
     private static readonly string[] SapLinkedItemFields =
@@ -101,8 +107,7 @@ public static class SalesInvoiceNfeLock
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
         // Vinculado à NF do SAP (GAC-1226): a NF-e saiu no SAP; cliente, data e filial são os dela.
-        if (entry.OriginalValues[nameof(SalesInvoice.SapDocEntry)] is not null
-            && NfeLockRules.AnyChanged(entry, SapLinkedHeaderFields))
+        if (WasSapLinked(entry) && NfeLockRules.AnyChanged(entry, SapLinkedHeaderFields))
             throw new DefaultException(SapLinkedHeaderMessage);
 
         if (NfeLockRules.IsFrozen(status) && NfeLockRules.AnyChanged(entry, HeaderFiscalFields))
@@ -130,7 +135,7 @@ public static class SalesInvoiceNfeLock
 
         // Vinculado à NF do SAP (GAC-1226): NfeStatus fica None (a NF-e saiu no SAP), então o teste acima não pega.
         // Número, série, chave, tipo e "sem nota" são os da NF do SAP e nunca mudam pelo PATCH/PUT.
-        if (entry.OriginalValues[nameof(SalesInvoice.SapDocEntry)] is not null)
+        if (WasSapLinked(entry))
             NfeLockRules.Restore(entry, TaxDocumentFields.Concat(
                 [nameof(SalesInvoice.TaxDocumentKind), nameof(SalesInvoice.WithoutTaxDocument)]));
 
@@ -170,6 +175,8 @@ public static class SalesInvoiceNfeLock
         invoice.SapCancelPending = false;
         invoice.SapCancelPendingReason = null;
         invoice.SapCancelDetectedAt = null;
+        invoice.SapCreditMemoDocEntry = null;
+        invoice.SapCreditMemoDocNum = null;
     }
 
     /// <summary>Chamado DEPOIS do SetValues da linha. A Conferência de entregas mexe em campos fora do XML e passa.</summary>

@@ -210,6 +210,55 @@ public class InvOneFiscalDocumentSourceTests
     }
 
     [Fact]
+    public async Task Credit_memos_are_read_by_their_own_doc_type()
+    {
+        // DocEntry 1 existe como invoice (13) e como Credit Memo (14): são documentos diferentes.
+        using var db = CreateDb();
+        db.Processes.AddRange(P(1, status: 10, key: null), P(1, docType: InvOneFiscalDocumentSource.ArCreditMemoDocType));
+        await db.SaveChangesAsync();
+        var source = new InvOneFiscalDocumentSource(db);
+
+        var creditMemos = await source.GetForCreditMemosAsync(Refs([1]));
+        var invoices = await source.GetForInvoicesAsync(Refs([1]));
+
+        Assert.True(creditMemos[1].Authorized);
+        Assert.False(creditMemos[1].Cancelled);
+        Assert.Equal(Key, creditMemos[1].AccessKey);
+        Assert.True(invoices[1].Cancelled);
+        Assert.Null(invoices[1].AccessKey);
+    }
+
+    [Fact]
+    public async Task Invoice_rows_never_answer_for_a_credit_memo()
+    {
+        using var db = CreateDb();
+        db.Processes.Add(P(1));
+        await db.SaveChangesAsync();
+
+        Assert.Empty(await new InvOneFiscalDocumentSource(db).GetForCreditMemosAsync(Refs([1])));
+    }
+
+    [Fact]
+    public async Task Null_source_knows_no_credit_memo()
+    {
+        ISapFiscalDocumentSource source = new NullSapFiscalDocumentSource();
+
+        Assert.Empty(await source.GetForCreditMemosAsync(Refs([1])));
+    }
+
+    [Fact]
+    public void Credit_memo_query_translates_with_its_doc_type()
+    {
+        using var db = new InvOneDbContext(new DbContextOptionsBuilder<InvOneDbContext>()
+            .UseSqlServer("Server=localhost;Database=DBInvOne;User Id=x;Password=x;TrustServerCertificate=True;")
+            .Options);
+
+        var sql = InvOneFiscalDocumentSource.BuildCreditMemoQuery(db, [1, 2], [1]).ToQueryString();
+
+        Assert.Contains("[DocType] = 14", sql);
+    }
+
+    [Fact]
     public void Real_sqlserver_model_is_keyless_and_query_translates()
     {
         using var db = new InvOneDbContext(new DbContextOptionsBuilder<InvOneDbContext>()

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesInvoices;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -54,6 +55,9 @@ public class SapInvoiceSyncService(
 
     /// <summary>Usuário gravado nos cancelamentos feitos pela sincronização.</summary>
     public const string SyncUser = "sap-sync";
+
+    /// <summary>Motivo gravado no log da devolução quando a sincronização a desvincula.</summary>
+    public const string CreditMemoCancelledReason = "NF de devolução cancelada no SAP.";
 
     /// <summary>Tamanho do lote de DocEntry nas consultas (limite de parâmetros).</summary>
     private const int ChunkSize = 1_000;
@@ -110,6 +114,7 @@ public class SapInvoiceSyncService(
             return;
 
         var linked = await LoadLinkedInvoicesAsync(ct);
+        var linkedCreditMemos = await LoadLinkedCreditMemosAsync(ct);
 
         var sapRows = new Dictionary<int, SapInvoiceStatus>();
         var infos = new Dictionary<int, SapFiscalDocumentInfo>();
@@ -152,6 +157,50 @@ public class SapInvoiceSyncService(
             }
         }
 
+        // NF de devolução (A/R Credit Memo): SEGUNDO passo, lido só depois que o de venda terminou — uma falha aqui
+        // não pode atrasar o cancelamento das invoices de venda. Dicionários PRÓPRIOS: o DocEntry de ORIN é outra
+        // sequência e o mesmo número em OINV é outro documento.
+        var creditMemoRows = new Dictionary<int, SapInvoiceStatus>();
+        var creditMemoInfos = new Dictionary<int, SapFiscalDocumentInfo>();
+
+        try
+        {
+            foreach (var chunk in linkedCreditMemos.Select(x => x.DocEntry).Distinct().Chunk(ChunkSize))
+                foreach (var row in await ReadSapCreditMemoChunkAsync(chunk, ct))
+                    creditMemoRows[row.DocEntry] = row;
+
+            if (fiscal.IsAvailable)
+                foreach (var chunk in creditMemoRows.Values.Chunk(ChunkSize))
+                {
+                    var found = await fiscal.GetForCreditMemosAsync(
+                        chunk.Select(r => new SapInvoiceRef(r.DocEntry, r.BranchId)).ToList(), ct);
+                    foreach (var (docEntry, info) in found)
+                        creditMemoInfos[docEntry] = info;
+                }
+        }
+        catch (Exception e) when (e is DbException or TimeoutException)
+        {
+            // Nenhuma devolução é desvinculada com leitura pela metade. Sem carimbar a última execução: o próximo
+            // minuto repete a rodada (o passo de venda, já feito, não tem o que refazer).
+            logger.LogWarning(e, "Sincronização das NF de devolução do SAP adiada: SAP ou add-on fiscal indisponível.");
+            return;
+        }
+
+        foreach (var item in linkedCreditMemos)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            try
+            {
+                await SyncCreditMemoAsync(item, creditMemoRows, creditMemoInfos, ct);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                logger.LogError(e, "Falha ao sincronizar a devolução {Key} (NF de devolução SAP {DocEntry}).",
+                    item.Key, item.DocEntry);
+            }
+        }
+
         if (settings is null)
         {
             settings = new SapIntegrationSettings();
@@ -168,6 +217,65 @@ public class SapInvoiceSyncService(
             .Where(i => docEntries.Contains(i.DocEntry))
             .Select(i => new SapInvoiceStatus { DocEntry = i.DocEntry, BranchId = i.BPLId, Canceled = i.Canceled })
             .ToListAsync(ct);
+
+    /// <summary>Lê a situação das NF de devolução (ORIN) no SAP. Costura de teste, como a das invoices.</summary>
+    protected virtual Task<List<SapInvoiceStatus>> ReadSapCreditMemoChunkAsync(int[] docEntries, CancellationToken ct) =>
+        sap.SapCreditMemos.AsNoTracking()
+            .Where(c => docEntries.Contains(c.DocEntry))
+            .Select(c => new SapInvoiceStatus { DocEntry = c.DocEntry, BranchId = c.BPLId, Canceled = c.Canceled })
+            .ToListAsync(ct);
+
+    /// <summary>Devoluções confirmadas com NF de devolução do SAP vinculada (GAC-1226).</summary>
+    private async Task<List<LinkedInvoice>> LoadLinkedCreditMemosAsync(CancellationToken ct)
+    {
+        var rows = await context.SalesInvoices.AsNoTracking()
+            .Where(x => x.SapCreditMemoDocEntry != null && x.InvoiceStatus == InvoiceStatus.Confirmed)
+            .OrderBy(x => x.SapCreditMemoDocEntry)
+            .Select(x => new { x.Key, DocEntry = x.SapCreditMemoDocEntry!.Value, x.InvoiceStatus, x.ChaveNFe, x.BranchCode })
+            .ToListAsync(ct);
+
+        return rows.Select(x =>
+            new LinkedInvoice(x.Key, x.DocEntry, x.InvoiceStatus!.Value, x.ChaveNFe, x.BranchCode)).ToList();
+    }
+
+    /// <summary>
+    /// NF de devolução cancelada no SAP: a devolução é só DESVINCULADA e volta a aguardar a nota. Nunca é cancelada —
+    /// o físico dela (saldo da carga, armazém, contrato) já aconteceu e não depende da nota.
+    /// </summary>
+    private async Task SyncCreditMemoAsync(
+        LinkedInvoice item,
+        IReadOnlyDictionary<int, SapInvoiceStatus> sapRows,
+        IReadOnlyDictionary<int, SapFiscalDocumentInfo> infos,
+        CancellationToken ct)
+    {
+        // Ausente do SAP NÃO é cancelamento (base errada, filtro de empresa...): só avisa.
+        if (!sapRows.TryGetValue(item.DocEntry, out var row))
+        {
+            logger.LogWarning("NF de devolução {DocEntry} da devolução {Key} não foi encontrada no SAP.",
+                item.DocEntry, item.Key);
+            return;
+        }
+
+        if (!string.Equals(row.BranchId?.ToString(), item.BranchCode?.Trim(), StringComparison.Ordinal))
+        {
+            logger.LogWarning(
+                "NF de devolução {DocEntry} do SAP é da filial {SapBranch}, mas a devolução {Key} é da filial {Branch}; ignorada.",
+                item.DocEntry, row.BranchId, item.Key, item.BranchCode);
+            return;
+        }
+
+        infos.TryGetValue(item.DocEntry, out var info);
+
+        if (row.Canceled == "Y" || info?.Cancelled == true)
+        {
+            await RunInCompanyScopeAsync(sp => sp.GetRequiredService<ShipmentLoadsUnlinkSapCreditMemoService>()
+                .ExecuteAsync(null, item.Key, SyncUser, CreditMemoCancelledReason));
+            return;
+        }
+
+        if (item.AccessKey is null && !string.IsNullOrWhiteSpace(info?.AccessKey))
+            await BackfillAccessKeyAsync(item, info.AccessKey.Trim(), ct);
+    }
 
     private static bool IsDue(SapIntegrationSettings? settings, DateTime now)
     {

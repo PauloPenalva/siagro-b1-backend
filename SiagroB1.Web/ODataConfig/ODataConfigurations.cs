@@ -1674,6 +1674,18 @@ public static class ODataConfigurations
         shipmentLoadsLinkSapInvoice.Parameter<Guid>("SalesShipmentReleaseKey");
         shipmentLoadsLinkSapInvoice.Returns<IActionResult>();
 
+        // GAC-1226: NF de devolução do SAP (A/R Credit Memo) no documento de devolução da carga.
+        var shipmentLoadsLinkSapCreditMemo = modelBuilder.Action("ShipmentLoadsLinkSapCreditMemo");
+        shipmentLoadsLinkSapCreditMemo.Parameter<Guid>("Key");
+        shipmentLoadsLinkSapCreditMemo.Parameter<Guid>("SalesInvoiceKey");
+        shipmentLoadsLinkSapCreditMemo.Parameter<int>("SapDocEntry");
+        shipmentLoadsLinkSapCreditMemo.Returns<IActionResult>();
+
+        var shipmentLoadsUnlinkSapCreditMemo = modelBuilder.Action("ShipmentLoadsUnlinkSapCreditMemo");
+        shipmentLoadsUnlinkSapCreditMemo.Parameter<Guid>("Key");
+        shipmentLoadsUnlinkSapCreditMemo.Parameter<Guid>("SalesInvoiceKey");
+        shipmentLoadsUnlinkSapCreditMemo.Returns<IActionResult>();
+
         var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");
         shipmentLoadsDetach.Parameter<Guid>("Key");
         shipmentLoadsDetach.CollectionParameter<Guid>("StorageTransactionKeys");
@@ -1890,6 +1902,13 @@ public static class ODataConfigurations
         shipmentLoadsGetLinkableSapInvoices.Parameter<string>("DateFrom");
         shipmentLoadsGetLinkableSapInvoices.Parameter<string>("DateTo");
         shipmentLoadsGetLinkableSapInvoices.ReturnsCollection<SapLinkableInvoiceDto>();
+
+        var shipmentLoadsGetLinkableSapCreditMemos = modelBuilder.Function("ShipmentLoadsGetLinkableSapCreditMemos");
+        shipmentLoadsGetLinkableSapCreditMemos.Parameter<Guid>("Key");
+        shipmentLoadsGetLinkableSapCreditMemos.Parameter<Guid>("SalesInvoiceKey");
+        shipmentLoadsGetLinkableSapCreditMemos.Parameter<string>("DateFrom");
+        shipmentLoadsGetLinkableSapCreditMemos.Parameter<string>("DateTo");
+        shipmentLoadsGetLinkableSapCreditMemos.ReturnsCollection<SapLinkableCreditMemoDto>();
 
         var shipmentLoadsGetPendingRefusal = modelBuilder.Function("ShipmentLoadsGetPendingRefusal");
         shipmentLoadsGetPendingRefusal.Parameter<Guid>("Key");
