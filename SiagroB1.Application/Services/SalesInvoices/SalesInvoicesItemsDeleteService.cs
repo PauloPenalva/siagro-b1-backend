@@ -48,7 +48,7 @@ public class SalesInvoicesItemsDeleteService(
             // para o XML (ver SalesInvoiceNfeLock.IsConfirmedFrozen).
             var stored = await db.Context.SalesInvoices.AsNoTracking()
                 .Where(i => i.Key == salesInvoiceKey)
-                .Select(i => new { i.NfeStatus, i.InvoiceStatus, i.InvoiceType, i.BranchCode, i.InvoiceDate, i.SapDocEntry })
+                .Select(i => new { i.NfeStatus, i.InvoiceStatus, i.InvoiceType, i.BranchCode, i.InvoiceDate, i.SapDocEntry, i.SapCreditMemoDocEntry })
                 .FirstOrDefaultAsync();
 
             // Linha que movimenta o estoque fiscal saindo de documento que já conta: mês fechado recusa.
@@ -63,7 +63,7 @@ public class SalesInvoicesItemsDeleteService(
                 stored?.NfeStatus ?? NfeStatus.None,
                 stored is not null && SalesInvoiceNfeLock.IsConfirmedFrozen(
                     stored.InvoiceStatus, stored.InvoiceType, await taxApply.IsBranchActiveAsync(stored.BranchCode)),
-                sapLinked: stored?.SapDocEntry is not null);
+                sapLinked: stored?.SapDocEntry is not null || stored?.SapCreditMemoDocEntry is not null);
 
             // GAC-1171: a FK de SHIPMENT_LOAD_DISCHARGE_ITEMS (o rateio do ticket) para a linha da
             // nota é NoAction, de propósito — o ticket de descarga é a evidência física que libera

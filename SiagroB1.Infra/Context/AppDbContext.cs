@@ -571,6 +571,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .IsUnique()
             .HasFilter($"[SapDocEntry] IS NOT NULL AND [InvoiceStatus] <> {(int)InvoiceStatus.Cancelled} AND [InvoiceStatus] <> {(int)InvoiceStatus.Returned}");
 
+        // Uma NF de devolução do SAP (A/R Credit Memo), uma devolução ativa (GAC-1226). Índice próprio: o DocEntry
+        // de ORIN é outra sequência e colide com o de OINV.
+        modelBuilder.Entity<SalesInvoice>()
+            .HasIndex(x => x.SapCreditMemoDocEntry)
+            .IsUnique()
+            .HasFilter($"[SapCreditMemoDocEntry] IS NOT NULL AND [InvoiceStatus] <> {(int)InvoiceStatus.Cancelled} AND [InvoiceStatus] <> {(int)InvoiceStatus.Returned}");
+
         modelBuilder.Entity<PurchaseInvoiceNfeXml>()
             .HasIndex(x => new { x.PurchaseInvoiceKey, x.Kind });
 
