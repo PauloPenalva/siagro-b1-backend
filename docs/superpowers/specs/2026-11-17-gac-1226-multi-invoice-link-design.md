@@ -21,7 +21,10 @@ complemento. O usuário mudou a decisão para "peso de balança + complemento": 
    mesmo cliente."* O cliente do contrato da liberação continua tendo de ser o da NF.
 4. Cada NF gera **um documento de saída próprio** (um `SapDocEntry`, um número/série/chave por
    documento) — o modelo guarda uma NF por documento. Os efeitos de cada documento são os de hoje.
-5. **Tudo ou nada:** se qualquer NF for recusada, nenhuma é vinculada e nada fica gravado.
+5. **Tudo ou nada:** se qualquer NF for recusada, nenhuma é vinculada e nada fica gravado. Os
+   NÚMEROS de documento tomados por um lote desfeito não são reaproveitados (a sequência de numeração
+   roda fora da transação, como sempre foi no faturamento manual), então um vínculo que falha pode
+   deixar buracos na numeração.
 6. A listagem deixa de filtrar por quantidade igual ao saldo: traz as NFs com quantidade **maior que
    zero, inclusive as maiores que o saldo** (ver a NF ajuda a achar uma quantidade de carga digitada
    errada; quem barra é a regra da soma no vínculo) (as demais regras — item, filial, modelo, não cancelada, autorizada no add-on,

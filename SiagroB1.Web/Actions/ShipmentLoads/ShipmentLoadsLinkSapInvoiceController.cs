@@ -1,4 +1,3 @@
-using System.Collections;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
@@ -27,13 +26,16 @@ public class ShipmentLoadsLinkSapInvoiceController(IServiceProvider services) : 
             // ODataActionParameters é nulo quando o corpo não vem.
             if (parameters == null ||
                 !parameters.TryGetValue("Key", out var keyObj) || keyObj == null ||
-                !parameters.TryGetValue("SapDocEntries", out var entriesObj) || entriesObj is not IEnumerable entries ||
+                !parameters.TryGetValue("SapDocEntries", out var entriesObj) ||
                 !parameters.TryGetValue("SalesShipmentReleaseKey", out var releaseObj) || releaseObj == null)
                 return BadRequest("Selecione a nota fiscal do SAP e a liberação de entrega.");
 
+            if (!ShipmentLoadsLinkSapInvoiceService.TryParseDocEntries(entriesObj, out var entries))
+                return BadRequest("Informe as notas fiscais do SAP a vincular.");
+
             var invoices = await service.ExecuteAsync(
                 Guid.Parse(keyObj.ToString()!),
-                entries.Cast<object?>().Select(x => Convert.ToInt32(x)).ToList(),
+                entries,
                 Guid.Parse(releaseObj.ToString()!),
                 User.Identity?.Name ?? "Unknown");
 

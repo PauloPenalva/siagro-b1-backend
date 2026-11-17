@@ -184,7 +184,7 @@ public class ShipmentBillingCreateSalesInvoiceService(
         {
             if (commitMode == CommitMode.Auto) await db.RollbackAsync();
             logger.LogError(e, e.Message);
-            throw new ApplicationException(e.Message);
+            throw new ApplicationException(e.Message, e);
         }
     }
 

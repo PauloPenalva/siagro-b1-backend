@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Application.Services.ShipmentBilling;
@@ -33,9 +34,13 @@ public class ShipmentLoadsLinkSapInvoiceService(
     SapLinkableInvoicesService finder,
     SalesInvoiceTaxDocumentDuplicateGuard duplicateGuard,
     ShipmentBillingCreateSalesInvoiceService billing,
-    IConfiguration? configuration = null)
+    IConfiguration? configuration = null,
+    ILogger<ShipmentLoadsLinkSapInvoiceService>? logger = null)
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
+    private const string PersistenceFailure =
+        "Não foi possível vincular as notas fiscais do SAP. Nenhuma alteração foi gravada. Tente novamente.";
 
     private const string ReleaseUnavailable = "A liberação de entrega informada não está disponível para esta carga.";
 
@@ -90,6 +95,10 @@ public class ShipmentLoadsLinkSapInvoiceService(
             throw new ApplicationException(
                 $"O cliente da NF do SAP ({sapInvoices[0].CardCode}) é diferente do cliente do contrato da liberação.");
 
+        // O saldo é lido ANTES da transação, então esta comparação sozinha não protege de um faturamento
+        // concorrente. Ela só é segura porque, dentro da transação, o guard de saldo da carga (chamado pelo
+        // orquestrador para cada documento) relê a quantidade faturada do banco e recusa qualquer excesso.
+        // Não remova essa chamada do guard por parecer redundante.
         var sum = sapInvoices.Sum(i => i.Quantity);
         var available = await new ShipmentLoadsBillingGuardService(db.Context).CalculateAvailableAsync(load.Key);
         if (!SumMatchesAvailable(sum, available))
@@ -142,10 +151,47 @@ public class ShipmentLoadsLinkSapInvoiceService(
                 }
             }
 
+            // Falha inesperada de gravação (inclusive embrulhada pelo orquestrador): o usuário não deve ver
+            // a mensagem crua do EF. A original vai para o log; erros de negócio seguem com a própria mensagem.
+            if (HasDbUpdateException(e))
+            {
+                logger?.LogError(e, "Falha ao gravar o vínculo de NFs do SAP da carga {LoadKey}", loadKey);
+                throw new ApplicationException(PersistenceFailure, e);
+            }
+
             throw;
         }
 
         return created;
+    }
+
+    /// <summary>
+    /// Converte o parâmetro OData <c>SapDocEntries</c>: tem de ser uma coleção cujos elementos são todos inteiros
+    /// maiores que zero (elemento nulo, zero, negativo ou de outro tipo invalida o conjunto).
+    /// </summary>
+    public static bool TryParseDocEntries(object? value, out List<int> entries)
+    {
+        entries = [];
+        if (value is null or string || value is not System.Collections.IEnumerable items)
+            return false;
+
+        foreach (var item in items)
+        {
+            if (item is not (int or long or short or byte)) { entries = []; return false; }
+            var number = Convert.ToInt64(item);
+            if (number is <= 0 or > int.MaxValue) { entries = []; return false; }
+            entries.Add((int)number);
+        }
+
+        return true;
+    }
+
+    private static bool HasDbUpdateException(Exception e)
+    {
+        for (var inner = e; inner != null; inner = inner.InnerException)
+            if (inner is DbUpdateException)
+                return true;
+        return false;
     }
 
     private static SalesInvoice Build(ShipmentLoad load, SalesShipmentRelease release, SapLinkableInvoiceDto sap)
