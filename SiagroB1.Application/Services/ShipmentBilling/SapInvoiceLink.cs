@@ -10,4 +10,7 @@ public record SapInvoiceLink(
     string TaxDocumentNumber,
     string TaxDocumentSeries,
     string? AccessKey,
-    string? Cfop);
+    string? Cfop,
+    // Natureza de operação da linha da invoice (INV1.Usage + nome do OUSG). Nula quando o SAP não informa.
+    int? UsageCode = null,
+    string? UsageName = null);

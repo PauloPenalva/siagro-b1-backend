@@ -94,6 +94,7 @@ public class SapLinkableInvoicesServiceTests
             Price = 2.5m,
             LineTotal = Quantity * 2.5m,
             CfopCode = "5101",
+            Usage = 70,
         };
         tweak?.Invoke(invoice);
         tweakLine?.Invoke(line);
@@ -130,10 +131,31 @@ public class SapLinkableInvoicesServiceTests
         Assert.Equal(Quantity, dto.Quantity);
         Assert.Equal(2.5m, dto.UnitPrice);
         Assert.Equal("5101", dto.Cfop);
+        Assert.Equal(70, dto.UsageCode);
+        Assert.Null(dto.UsageName); // natureza fora do OUSG: fica só o código
         Assert.Equal(Carrier, dto.CarrierCode);
         Assert.False(dto.CarrierMismatch);
         Assert.Equal(FreightTerms.Cif, dto.FreightTerms);
         Assert.Null(dto.AccessKey);
+    }
+
+    [Fact]
+    public async Task Usage_of_the_sap_line_comes_with_its_name()
+    {
+        await SeedLoadAsync();
+        _sap.Usages.Add(new SiagroB1.Domain.Entities.SAP.Usage { Code = 70, Name = "S- Venda p/ Export." });
+        await AddInvoiceAsync(1);
+        await AddInvoiceAsync(2, tweakLine: l => l.Usage = null);
+
+        var list = await ListAsync();
+
+        var withUsage = list.Single(d => d.DocEntry == 1);
+        Assert.Equal(70, withUsage.UsageCode);
+        Assert.Equal("S- Venda p/ Export.", withUsage.UsageName);
+
+        var withoutUsage = list.Single(d => d.DocEntry == 2);
+        Assert.Null(withoutUsage.UsageCode);
+        Assert.Null(withoutUsage.UsageName);
     }
 
     [Fact]

@@ -49,6 +49,14 @@ public class SapLinkableInvoiceDto
     [JsonPropertyName("Cfop")]
     public string? Cfop { get; set; }
 
+    /// <summary>Natureza de operação da linha da invoice (INV1.Usage); nula quando o SAP não informa.</summary>
+    [JsonPropertyName("UsageCode")]
+    public int? UsageCode { get; set; }
+
+    /// <summary>Nome da natureza no OUSG; nulo quando o código não existe lá.</summary>
+    [JsonPropertyName("UsageName")]
+    public string? UsageName { get; set; }
+
     [JsonPropertyName("CarrierCode")]
     public string? CarrierCode { get; set; }
 
