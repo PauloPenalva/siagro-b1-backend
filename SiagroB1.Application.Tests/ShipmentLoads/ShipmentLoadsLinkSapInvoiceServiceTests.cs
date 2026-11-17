@@ -170,8 +170,10 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         _sap.SapInvoiceLines.Add(new SapInvoiceLine
         {
             DocEntry = docEntry, LineNum = 0, ItemCode = Item, Quantity = quantity,
-            Price = 2.5m, LineTotal = quantity * 2.5m, CfopCode = "5101",
+            Price = 2.5m, LineTotal = quantity * 2.5m, CfopCode = "5101", Usage = 70,
         });
+        if (!await _sap.Usages.AnyAsync(u => u.Code == 70))
+            _sap.Usages.Add(new SiagroB1.Domain.Entities.SAP.Usage { Code = 70, Name = "S- Venda p/ Export." });
         _sap.SapInvoiceTransports.Add(new SapInvoiceTransport
             { DocEntry = docEntry, Carrier = carrier, Incoterms = incoterms });
         await _sap.SaveChangesAsync();
@@ -224,6 +226,9 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         Assert.Equal(Quantity, line.Quantity);
         Assert.Equal(2.5m, line.UnitPrice);
         Assert.Equal("5101", line.Cfop);
+        // Natureza da linha da invoice do SAP — sem efeito configurado no Siagro, e mesmo assim gravada.
+        Assert.Equal(70, line.UsageCode);
+        Assert.Equal("S- Venda p/ Export.", line.UsageName);
         Assert.Equal(_contract.Key, line.SalesContractKey);
         Assert.Equal(_release.Key, line.SalesShipmentReleaseKey);
         Assert.Equal("KG", line.UnitOfMeasureCode);

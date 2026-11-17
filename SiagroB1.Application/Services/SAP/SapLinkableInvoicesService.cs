@@ -118,6 +118,7 @@ public class SapLinkableInvoicesService(
                 Price = i.Lines.Select(l => l.Price).FirstOrDefault(),
                 LineTotal = i.Lines.Select(l => l.LineTotal).FirstOrDefault(),
                 Cfop = i.Lines.Select(l => l.CfopCode).FirstOrDefault(),
+                UsageCode = i.Lines.Select(l => l.Usage).FirstOrDefault(),
                 Carrier = i.Transport!.Carrier,
                 Incoterms = i.Transport.Incoterms,
             });
@@ -138,6 +139,7 @@ public class SapLinkableInvoicesService(
         public decimal Price { get; set; }
         public decimal LineTotal { get; set; }
         public string? Cfop { get; set; }
+        public int? UsageCode { get; set; }
         public string? Carrier { get; set; }
         public string? Incoterms { get; set; }
     }
@@ -149,6 +151,19 @@ public class SapLinkableInvoicesService(
     protected virtual Task<List<SapInvoiceProjection>> ExecuteSapQueryAsync(
         IQueryable<SapInvoiceProjection> query, CancellationToken ct) =>
         query.ToListAsync(ct);
+
+    /// <summary>Nomes das naturezas (OUSG) das linhas lidas. Consulta separada: a projeção fica simples.</summary>
+    private async Task<Dictionary<int, string>> LoadUsageNamesAsync(
+        List<SapInvoiceProjection> rows, CancellationToken ct)
+    {
+        var codes = rows.Where(r => r.UsageCode.HasValue).Select(r => r.UsageCode!.Value).Distinct().ToList();
+        if (codes.Count == 0)
+            return [];
+
+        return await sap.Usages.AsNoTracking()
+            .Where(u => codes.Contains(u.Code))
+            .ToDictionaryAsync(u => u.Code, u => u.Name, ct);
+    }
 
     private async Task<List<SapLinkableInvoiceDto>> QueryAsync(
         Guid loadKey, DateTime? from, DateTime? toExclusive, int? docEntry, CancellationToken ct)
@@ -171,10 +186,12 @@ public class SapLinkableInvoicesService(
             return [];
 
         List<SapInvoiceProjection> rows;
+        Dictionary<int, string> usageNames;
         try
         {
             rows = await ExecuteSapQueryAsync(
                 BuildSapQuery(sap, load.ItemCode, branchId, from, toExclusive, docEntry), ct);
+            usageNames = await LoadUsageNamesAsync(rows, ct);
         }
         catch (Exception e) when (e is DbException or TimeoutException)
         {
@@ -206,7 +223,7 @@ public class SapLinkableInvoicesService(
 
         return rows
             .Take(MaxRows)
-            .Select(r => ToDto(r, load, infos))
+            .Select(r => ToDto(r, load, infos, usageNames))
             .ToList();
     }
 
@@ -238,7 +255,8 @@ public class SapLinkableInvoicesService(
     }
 
     private static SapLinkableInvoiceDto ToDto(
-        SapInvoiceProjection r, LoadInfo load, IReadOnlyDictionary<int, SapFiscalDocumentInfo> infos)
+        SapInvoiceProjection r, LoadInfo load, IReadOnlyDictionary<int, SapFiscalDocumentInfo> infos,
+        IReadOnlyDictionary<int, string> usageNames)
     {
         var carrier = r.Carrier?.Trim();
 
@@ -255,6 +273,10 @@ public class SapLinkableInvoicesService(
             UnitPrice = r.Price,
             LineTotal = r.LineTotal,
             Cfop = r.Cfop,
+            UsageCode = r.UsageCode,
+            UsageName = r.UsageCode is { } usageCode && usageNames.TryGetValue(usageCode, out var usageName)
+                ? usageName.Trim()
+                : null,
             CarrierCode = string.IsNullOrEmpty(carrier) ? null : carrier,
             CarrierMismatch = !string.IsNullOrEmpty(carrier)
                               && !string.Equals(carrier, load.CarrierCardCode?.Trim(), StringComparison.OrdinalIgnoreCase),

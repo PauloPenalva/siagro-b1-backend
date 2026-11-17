@@ -125,7 +125,8 @@ public class ShipmentLoadsLinkSapInvoiceService(
                 var salesInvoice = Build(load, release, sapInvoice);
                 var link = new SapInvoiceLink(
                     sapInvoice.DocEntry, sapInvoice.DocNum, sapInvoice.TaxDocumentNumber,
-                    sapInvoice.TaxDocumentSeries, sapInvoice.AccessKey, sapInvoice.Cfop);
+                    sapInvoice.TaxDocumentSeries, sapInvoice.AccessKey, sapInvoice.Cfop,
+                    sapInvoice.UsageCode, sapInvoice.UsageName);
 
                 created.Add(salesInvoice);
                 await billing.ExecuteAsync(salesInvoice, username, link, CommitMode.Deferred);

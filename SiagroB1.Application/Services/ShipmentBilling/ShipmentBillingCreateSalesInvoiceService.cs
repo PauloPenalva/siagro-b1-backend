@@ -197,7 +197,19 @@ public class ShipmentBillingCreateSalesInvoiceService(
         salesInvoice.ChaveNFe = sapLink.AccessKey;
 
         foreach (var item in salesInvoice.Items)
+        {
             item.Cfop = sapLink.Cfop ?? item.Cfop; // SAP sem CFOP na linha: fica o resolvido pela natureza.
+
+            // Natureza da linha da invoice do SAP, gravada como espelho (igual ao CFOP). Entra AQUI, depois da
+            // criação, e não no item entregue a ela: o guard de natureza recusa a que não tem efeito configurado
+            // em USAGE_EFFECTS — o caso normal das naturezas do OUSG — e o vínculo inteiro falharia. O efeito
+            // no contrato deste caminho vem da origem do documento (carga), não da natureza.
+            if (sapLink.UsageCode is { } usageCode)
+            {
+                item.UsageCode = usageCode;
+                item.UsageName = sapLink.UsageName;
+            }
+        }
     }
 
     private static void Validate(SalesInvoice salesInvoice)
