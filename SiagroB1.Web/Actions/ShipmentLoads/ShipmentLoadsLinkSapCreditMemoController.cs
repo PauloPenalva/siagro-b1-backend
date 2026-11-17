@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Exceptions;
 
@@ -67,11 +66,6 @@ public class ShipmentLoadsLinkSapCreditMemoController(IServiceProvider services)
         {
             if (e is KeyNotFoundException or NotFoundException)
                 return NotFound();
-
-            // O documento tem RowVersion: uma alteração concorrente derruba esta chamada.
-            for (var inner = e; inner != null; inner = inner.InnerException)
-                if (inner is DbUpdateConcurrencyException)
-                    return BadRequest("O documento foi alterado por outro usuário. Atualize e tente novamente.");
 
             if (e is DefaultException or BusinessException or ApplicationException)
                 return BadRequest(e.Message);

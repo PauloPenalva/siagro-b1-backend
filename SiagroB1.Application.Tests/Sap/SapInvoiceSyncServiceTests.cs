@@ -926,15 +926,39 @@ public class SapInvoiceSyncServiceTests
     public async Task Sap_down_while_reading_credit_memos_unlinks_nothing_and_does_not_stamp_the_last_run()
     {
         var ret = await SeedLinkedReturnAsync(1);
-        var invoice = await SeedInvoiceAsync(2);
-        await AddSapInvoiceAsync(2, canceled: "Y");
         await SetSettingsAsync();
 
         await Service(creditMemoFailure: new FakeDbException()).ExecuteAsync(CancellationToken.None);
 
         Assert.Equal(1, (await ReloadAsync(ret.Key)).SapCreditMemoDocEntry);
-        // A rodada inteira é adiada: nem o passo de venda age com leitura pela metade.
-        Assert.Equal(InvoiceStatus.Confirmed, (await ReloadAsync(invoice.Key)).InvoiceStatus);
+        Assert.Null((await SettingsRowAsync())!.InvoiceSyncLastRunAt);
+    }
+
+    [Fact]
+    public async Task A_failure_reading_credit_memos_does_not_hold_back_the_sales_step()
+    {
+        // O passo de venda é o que já existia: uma falha só do lado da NF de devolução não pode atrasar o
+        // cancelamento da invoice de venda cancelada no SAP.
+        await SeedLinkedReturnAsync(1);
+        var invoice = await SeedInvoiceAsync(2);
+        await AddSapInvoiceAsync(2, canceled: "Y");
+
+        await Service(creditMemoFailure: new FakeDbException()).ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(InvoiceStatus.Cancelled, (await ReloadAsync(invoice.Key)).InvoiceStatus);
+    }
+
+    [Fact]
+    public async Task Sap_down_for_sales_invoices_also_leaves_the_returns_alone()
+    {
+        var ret = await SeedLinkedReturnAsync(1);
+        await SeedInvoiceAsync(2);
+        await AddSapCreditMemoAsync(1, canceled: "Y");
+        await SetSettingsAsync();
+
+        await Service(sapFailure: new FakeDbException()).ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(1, (await ReloadAsync(ret.Key)).SapCreditMemoDocEntry);
         Assert.Null((await SettingsRowAsync())!.InvoiceSyncLastRunAt);
     }
 }

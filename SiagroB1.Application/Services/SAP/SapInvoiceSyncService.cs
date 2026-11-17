@@ -119,26 +119,8 @@ public class SapInvoiceSyncService(
         var sapRows = new Dictionary<int, SapInvoiceStatus>();
         var infos = new Dictionary<int, SapFiscalDocumentInfo>();
 
-        // NF de devolução (A/R Credit Memo): dicionários PRÓPRIOS. O DocEntry de ORIN é outra sequência e o mesmo
-        // número em OINV é outro documento — misturar faria a invoice cancelada responder pela devolução.
-        var creditMemoRows = new Dictionary<int, SapInvoiceStatus>();
-        var creditMemoInfos = new Dictionary<int, SapFiscalDocumentInfo>();
-
         try
         {
-            foreach (var chunk in linkedCreditMemos.Select(x => x.DocEntry).Distinct().Chunk(ChunkSize))
-                foreach (var row in await ReadSapCreditMemoChunkAsync(chunk, ct))
-                    creditMemoRows[row.DocEntry] = row;
-
-            if (fiscal.IsAvailable)
-                foreach (var chunk in creditMemoRows.Values.Chunk(ChunkSize))
-                {
-                    var found = await fiscal.GetForCreditMemosAsync(
-                        chunk.Select(r => new SapInvoiceRef(r.DocEntry, r.BranchId)).ToList(), ct);
-                    foreach (var (docEntry, info) in found)
-                        creditMemoInfos[docEntry] = info;
-                }
-
             foreach (var chunk in linked.Select(x => x.DocEntry).Distinct().Chunk(ChunkSize))
                 foreach (var row in await ReadSapChunkAsync(chunk, ct))
                     sapRows[row.DocEntry] = row;
@@ -173,6 +155,35 @@ public class SapInvoiceSyncService(
                 logger.LogError(e, "Falha ao sincronizar o documento de saída {Key} (invoice SAP {DocEntry}).",
                     item.Key, item.DocEntry);
             }
+        }
+
+        // NF de devolução (A/R Credit Memo): SEGUNDO passo, lido só depois que o de venda terminou — uma falha aqui
+        // não pode atrasar o cancelamento das invoices de venda. Dicionários PRÓPRIOS: o DocEntry de ORIN é outra
+        // sequência e o mesmo número em OINV é outro documento.
+        var creditMemoRows = new Dictionary<int, SapInvoiceStatus>();
+        var creditMemoInfos = new Dictionary<int, SapFiscalDocumentInfo>();
+
+        try
+        {
+            foreach (var chunk in linkedCreditMemos.Select(x => x.DocEntry).Distinct().Chunk(ChunkSize))
+                foreach (var row in await ReadSapCreditMemoChunkAsync(chunk, ct))
+                    creditMemoRows[row.DocEntry] = row;
+
+            if (fiscal.IsAvailable)
+                foreach (var chunk in creditMemoRows.Values.Chunk(ChunkSize))
+                {
+                    var found = await fiscal.GetForCreditMemosAsync(
+                        chunk.Select(r => new SapInvoiceRef(r.DocEntry, r.BranchId)).ToList(), ct);
+                    foreach (var (docEntry, info) in found)
+                        creditMemoInfos[docEntry] = info;
+                }
+        }
+        catch (Exception e) when (e is DbException or TimeoutException)
+        {
+            // Nenhuma devolução é desvinculada com leitura pela metade. Sem carimbar a última execução: o próximo
+            // minuto repete a rodada (o passo de venda, já feito, não tem o que refazer).
+            logger.LogWarning(e, "Sincronização das NF de devolução do SAP adiada: SAP ou add-on fiscal indisponível.");
+            return;
         }
 
         foreach (var item in linkedCreditMemos)

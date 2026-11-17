@@ -138,26 +138,45 @@ public class ShipmentLoadsSapCreditMemoLinkTests
     private async Task<SalesInvoice> SavedReturnAsync() =>
         await _db.Context.SalesInvoices.AsNoTracking().Include(x => x.Items).SingleAsync(x => x.Key == _return.Key);
 
-    /// <summary>Tudo o que é físico: a carga, o documento de origem e as linhas dele, e os romaneios.</summary>
-    private async Task<string> PhysicalSnapshotAsync()
+    /// <summary>Campos que o vínculo tem licença para mudar: os fiscais da devolução e das linhas dela.</summary>
+    private static readonly HashSet<string> FiscalFields =
+    [
+        nameof(SalesInvoice.SapCreditMemoDocEntry), nameof(SalesInvoice.SapCreditMemoDocNum),
+        nameof(SalesInvoice.TaxDocumentNumber), nameof(SalesInvoice.TaxDocumentSeries), nameof(SalesInvoice.ChaveNFe),
+        nameof(SalesInvoice.WithoutTaxDocument), nameof(SalesInvoiceItem.Cfop), nameof(SalesInvoiceItem.UsageCode),
+        nameof(SalesInvoiceItem.UsageName),
+    ];
+
+    /// <summary>
+    /// Retrato de TODAS as tabelas do banco, linha a linha e campo a campo, menos o log de alterações e os campos
+    /// fiscais da devolução. Qualquer efeito colateral — saldo de carga, romaneio, movimento, alocação, contrato,
+    /// liberação, título — aparece aqui como linha nova ou campo diferente, exista ou não no seed.
+    /// </summary>
+    private Task<string> PhysicalSnapshotAsync()
     {
         var ctx = _db.Context;
-        var entities = new List<object>();
-        entities.AddRange(await ctx.ShipmentLoads.AsNoTracking().ToListAsync());
-        entities.AddRange(await ctx.SalesInvoices.AsNoTracking().Where(x => x.Key != _return.Key).ToListAsync());
-        entities.AddRange(await ctx.SalesInvoicesItems.AsNoTracking()
-            .Where(x => x.SalesInvoiceKey != _return.Key).ToListAsync());
-        entities.AddRange(await ctx.StorageTransactions.AsNoTracking().ToListAsync());
-        entities.AddRange(await ctx.ShipmentLoadMovements.AsNoTracking().ToListAsync());
+        ctx.ChangeTracker.Clear();
+        var set = typeof(DbContext).GetMethods().Single(m => m.Name == nameof(DbContext.Set) && m.GetParameters().Length == 0);
+        var lines = new List<string>();
 
-        // Só a quantidade e o estado da devolução; os campos fiscais dela são justamente o que o vínculo muda.
-        var saved = await SavedReturnAsync();
+        foreach (var type in ctx.Model.GetEntityTypes()
+                     .Where(t => !t.IsOwned() && !t.HasSharedClrType && t.BaseType == null && t.FindPrimaryKey() != null
+                                 && t.ClrType != typeof(SalesInvoiceChangeLog)))
+        {
+            var rows = (IEnumerable<object>)set.MakeGenericMethod(type.ClrType).Invoke(ctx, null)!;
+            foreach (var row in rows.ToList())
+            {
+                var isReturn = row is SalesInvoice { Key: var key } && key == _return.Key
+                               || row is SalesInvoiceItem { SalesInvoiceKey: var owner } && owner == _return.Key;
+                lines.Add(type.ClrType.Name + ":" + string.Join("|", ctx.Entry(row).Properties
+                    .Where(p => p.Metadata.Name != "RowVersion" && !(isReturn && FiscalFields.Contains(p.Metadata.Name)))
+                    .Select(p => $"{p.Metadata.Name}={p.CurrentValue}")));
+            }
+        }
 
-        return string.Join("\n", entities.Select(e =>
-                   e.GetType().Name + ":" + string.Join("|", ctx.Entry(e).Properties
-                       .Where(p => p.Metadata.Name != "RowVersion")
-                       .Select(p => $"{p.Metadata.Name}={p.CurrentValue}"))))
-               + $"\nreturn:{saved.InvoiceStatus}|{saved.InvoiceType}|{saved.Items.Sum(i => i.Quantity)}";
+        ctx.ChangeTracker.Clear();
+        lines.Sort(StringComparer.Ordinal);
+        return Task.FromResult(string.Join(Environment.NewLine, lines));
     }
 
     // ---------- vincular ----------
