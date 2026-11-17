@@ -67,7 +67,7 @@ public class SapLinkableInvoicesService(
                 .Where(i => i.DocEntry == docEntry)
                 .Select(i => i.Serial)
                 .FirstOrDefaultAsync(ct);
-            return serial?.ToString("D9");
+            return serial is { } number ? SapTaxDocumentFormat.Number(number) : null;
         }
         catch (Exception e) when (e is DbException or TimeoutException)
         {
@@ -267,8 +267,8 @@ public class SapLinkableInvoicesService(
             DocDate = r.DocDate,
             CardCode = r.CardCode,
             CardName = r.CardName,
-            TaxDocumentNumber = r.Serial.ToString("D9"),
-            TaxDocumentSeries = (r.SeriesStr ?? string.Empty).Trim().PadLeft(3, '0'),
+            TaxDocumentNumber = SapTaxDocumentFormat.Number(r.Serial),
+            TaxDocumentSeries = SapTaxDocumentFormat.Series(r.SeriesStr),
             Quantity = r.Quantity,
             UnitPrice = r.Price,
             LineTotal = r.LineTotal,
