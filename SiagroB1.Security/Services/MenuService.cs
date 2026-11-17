@@ -9,6 +9,13 @@ namespace SiagroB1.Security.Services;
 
 public class MenuService(CommonDbContext context, IConfiguration configuration, ICompanyContext companyContext)
 {
+    /// <summary>
+    /// Telas que só existem em SAPB1 (GAC-1226). O modelo do menu só tem a marca StandaloneOnly, e a migration
+    /// insere o item em todos os bancos; criar uma marca "só SAP" pediria mudança de esquema. Por isso a lista
+    /// fixa mora aqui, ao lado do filtro StandaloneOnly.
+    /// </summary>
+    private static readonly HashSet<string> SapOnlyMenuKeys = new(StringComparer.Ordinal) { "sapIntegrationSettings" };
+
     public async Task<NavigationResponseDto> GetMenuAsync(Guid userId)
     {
         // Administrador entra em qualquer empresa sem perfil nela; o menu dele vem dos perfis que tem em qualquer empresa.
@@ -57,9 +64,11 @@ public class MenuService(CommonDbContext context, IConfiguration configuration, 
         
         // Telas só do STANDALONE somem nos demais modos — mesmo teste positivo de ErpMode.
         var standalone = ErpMode.IsStandalone(configuration);
+        var sapB1 = ErpMode.IsSapB1(configuration);
 
         var menus = MarketMenuFilter
-            .Apply(data.Where(x => standalone || !x.Menu.StandaloneOnly), x => x.Menu.Key, x => x.Menu.ParentKey,
+            .Apply(data.Where(x => (standalone || !x.Menu.StandaloneOnly) && (sapB1 || !SapOnlyMenuKeys.Contains(x.Menu.Key))),
+                x => x.Menu.Key, x => x.Menu.ParentKey,
                 MarketModule.IsEnabled(configuration))
             .Select(x => new MenuNode
             {

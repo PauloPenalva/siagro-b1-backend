@@ -43,7 +43,8 @@ public class SalesInvoicesItemsCreateService(
                 throw new DefaultException(SalesInvoiceIcmsComplementLock.LinesChangeMessage);
 
             SalesInvoiceNfeLock.EnsureLinesChangeable(invoice.NfeStatus, SalesInvoiceNfeLock.IsConfirmedFrozen(
-                invoice.InvoiceStatus, invoice.InvoiceType, await taxApply.IsBranchActiveAsync(invoice.BranchCode)));
+                invoice.InvoiceStatus, invoice.InvoiceType, await taxApply.IsBranchActiveAsync(invoice.BranchCode)),
+                sapLinked: invoice.IsSapLinked);
 
             // Linha que movimenta o estoque fiscal num documento que já conta: mês fechado recusa.
             if (salesInvoiceItem.MovesFiscalInventory && FiscalStockPeriodGuard.IsBookable(invoice.InvoiceStatus))

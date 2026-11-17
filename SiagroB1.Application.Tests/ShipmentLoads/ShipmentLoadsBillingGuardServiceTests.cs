@@ -315,4 +315,20 @@ public class ShipmentLoadsBillingGuardServiceTests
         Assert.Contains("quebra de trajeto", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("devolvida", error.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task CalculateAvailable_matches_the_balance_used_to_bill()
+    {
+        var load = Load();
+        Invoice(load, 40_000);
+        await _db.Context.SaveChangesAsync();
+
+        var available = await Guard().CalculateAvailableAsync(load.Key);
+
+        Assert.Equal(50_000m, available);
+        // O mesmo valor é o limite do EnsureCanBillAsync: o saldo exato passa, 1 kg a mais não.
+        await Guard().EnsureCanBillAsync(load.Key, available, Carrier);
+        await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(load.Key, available + 1, Carrier));
+    }
 }

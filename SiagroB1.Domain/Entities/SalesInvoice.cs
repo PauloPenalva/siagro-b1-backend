@@ -175,6 +175,32 @@ public class SalesInvoice : DocumentEntity, INfeDocument, IAccountingAssignment
     public Guid? RefusalStorageTransactionKey { get; set; }
 
     /// <summary>
+    /// DocEntry da invoice de venda (OINV) do SAP B1 vinculada a este documento (GAC-1226). Nulo = sem vínculo.
+    /// Só a ação de vincular grava; create e PATCH da API nunca (<c>SalesInvoiceNfeLock</c>).
+    /// </summary>
+    public int? SapDocEntry { get; set; }
+
+    /// <summary>DocNum da invoice do SAP vinculada (exibição). Gravado junto com <see cref="SapDocEntry"/>.</summary>
+    public int? SapDocNum { get; set; }
+
+    /// <summary>A invoice vinculada foi cancelada no SAP e o documento aguarda decisão do usuário.</summary>
+    public bool SapCancelPending { get; set; }
+
+    /// <summary>Motivo exibido ao usuário quando <see cref="SapCancelPending"/> é verdadeiro.</summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? SapCancelPendingReason { get; set; }
+
+    /// <summary>
+    /// Quando o cancelamento no SAP foi detectado, em horário local do servidor
+    /// (o mesmo critério de <c>SapIntegrationSettings.InvoiceSyncLastRunAt</c>).
+    /// </summary>
+    public DateTime? SapCancelDetectedAt { get; set; }
+
+    /// <summary>Documento vinculado a uma invoice do SAP. Derivado; não entra no banco nem no EDM.</summary>
+    [NotMapped]
+    public bool IsSapLinked => SapDocEntry != null;
+
+    /// <summary>
     /// Tipo do documento fiscal (spec 2026-10-06 D3). Só tem efeito no documento Normal da filial que emite NF-e pelo
     /// Siagro: <see cref="TaxDocumentKind.Nfe"/> sai pelo "Transmitir NF-e" depois de confirmado;
     /// <see cref="TaxDocumentKind.Other"/> (papel/talão) termina no Confirmar, com número e série digitados.

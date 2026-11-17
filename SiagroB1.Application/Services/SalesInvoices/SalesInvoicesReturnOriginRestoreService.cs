@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
@@ -20,6 +21,44 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 /// </summary>
 public static class SalesInvoicesReturnOriginRestoreService
 {
+    /// <summary>
+    /// GAC-1226: com a origem Retornada, a NF do SAP dela fica livre no índice único filtrado e pode ter sido
+    /// vinculada a outro documento ativo. Devolver a origem a Confirmada faria os dois segurarem a mesma NF — o
+    /// SQL Server recusa o SaveChanges (2601) e o usuário veria um 500. Quem cancela/exclui a devolução chama isto
+    /// ANTES de qualquer escrita; <see cref="ExecuteAsync"/> repete a checagem como cinto de segurança.
+    /// </summary>
+    public static async Task EnsureOriginSapLinkFreeAsync(AppDbContext context, SalesInvoice returnInvoice)
+    {
+        if (returnInvoice.InvoiceType != SalesInvoiceType.Return
+            || returnInvoice.SalesInvoiceOriginKey is not { } originKey)
+            return;
+
+        var origin = await context.SalesInvoices.FirstOrDefaultAsync(x => x.Key == originKey);
+
+        // Origem já ativa (Confirmada) segura a NF desde sempre: não há troca de status que possa colidir.
+        if (origin?.SapDocEntry is not { } sapDocEntry || origin.InvoiceStatus != InvoiceStatus.Returned)
+            return;
+
+        // Mesmo filtro do índice: status não nulo, nem Cancelado nem Retornado.
+        var holder = await context.SalesInvoices.AsNoTracking()
+            .Where(x => x.Key != origin.Key && x.Key != returnInvoice.Key && x.SapDocEntry == sapDocEntry
+                        && x.InvoiceStatus != null
+                        && x.InvoiceStatus != InvoiceStatus.Cancelled
+                        && x.InvoiceStatus != InvoiceStatus.Returned)
+            .Select(x => new { x.InvoiceNumber })
+            .FirstOrDefaultAsync();
+
+        if (holder is null)
+            return;
+
+        var number = string.IsNullOrWhiteSpace(origin.TaxDocumentNumber)
+            ? origin.SapDocNum?.ToString()
+            : origin.TaxDocumentNumber;
+
+        throw new DefaultException(
+            $"A NF do SAP {number} já foi vinculada ao documento {holder.InvoiceNumber}; cancele-o antes de estornar a devolução.");
+    }
+
     public static async Task ExecuteAsync(
         AppDbContext context, SalesInvoice returnInvoice, string userName)
     {
@@ -28,6 +67,8 @@ public static class SalesInvoicesReturnOriginRestoreService
         {
             return;
         }
+
+        await EnsureOriginSapLinkFreeAsync(context, returnInvoice);
 
         var originInvoice = await context.SalesInvoices
             .Include(x => x.Items)

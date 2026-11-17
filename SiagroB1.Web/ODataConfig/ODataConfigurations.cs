@@ -673,6 +673,21 @@ public static class ODataConfigurations
         emailSettingsSendTest.Parameter<string>("To");
         emailSettingsSendTest.Returns<EmailSendResult>();
 
+        // Integração SAP (SAPB1, ADMIN): sincronização do cancelamento das invoices vinculadas (GAC-1226).
+        // InvoiceSyncLastRunAt é só leitura: o servidor ignora o que vier do cliente.
+        var sapIntegrationSettingsGet = modelBuilder.Function("SapIntegrationSettingsGet");
+        sapIntegrationSettingsGet.Returns<SapIntegrationSettingsModel>();
+
+        var sapIntegrationSettingsSave = modelBuilder.Action("SapIntegrationSettingsSave");
+        sapIntegrationSettingsSave.Parameter<bool>("InvoiceSyncEnabled");
+        sapIntegrationSettingsSave.Parameter<int>("InvoiceSyncIntervalMinutes");
+        sapIntegrationSettingsSave.Returns<SapIntegrationSettingsModel>();
+
+        // "Sincronizar agora": roda a sincronização da empresa corrente sem esperar o intervalo e devolve a
+        // configuração atualizada (a tela mostra a nova "última execução").
+        var sapInvoiceSyncRunNow = modelBuilder.Action("SapInvoiceSyncRunNow");
+        sapInvoiceSyncRunNow.Returns<SapIntegrationSettingsModel>();
+
         // E-mail da NF-e (STANDALONE): reenvio manual, destinatários padrão do diálogo e histórico (somente leitura).
         foreach (var prefix in new[] { "SalesInvoices", "PurchaseInvoices" })
         {
@@ -1651,6 +1666,13 @@ public static class ODataConfigurations
         shipmentLoadsShip.Parameter<string>("RoyaltyTestCode").Optional();
         shipmentLoadsShip.Returns<IActionResult>();
 
+        // GAC-1226: vincula a NF do SAP à carga. SapDocEntry é Edm.Int32 (DocEntry do OINV).
+        var shipmentLoadsLinkSapInvoice = modelBuilder.Action("ShipmentLoadsLinkSapInvoice");
+        shipmentLoadsLinkSapInvoice.Parameter<Guid>("Key");
+        shipmentLoadsLinkSapInvoice.Parameter<int>("SapDocEntry");
+        shipmentLoadsLinkSapInvoice.Parameter<Guid>("SalesShipmentReleaseKey");
+        shipmentLoadsLinkSapInvoice.Returns<IActionResult>();
+
         var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");
         shipmentLoadsDetach.Parameter<Guid>("Key");
         shipmentLoadsDetach.CollectionParameter<Guid>("StorageTransactionKeys");
@@ -1861,6 +1883,12 @@ public static class ODataConfigurations
         var shipmentLoadsGetRefusableDocuments = modelBuilder.Function("ShipmentLoadsGetRefusableDocuments");
         shipmentLoadsGetRefusableDocuments.Parameter<Guid>("Key");
         shipmentLoadsGetRefusableDocuments.ReturnsCollection<ShipmentLoadRefusableDocumentDto>();
+
+        var shipmentLoadsGetLinkableSapInvoices = modelBuilder.Function("ShipmentLoadsGetLinkableSapInvoices");
+        shipmentLoadsGetLinkableSapInvoices.Parameter<Guid>("Key");
+        shipmentLoadsGetLinkableSapInvoices.Parameter<string>("DateFrom");
+        shipmentLoadsGetLinkableSapInvoices.Parameter<string>("DateTo");
+        shipmentLoadsGetLinkableSapInvoices.ReturnsCollection<SapLinkableInvoiceDto>();
 
         var shipmentLoadsGetPendingRefusal = modelBuilder.Function("ShipmentLoadsGetPendingRefusal");
         shipmentLoadsGetPendingRefusal.Parameter<Guid>("Key");

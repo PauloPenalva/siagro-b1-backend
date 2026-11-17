@@ -462,6 +462,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NfeOptions>();
         services.AddScoped<BranchNfeSettingsService>();
         services.AddScoped<IEmailSettingsService, EmailSettingsService>();
+        services.AddScoped<SiagroB1.Application.Services.SAP.SapIntegrationSettingsService>();
         services.AddScoped<INfeEmailOutboxService, NfeEmailOutboxService>();
         services.AddScoped<NfeEmailSendService>();
         services.AddScoped<NfeEmailMessagesGetService>();
@@ -598,6 +599,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesReturnableShipmentsService>();
         services.AddScoped<SalesInvoicesReturnService>();
         services.AddScoped<SalesInvoicesConfirmService>();
+        services.AddScoped<SalesInvoiceTaxDocumentDuplicateGuard>();
         services.AddScoped<SalesInvoicesSetDocumentNumberService>();
         services.AddScoped<SalesInvoicesReverseConfirmService>();
         services.AddScoped<SalesInvoicesChangeLogService>();

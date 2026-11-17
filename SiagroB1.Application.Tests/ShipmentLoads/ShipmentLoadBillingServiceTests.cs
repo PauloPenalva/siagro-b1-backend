@@ -34,7 +34,8 @@ public class ShipmentLoadBillingServiceTests
             states: new Dictionary<string, string> { [CardCode] = "RS" });
 
     private ShipmentBillingCreateSalesInvoiceService Service(string complementErp = "SAPB1",
-        FinancialDocumentsSalesFirmSyncService? salesFirmSync = null, string? accountingErp = null)
+        FinancialDocumentsSalesFirmSyncService? salesFirmSync = null, string? accountingErp = null,
+        string? erpMode = null)
     {
         var usages = new UsageService(_db, NullLogger<UsageService>.Instance);
         var partners = Partners();
@@ -61,7 +62,8 @@ public class ShipmentLoadBillingServiceTests
             new ShipmentLoadsRecalculateInvoicedService(_db, new ShipmentLoadsChangeLogService(_db.Context)),
             new ShipmentLoadsMovementLogService(_db.Context),
             NullLogger<ShipmentBillingCreateSalesInvoiceService>.Instance,
-            salesFirmSync);
+            salesFirmSync,
+            configuration: erpMode is null ? null : Accounting.AccountingTestData.Config(erpMode));
     }
 
     private async Task<(ShipmentLoad Load, SalesContract Contract, SalesShipmentRelease Release,
@@ -392,6 +394,106 @@ public class ShipmentLoadBillingServiceTests
             e.Message);
         // A trava roda depois do create (o cálculo de impostos é que marca MovesFiscalInventory), dentro da transação:
         // no SQL Server o rollback desfaz o documento; o InMemory não tem transação, então confere-se o resto.
+        Assert.Empty(await _db.Context.SalesContractsAllocations.AsNoTracking().ToListAsync());
+        Assert.Equal(0m, (await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync()).InvoicedQuantity);
+    }
+
+    private static SapInvoiceLink Link(string? cfop = "5102") =>
+        new(DocEntry: 4321, DocNum: 987, TaxDocumentNumber: "1234", TaxDocumentSeries: "1",
+            AccessKey: "35261112345678000199550010000012341000012349", Cfop: cfop);
+
+    [Fact]
+    public async Task Sapb1_manual_billing_without_link_is_stored_as_without_tax_document()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        var invoice = InvoiceFor(load, contract, release, 40_000m);
+        invoice.TaxDocumentKind = TaxDocumentKind.Nfe;
+        invoice.TaxDocumentNumber = "99";
+        invoice.TaxDocumentSeries = "1";
+        invoice.ChaveNFe = "X";
+
+        await Service(erpMode: "SAPB1").ExecuteAsync(invoice, "tester");
+
+        var saved = await _db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(TaxDocumentKind.Other, saved.TaxDocumentKind);
+        Assert.True(saved.WithoutTaxDocument);
+        Assert.Null(saved.TaxDocumentNumber);
+        Assert.Null(saved.TaxDocumentSeries);
+        Assert.Null(saved.ChaveNFe);
+        Assert.Null(saved.SapDocEntry);
+    }
+
+    [Theory]
+    [InlineData(false, TaxDocumentKind.Nfe)]
+    [InlineData(true, TaxDocumentKind.Other)]
+    public async Task Sapb1_billing_with_link_stores_the_sap_document_and_the_usual_effects(
+        bool withoutTaxDocument, TaxDocumentKind payloadKind)
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        var invoice = InvoiceFor(load, contract, release, 40_000m);
+        invoice.TaxDocumentKind = payloadKind;
+        invoice.WithoutTaxDocument = withoutTaxDocument;
+
+        await Service(erpMode: "SAPB1").ExecuteAsync(invoice, "tester", Link());
+
+        var saved = await _db.Context.SalesInvoices.AsNoTracking().Include(x => x.Items).SingleAsync();
+        Assert.Equal(TaxDocumentKind.Nfe, saved.TaxDocumentKind);
+        Assert.False(saved.WithoutTaxDocument);
+        Assert.Equal(4321, saved.SapDocEntry);
+        Assert.Equal(987, saved.SapDocNum);
+        Assert.Equal("1234", saved.TaxDocumentNumber);
+        Assert.Equal("1", saved.TaxDocumentSeries);
+        Assert.Equal("35261112345678000199550010000012341000012349", saved.ChaveNFe);
+        Assert.Equal("5102", Assert.Single(saved.Items).Cfop);
+        Assert.Equal(NfeStatus.None, saved.NfeStatus);
+        Assert.Equal(InvoiceStatus.Confirmed, saved.InvoiceStatus);
+
+        var allocation = Assert.Single(await _db.Context.SalesContractsAllocations.AsNoTracking().ToListAsync());
+        Assert.Equal(40_000m, allocation.Volume);
+        var savedLoad = await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync();
+        Assert.Equal(40_000m, savedLoad.InvoicedQuantity);
+        Assert.Equal(ShipmentLoadStatus.PartiallyInvoiced, savedLoad.Status);
+        var movement = await _db.Context.ShipmentLoadMovements.AsNoTracking().SingleAsync();
+        Assert.Equal(ShipmentLoadMovementType.Billed, movement.MovementType);
+    }
+
+    [Fact]
+    public async Task Sapb1_billing_with_link_accepts_a_null_access_key()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+
+        await Service(erpMode: "SAPB1").ExecuteAsync(
+            InvoiceFor(load, contract, release, 40_000m), "tester", Link() with { AccessKey = null });
+
+        var saved = await _db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Null(saved.ChaveNFe);
+        Assert.Equal(4321, saved.SapDocEntry);
+    }
+
+    [Fact]
+    public async Task Standalone_billing_without_link_keeps_the_nfe_payload()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        var invoice = InvoiceFor(load, contract, release, 40_000m);
+        invoice.TaxDocumentKind = TaxDocumentKind.Nfe;
+
+        await Service("STANDALONE", erpMode: "STANDALONE").ExecuteAsync(invoice, "tester");
+
+        var saved = await _db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(TaxDocumentKind.Nfe, saved.TaxDocumentKind);
+        Assert.False(saved.WithoutTaxDocument);
+    }
+
+    [Fact]
+    public async Task Standalone_billing_with_link_is_refused_and_persists_nothing()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+
+        var e = await Assert.ThrowsAnyAsync<Exception>(() => Service("STANDALONE", erpMode: "STANDALONE")
+            .ExecuteAsync(InvoiceFor(load, contract, release, 40_000m), "tester", Link()));
+
+        Assert.Contains("Vínculo com nota fiscal do SAP disponível somente com integração SAP Business One.", e.Message);
+        Assert.Empty(await _db.Context.SalesInvoices.AsNoTracking().ToListAsync());
         Assert.Empty(await _db.Context.SalesContractsAllocations.AsNoTracking().ToListAsync());
         Assert.Equal(0m, (await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync()).InvoicedQuantity);
     }

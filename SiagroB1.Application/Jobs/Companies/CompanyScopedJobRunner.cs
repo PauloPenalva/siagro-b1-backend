@@ -27,6 +27,7 @@ public sealed class CompanyScopedJobRunner(
     public const string ReinfBatchQuery = "reinf-batch-query";
     public const string MarketDailyClose = "market-daily-close";
     public const string MarketLimitAlert = "market-limit-alert";
+    public const string SapInvoiceSync = "sap-invoice-sync";
 
     private static readonly IReadOnlyDictionary<string, Func<IServiceProvider, CancellationToken, Task>> Jobs =
         new Dictionary<string, Func<IServiceProvider, CancellationToken, Task>>
@@ -39,6 +40,7 @@ public sealed class CompanyScopedJobRunner(
             [ReinfBatchQuery] = (sp, ct) => sp.GetRequiredService<SiagroB1.Application.Jobs.Reinf.ReinfBatchQueryJob>().ExecuteAsync(ct),
             [MarketDailyClose] = (sp, ct) => sp.GetRequiredService<MarketDailyCloseJob>().ExecuteAsync(ct),
             [MarketLimitAlert] = (sp, ct) => sp.GetRequiredService<MarketLimitAlertJob>().ExecuteAsync(ct),
+            [SapInvoiceSync] = (sp, ct) => sp.GetRequiredService<SapInvoiceSyncJob>().ExecuteAsync(ct),
         };
 
     /// <summary>
@@ -58,6 +60,16 @@ public sealed class CompanyScopedJobRunner(
     [DisableConcurrentExecution(timeoutInSeconds: 60)]
     [DisplayName("{0} (todas as empresas)")]
     public Task RunReceivedDfeSyncAsync(string jobKey, CancellationToken ct) => RunForAllCompaniesAsync(jobKey, ct);
+
+    /// <summary>
+    /// Sem retry e nunca duas execuções ao mesmo tempo: o job roda a cada minuto e uma sincronização lenta
+    /// (SAP devagar) não pode se sobrepor à seguinte. A espera é curta de propósito: a próxima execução
+    /// já é a retentativa e não vale prender um worker do Hangfire.
+    /// </summary>
+    [AutomaticRetry(Attempts = 0)]
+    [DisableConcurrentExecution(timeoutInSeconds: 5)]
+    [DisplayName("{0} (todas as empresas)")]
+    public Task RunForAllCompaniesNonOverlappingAsync(string jobKey, CancellationToken ct) => RunForAllCompaniesAsync(jobKey, ct);
 
     [DisplayName("{0} (todas as empresas)")]
     public async Task RunForAllCompaniesAsync(string jobKey, CancellationToken ct)

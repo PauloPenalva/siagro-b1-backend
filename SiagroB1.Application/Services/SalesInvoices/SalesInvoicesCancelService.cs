@@ -74,6 +74,9 @@ public class SalesInvoicesCancelService(
 
         await EnsureBusinessRulesAsync(existingInvoice);
 
+        // GAC-1226: a origem devolvida voltaria a segurar uma NF do SAP já vinculada a outro documento.
+        await SalesInvoicesReturnOriginRestoreService.EnsureOriginSapLinkFreeAsync(db.Context, existingInvoice);
+
         // Pós-SEFAZ (2b) passa: a NF-e já foi cancelada e o documento precisa acompanhar (Review Focus 3).
         if (!afterNfe && !fromRefusal)
             await SalesInvoicesRefusalLink.EnsureNotInPendingRefusalAsync(db.Context, existingInvoice);
@@ -132,6 +135,12 @@ public class SalesInvoicesCancelService(
             existingInvoice.InvoiceStatus = InvoiceStatus.Cancelled;
             existingInvoice.CanceledAt = DateTime.Now;
             existingInvoice.CanceledBy = userName;
+
+            // GAC-1226: cancelado (pelo usuário ou pela sincronização com o SAP), a pendência de
+            // cancelamento do SAP deixa de existir.
+            existingInvoice.SapCancelPending = false;
+            existingInvoice.SapCancelPendingReason = null;
+            existingInvoice.SapCancelDetectedAt = null;
 
             // Ledger: remove as alocações da nota (inclui pares de realocação) e recalcula
             // contratos e liberações derivado-da-soma, na mesma transação.
