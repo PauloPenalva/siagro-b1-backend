@@ -56,7 +56,7 @@ public class SalesInvoiceSapCreditMemoLockTests
     public void Linked_return_counts_as_sap_linked()
     {
         Assert.True(NewLinkedReturn().IsSapLinked);
-        Assert.False(new SalesInvoice().IsSapLinked);
+        Assert.False(new SalesInvoice { CardCode = "C1" }.IsSapLinked);
     }
 
     [Fact]
