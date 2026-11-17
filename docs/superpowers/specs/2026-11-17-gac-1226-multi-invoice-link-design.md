@@ -23,7 +23,8 @@ complemento. O usuário mudou a decisão para "peso de balança + complemento": 
    documento) — o modelo guarda uma NF por documento. Os efeitos de cada documento são os de hoje.
 5. **Tudo ou nada:** se qualquer NF for recusada, nenhuma é vinculada e nada fica gravado.
 6. A listagem deixa de filtrar por quantidade igual ao saldo: traz as NFs com quantidade **maior que
-   zero e até o saldo** (as demais regras — item, filial, modelo, não cancelada, autorizada no add-on,
+   zero, inclusive as maiores que o saldo** (ver a NF ajuda a achar uma quantidade de carga digitada
+   errada; quem barra é a regra da soma no vínculo) (as demais regras — item, filial, modelo, não cancelada, autorizada no add-on,
    incoterm, ainda não vinculada — continuam). Carga sem saldo continua com lista vazia.
 7. Vinculada cada NF, o resto do ciclo não muda: documento vinculado travado, estornar/excluir/
    cancelar por documento, sincronização por documento. Excluir um dos documentos devolve só a
@@ -54,7 +55,7 @@ complemento. O usuário mudou a decisão para "peso de balança + complemento": 
 
 ## Escolhas do autor
 
-- Um documento por NF; vínculo atômico; lista com quantidade até o saldo.
+- Um documento por NF; vínculo atômico; lista com quantidade maior que zero, sem teto.
 - Texto de lista vazia: "Nenhuma nota fiscal do SAP disponível para esta carga neste período."
 - Marcar uma NF de outro cliente não é impedido na seleção; o botão fica desabilitado e o rodapé
   avisa "Selecione notas fiscais do mesmo cliente."

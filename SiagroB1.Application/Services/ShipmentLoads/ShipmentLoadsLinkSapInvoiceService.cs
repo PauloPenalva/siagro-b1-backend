@@ -9,12 +9,13 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
-/// "Vincular NF do SAP" (GAC-1226): cria o documento de saída da carga a partir de uma A/R Invoice
-/// do SAP. Tudo é relido e revalidado aqui — o que a tela mostrou pode ter mudado no SAP.
+/// "Vincular NF do SAP" (GAC-1226): cria os documentos de saída da carga a partir de uma ou mais A/R
+/// Invoices do SAP (rodada 2: "peso de balança + complemento", um documento por NF, tudo ou nada). Tudo é relido e revalidado aqui — o que a tela mostrou pode ter mudado no SAP.
 /// </summary>
 /// <remarks>
 /// Não duplica efeito nenhum: monta o <see cref="SalesInvoice"/> e entrega ao
@@ -38,8 +39,23 @@ public class ShipmentLoadsLinkSapInvoiceService(
 
     private const string ReleaseUnavailable = "A liberação de entrega informada não está disponível para esta carga.";
 
-    public async Task<SalesInvoice> ExecuteAsync(
-        Guid loadKey, int sapDocEntry, Guid salesShipmentReleaseKey, string username)
+    /// <summary>Tolerância de um milésimo na comparação da soma das NFs com o saldo da carga.</summary>
+    private const decimal QuantityTolerance = 0.001m;
+
+    /// <summary>
+    /// Regra da soma (GAC-1226 rodada 2, confirmada pelo dono do produto): a soma das NFs tem de ser IGUAL ao
+    /// saldo da carga. Único ponto da regra — trocar por "não passar do saldo" é mudar esta linha.
+    /// </summary>
+    private static bool SumMatchesAvailable(decimal sum, decimal available) =>
+        Math.Abs(sum - available) <= QuantityTolerance;
+
+    /// <summary>
+    /// Vincula uma ou mais NFs do SAP à carga: cada NF vira um documento de saída próprio, todos contra a
+    /// mesma liberação, numa transação só (tudo ou nada). Devolve os documentos na ordem de
+    /// <paramref name="sapDocEntries"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<SalesInvoice>> ExecuteAsync(
+        Guid loadKey, IReadOnlyList<int> sapDocEntries, Guid salesShipmentReleaseKey, string username)
     {
         if (!ErpMode.IsSapB1(configuration))
             throw new ApplicationException("Disponível somente com integração SAP Business One.");
@@ -47,9 +63,20 @@ public class ShipmentLoadsLinkSapInvoiceService(
         var load = await db.Context.ShipmentLoads.AsNoTracking().FirstOrDefaultAsync(x => x.Key == loadKey)
                    ?? throw new NotFoundException($"Shipment load not found key {loadKey}");
 
-        var sapInvoice = await finder.FindAsync(loadKey, sapDocEntry);
-        if (sapInvoice is null)
-            throw await ExplainRefusalAsync(load, sapDocEntry);
+        if (sapDocEntries is null || sapDocEntries.Count == 0)
+            throw new ApplicationException("Selecione ao menos uma nota fiscal do SAP.");
+
+        if (sapDocEntries.Distinct().Count() != sapDocEntries.Count)
+            throw new ApplicationException("A mesma nota fiscal do SAP foi informada mais de uma vez.");
+
+        // Cada NF revalidada no servidor com as regras da listagem — o que a tela mostrou pode ter mudado.
+        var sapInvoices = new List<SapLinkableInvoiceDto>(sapDocEntries.Count);
+        foreach (var docEntry in sapDocEntries)
+            sapInvoices.Add(await finder.FindAsync(loadKey, docEntry) ?? throw await ExplainRefusalAsync(docEntry));
+
+        var cardCode = sapInvoices[0].CardCode?.Trim();
+        if (sapInvoices.Any(i => !string.Equals(i.CardCode?.Trim(), cardCode, StringComparison.OrdinalIgnoreCase)))
+            throw new ApplicationException("As notas fiscais selecionadas devem ser do mesmo cliente.");
 
         var release = await db.Context.SalesShipmentReleases.AsNoTracking()
             .Include(r => r.SalesContract)
@@ -59,37 +86,66 @@ public class ShipmentLoadsLinkSapInvoiceService(
                             || release.SalesContract is null || release.SalesContract.ItemCode != load.ItemCode)
             throw new ApplicationException(ReleaseUnavailable);
 
-        if (!string.Equals(release.SalesContract.CardCode?.Trim(), sapInvoice.CardCode?.Trim(),
-                StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(release.SalesContract.CardCode?.Trim(), cardCode, StringComparison.OrdinalIgnoreCase))
             throw new ApplicationException(
-                $"O cliente da NF do SAP ({sapInvoice.CardCode}) é diferente do cliente do contrato da liberação.");
+                $"O cliente da NF do SAP ({sapInvoices[0].CardCode}) é diferente do cliente do contrato da liberação.");
 
-        await duplicateGuard.EnsureUniqueAsync(
-            load.BranchCode ?? string.Empty, sapInvoice.TaxDocumentNumber, sapInvoice.TaxDocumentSeries,
-            sapInvoice.AccessKey, null);
+        var sum = sapInvoices.Sum(i => i.Quantity);
+        var available = await new ShipmentLoadsBillingGuardService(db.Context).CalculateAvailableAsync(load.Key);
+        if (!SumMatchesAvailable(sum, available))
+            throw new ApplicationException(
+                $"A soma das notas fiscais do SAP ({sum.ToString("N3", PtBr)}) é diferente do saldo da carga " +
+                $"{load.Code} ({available.ToString("N3", PtBr)}). O vínculo exige que a soma seja igual ao saldo.");
 
-        var salesInvoice = Build(load, release, sapInvoice);
-        var link = new SapInvoiceLink(
-            sapInvoice.DocEntry, sapInvoice.DocNum, sapInvoice.TaxDocumentNumber, sapInvoice.TaxDocumentSeries,
-            sapInvoice.AccessKey, sapInvoice.Cfop);
+        var created = new List<SalesInvoice>(sapInvoices.Count);
 
+        // Tudo ou nada: uma transação para o lote. O orquestrador roda em CommitMode.Deferred (não abre nem
+        // comita a dele) e grava cada documento dentro desta — então o guard de saldo da carga do 2º documento
+        // já enxerga o 1º, e qualquer falha desfaz todos. O orquestrador não tem trabalho pós-commit: todos
+        // os efeitos de cada documento ficam gravados dentro desta transação.
+        await db.BeginTransactionAsync();
         try
         {
-            await billing.ExecuteAsync(salesInvoice, username, link);
+            foreach (var sapInvoice in sapInvoices)
+            {
+                // Dentro da transação: pega também duas NFs do lote com o mesmo número/série/chave.
+                await duplicateGuard.EnsureUniqueAsync(
+                    load.BranchCode ?? string.Empty, sapInvoice.TaxDocumentNumber, sapInvoice.TaxDocumentSeries,
+                    sapInvoice.AccessKey, null);
+
+                var salesInvoice = Build(load, release, sapInvoice);
+                var link = new SapInvoiceLink(
+                    sapInvoice.DocEntry, sapInvoice.DocNum, sapInvoice.TaxDocumentNumber,
+                    sapInvoice.TaxDocumentSeries, sapInvoice.AccessKey, sapInvoice.Cfop);
+
+                created.Add(salesInvoice);
+                await billing.ExecuteAsync(salesInvoice, username, link, CommitMode.Deferred);
+            }
+
+            await db.CommitAsync();
         }
-        catch (Exception e) when (e is ApplicationException or DbUpdateException)
+        catch (Exception e)
         {
-            // Duas pessoas vinculando a mesma NF: o índice único filtrado em SapDocEntry derruba a
-            // segunda. O orquestrador relança só a mensagem (a exceção do EF se perde), então a causa
-            // é confirmada relendo o banco — nunca pela mensagem.
-            var winner = await FindActiveLinkAsync(sapDocEntry, salesInvoice.Key);
-            if (winner is not null)
-                throw new ApplicationException(AlreadyLinkedMessage(winner, sapInvoice.DocNum), e);
+            await db.RollbackAsync();
+
+            if (e is ApplicationException or DbUpdateException)
+            {
+                // Dois vínculos concorrentes com NF em comum: o índice único filtrado em SapDocEntry derruba
+                // o perdedor. O orquestrador relança só a mensagem, então a causa é confirmada relendo o
+                // banco — nunca pela mensagem. Os documentos deste lote ficam de fora da busca.
+                var mine = created.Select(c => c.Key).ToList();
+                foreach (var sapInvoice in sapInvoices)
+                {
+                    var winner = await FindActiveLinkAsync(sapInvoice.DocEntry, mine);
+                    if (winner is not null)
+                        throw new ApplicationException(AlreadyLinkedMessage(winner, sapInvoice.DocNum), e);
+                }
+            }
 
             throw;
         }
 
-        return salesInvoice;
+        return created;
     }
 
     private static SalesInvoice Build(ShipmentLoad load, SalesShipmentRelease release, SapLinkableInvoiceDto sap)
@@ -129,30 +185,22 @@ public class ShipmentLoadsLinkSapInvoiceService(
     }
 
     /// <summary>Descobre por que <see cref="SapLinkableInvoicesService.FindAsync"/> não achou a invoice.</summary>
-    private async Task<Exception> ExplainRefusalAsync(ShipmentLoad load, int sapDocEntry)
+    private async Task<Exception> ExplainRefusalAsync(int sapDocEntry)
     {
-        var linked = await FindActiveLinkAsync(sapDocEntry, null);
+        var linked = await FindActiveLinkAsync(sapDocEntry, []);
         if (linked is not null)
             return new ApplicationException(AlreadyLinkedMessage(linked, linked.SapDocNum ?? sapDocEntry));
 
-        var onlyQuantityFails = await finder.FindIgnoringQuantityAsync(load.Key, sapDocEntry);
-        if (onlyQuantityFails is not null)
-        {
-            var available = await new ShipmentLoadsBillingGuardService(db.Context).CalculateAvailableAsync(load.Key);
-            return new ApplicationException(
-                $"A quantidade da NF do SAP ({onlyQuantityFails.Quantity.ToString("N3", PtBr)}) é diferente do " +
-                $"saldo da carga {load.Code} ({available.ToString("N3", PtBr)}). O vínculo exige quantidades iguais.");
-        }
-
-        return new ApplicationException("A NF do SAP não está mais disponível para vínculo.");
+        var number = await finder.FindTaxDocumentNumberAsync(sapDocEntry) ?? sapDocEntry.ToString();
+        return new ApplicationException($"A NF do SAP {number} não está mais disponível para vínculo.");
     }
 
-    private Task<SalesInvoice?> FindActiveLinkAsync(int sapDocEntry, Guid? exceptKey) =>
+    private Task<SalesInvoice?> FindActiveLinkAsync(int sapDocEntry, IReadOnlyCollection<Guid> exceptKeys) =>
         db.Context.SalesInvoices.AsNoTracking()
             .Where(s => s.SapDocEntry == sapDocEntry
                         && s.InvoiceStatus != InvoiceStatus.Cancelled
                         && s.InvoiceStatus != InvoiceStatus.Returned
-                        && (exceptKey == null || s.Key != exceptKey))
+                        && !exceptKeys.Contains(s.Key))
             .FirstOrDefaultAsync();
 
     private static string AlreadyLinkedMessage(SalesInvoice linked, int fallbackDocNum)

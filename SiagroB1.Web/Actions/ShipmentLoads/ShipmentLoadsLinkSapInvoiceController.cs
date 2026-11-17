@@ -1,3 +1,4 @@
+using System.Collections;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
@@ -26,18 +27,21 @@ public class ShipmentLoadsLinkSapInvoiceController(IServiceProvider services) : 
             // ODataActionParameters é nulo quando o corpo não vem.
             if (parameters == null ||
                 !parameters.TryGetValue("Key", out var keyObj) || keyObj == null ||
-                !parameters.TryGetValue("SapDocEntry", out var docEntryObj) || docEntryObj == null ||
+                !parameters.TryGetValue("SapDocEntries", out var entriesObj) || entriesObj is not IEnumerable entries ||
                 !parameters.TryGetValue("SalesShipmentReleaseKey", out var releaseObj) || releaseObj == null)
                 return BadRequest("Selecione a nota fiscal do SAP e a liberação de entrega.");
 
-            var invoice = await service.ExecuteAsync(
+            var invoices = await service.ExecuteAsync(
                 Guid.Parse(keyObj.ToString()!),
-                Convert.ToInt32(docEntryObj),
+                entries.Cast<object?>().Select(x => Convert.ToInt32(x)).ToList(),
                 Guid.Parse(releaseObj.ToString()!),
                 User.Identity?.Name ?? "Unknown");
 
-            // Mesma forma de ShipmentBillingCreateSalesInvoiceController: o detalhe leva o usuário ao documento.
-            return Ok(new { key = invoice.Key, invoiceNumber = invoice.InvoiceNumber });
+            // Um item por NF, na ordem de SapDocEntries; com uma NF o detalhe leva o usuário ao documento.
+            return Ok(new
+            {
+                documents = invoices.Select(i => new { key = i.Key, invoiceNumber = i.InvoiceNumber }).ToList(),
+            });
         }
         catch (Exception e)
         {
