@@ -192,22 +192,36 @@ public class ShipmentBillingCreateSalesInvoiceService(
     {
         salesInvoice.SapDocEntry = sapLink.DocEntry;
         salesInvoice.SapDocNum = sapLink.DocNum;
-        salesInvoice.TaxDocumentNumber = sapLink.TaxDocumentNumber;
-        salesInvoice.TaxDocumentSeries = sapLink.TaxDocumentSeries;
-        salesInvoice.ChaveNFe = sapLink.AccessKey;
+
+        ApplySapFiscalFields(
+            salesInvoice, sapLink.TaxDocumentNumber, sapLink.TaxDocumentSeries, sapLink.AccessKey, sapLink.Cfop,
+            sapLink.UsageCode, sapLink.UsageName);
+    }
+
+    /// <summary>
+    /// Número, série, chave, CFOP e natureza da nota do SAP, gravados como espelho. Comum à invoice de venda
+    /// (<see cref="ApplySapLink"/>) e à NF de devolução (A/R Credit Memo) vinculada à devolução.
+    /// </summary>
+    internal static void ApplySapFiscalFields(
+        SalesInvoice salesInvoice, string taxDocumentNumber, string taxDocumentSeries, string? accessKey,
+        string? cfop, int? sapUsageCode, string? sapUsageName)
+    {
+        salesInvoice.TaxDocumentNumber = taxDocumentNumber;
+        salesInvoice.TaxDocumentSeries = taxDocumentSeries;
+        salesInvoice.ChaveNFe = accessKey;
 
         foreach (var item in salesInvoice.Items)
         {
-            item.Cfop = sapLink.Cfop ?? item.Cfop; // SAP sem CFOP na linha: fica o resolvido pela natureza.
+            item.Cfop = cfop ?? item.Cfop; // SAP sem CFOP na linha: fica o resolvido pela natureza.
 
             // Natureza da linha da invoice do SAP, gravada como espelho (igual ao CFOP). Entra AQUI, depois da
             // criação, e não no item entregue a ela: o guard de natureza recusa a que não tem efeito configurado
             // em USAGE_EFFECTS — o caso normal das naturezas do OUSG — e o vínculo inteiro falharia. O efeito
             // no contrato deste caminho vem da origem do documento (carga), não da natureza.
-            if (sapLink.UsageCode is { } usageCode)
+            if (sapUsageCode is { } usageCode)
             {
                 item.UsageCode = usageCode;
-                item.UsageName = sapLink.UsageName;
+                item.UsageName = sapUsageName;
             }
         }
     }

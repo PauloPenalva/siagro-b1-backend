@@ -76,6 +76,9 @@ public static class ContractChangeLogFields
     /// <summary>Documento de saída marcado/desmarcado como operação sem nota fiscal (GAC-1174).</summary>
     public const string WithoutTaxDocument = "WithoutTaxDocument";
 
+    /// <summary>NF de devolução do SAP (A/R Credit Memo) vinculada à devolução ou desvinculada dela (GAC-1226).</summary>
+    public const string SapReturnInvoice = "SapReturnInvoice";
+
     /// <summary>Ciclo da minuta: "Minuta N criada / enviada para assinatura / assinada / cancelada".</summary>
     public const string Draft = "Draft";
 
