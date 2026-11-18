@@ -153,13 +153,20 @@ public static class NfeLoadRefusalTestSeed
 
     /// <summary>Cancelamento do documento de saída com as dependências reais do banco.</summary>
     /// <param name="complete">Reavaliação da recusa no cancelamento pós-SEFAZ (2b). <c>null</c> (padrão): sem ela.</param>
-    public static SalesInvoicesCancelService CancelService(UnitOfWork db, ShipmentLoadRefusalCompleteService? complete = null) =>
+    /// <param name="reopen">Estorno da recusa concluída no cancelamento da NF-e. <c>null</c> (padrão): a recusa concluída barra.</param>
+    public static SalesInvoicesCancelService CancelService(
+        UnitOfWork db, ShipmentLoadRefusalCompleteService? complete = null, ShipmentLoadRefusalReopenService? reopen = null) =>
         new(db,
             new SalesShipmentReleasesRecalculateShippedService(db.Context),
             new SalesContractsAllocationDeleteForInvoiceService(db),
             new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
             NullLogger<SalesInvoicesCancelService>.Instance,
-            complete);
+            complete,
+            refusalReopen: reopen);
+
+    /// <summary>Estorno da recusa concluída pelo cancelamento da NF-e da devolução.</summary>
+    public static ShipmentLoadRefusalReopenService Reopen(IUnitOfWork db) =>
+        new(db, new ShipmentReleasesRecalculateShippedService(db.Context), new ShipmentLoadsMovementLogService(db.Context));
 
     /// <summary>"Cancelar recusa" (spec 2026-10-09 §5.4).</summary>
     public static ShipmentLoadsCancelRefusalService CancelRefusalService(UnitOfWork db) =>

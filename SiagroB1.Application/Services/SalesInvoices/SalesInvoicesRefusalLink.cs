@@ -29,7 +29,8 @@ public static class SalesInvoicesRefusalLink
 
     /// <summary>
     /// A devolução que concluiu a recusa já gerou os efeitos do destino (entrada no armazém, liberações, transbordo):
-    /// cancelar a NF-e dela pelo Siagro deixaria esses efeitos para trás. Barrada antes de falar com a SEFAZ.
+    /// cancelar a devolução sem desfazê-los os deixaria para trás. Quem desfaz é o cancelamento da NF-e, por
+    /// <c>ShipmentLoadRefusalReopenService</c>; esta trava vale para os demais caminhos.
     /// </summary>
     public static async Task EnsureNotInCompletedRefusalAsync(AppDbContext context, SalesInvoice invoice)
     {

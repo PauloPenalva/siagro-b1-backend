@@ -28,7 +28,8 @@ public class SalesInvoicesCancelService(
     FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
     FinancialDocumentsSalesNoContractService? salesNoContract = null,
     FiscalStockPeriodGuard? periodGuard = null,
-    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null,
+    ShipmentLoadRefusalReopenService? refusalReopen = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
@@ -48,7 +49,12 @@ public class SalesInvoicesCancelService(
                       ?? throw new NotFoundException("Documento de saída não encontrado.");
 
         await EnsureBusinessRulesAsync(invoice);
-        await SalesInvoicesRefusalLink.EnsureNotInCompletedRefusalAsync(db.Context, invoice);
+
+        // O cancelamento da NF-e desfaz a recusa concluída: o ensaio recusa aqui o que não pode ser desfeito.
+        if (refusalReopen is not null)
+            await refusalReopen.EnsureCanReopenAsync(invoice);
+        else
+            await SalesInvoicesRefusalLink.EnsureNotInCompletedRefusalAsync(db.Context, invoice);
     }
 
     private async Task CancelAsync(Guid key, string userName, bool afterNfe,
@@ -81,8 +87,10 @@ public class SalesInvoicesCancelService(
         if (!afterNfe && !fromRefusal)
             await SalesInvoicesRefusalLink.EnsureNotInPendingRefusalAsync(db.Context, existingInvoice);
 
-        // A recusa concluída não se desfaz pelo cancelamento da devolução (barrada também no ensaio pré-SEFAZ).
-        if (!fromRefusal)
+        // A recusa concluída só se desfaz pelo cancelamento da NF-e (afterNfe), que a reabre dentro da transação
+        // abaixo; por qualquer outro caminho o cancelamento da devolução é barrado.
+        var reopensRefusal = afterNfe && refusalReopen is not null;
+        if (!fromRefusal && !reopensRefusal)
             await SalesInvoicesRefusalLink.EnsureNotInCompletedRefusalAsync(db.Context, existingInvoice);
 
         var salesTransactionsKeys = existingInvoice.SalesTransactions?.Select(x => x.Key)
@@ -97,6 +105,11 @@ public class SalesInvoicesCancelService(
         {
             if (commitMode == CommitMode.Auto)
                 await db.BeginTransactionAsync();
+
+            // Recusa CONCLUÍDA: desfaz os efeitos do destino e a devolve a Pendente ANTES do cancelamento — a
+            // reavaliação no fim (TryCompleteAsync) a cancela ou a conclui de novo com as devoluções que sobraram.
+            if (reopensRefusal)
+                await refusalReopen!.ReopenAsync(existingInvoice, userName);
 
             foreach (var salesTransactionsKey in salesTransactionsKeys)
             {
