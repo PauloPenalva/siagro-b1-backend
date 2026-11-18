@@ -155,6 +155,19 @@ visual do diálogo, seguindo o padrão do "Vincular NF do SAP".
 - **Não verificado:** nada contra o SAP/InvOne reais da Yokotobi; modo STANDALONE no navegador; lista e
   formulário de documento de saída no navegador.
 
+## Revisão de 18/11/2026 — cliente da NF ≠ cliente do contrato
+
+Na Yokotobi o contrato é feito num `CardCode` e o faturamento sai em outro (instrução da trading). Passa a valer,
+e revoga a regra 4 de `2026-11-16-gac-1226-sap-invoice-link-design.md` e a frase final da regra 3 de
+`2026-11-17-gac-1226-multi-invoice-link-design.md`:
+
+- **Venda:** o cliente da NF do SAP **não** precisa ser o do contrato da liberação. O documento de saída nasce
+  com o `CardCode` da NF; o saldo é baixado no contrato da liberação escolhida. A tela lista todas as liberações
+  do item (as do cliente da NF primeiro; as outras com aviso). NFs marcadas juntas continuam do mesmo cliente.
+- **Devolução:** o filtro de cliente do Credit Memo é o `CardCode` do documento de devolução, que é copiado do
+  documento de origem (`SalesInvoiceCopyFactory`) — ou seja, o cliente da NF de venda vinculada, não o do contrato.
+  Nenhuma mudança de código foi necessária aqui.
+
 ## Limitação conhecida
 
 `SalesInvoice` não tem token de concorrência. Dois usuários vinculando notas DIFERENTES à mesma devolução ao mesmo

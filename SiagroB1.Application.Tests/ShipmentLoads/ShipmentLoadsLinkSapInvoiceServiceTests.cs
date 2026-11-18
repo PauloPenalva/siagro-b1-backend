@@ -406,16 +406,25 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
     }
 
     [Fact]
-    public async Task Contract_customer_different_from_the_sap_customer_is_refused()
+    public async Task Contract_customer_different_from_the_sap_customer_links_with_the_customer_of_the_sap_invoice()
     {
+        // Contrato num cliente, faturamento em outro (instrução da trading): o documento de saída obedece a NF;
+        // a baixa de saldo continua no contrato da liberação escolhida.
         await SeedAsync(releaseCard: "C0002");
         await AddSapInvoiceAsync();
 
-        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync());
+        await LinkAsync();
 
-        Assert.Equal(
-            "O cliente da NF do SAP (C0001) é diferente do cliente do contrato da liberação.", ex.Message);
-        await AssertNothingPersistedAsync();
+        var saved = await _db.Context.SalesInvoices.AsNoTracking().Include(i => i.Items).SingleAsync();
+        Assert.Equal(CardCode, saved.CardCode);
+        Assert.Equal(InvoiceStatus.Confirmed, saved.InvoiceStatus);
+        var line = Assert.Single(saved.Items);
+        Assert.Equal(_contract.Key, line.SalesContractKey);
+        Assert.Equal(_release.Key, line.SalesShipmentReleaseKey);
+
+        var release = await _db.Context.SalesShipmentReleases.AsNoTracking().SingleAsync();
+        Assert.Equal(Quantity, release.ShippedQuantity);
+        Assert.Equal("C0002", (await _db.Context.SalesContracts.AsNoTracking().SingleAsync()).CardCode);
     }
 
     [Theory]

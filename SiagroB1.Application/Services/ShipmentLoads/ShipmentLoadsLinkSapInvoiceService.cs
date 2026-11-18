@@ -91,9 +91,9 @@ public class ShipmentLoadsLinkSapInvoiceService(
                             || release.SalesContract is null || release.SalesContract.ItemCode != load.ItemCode)
             throw new ApplicationException(ReleaseUnavailable);
 
-        if (!string.Equals(release.SalesContract.CardCode?.Trim(), cardCode, StringComparison.OrdinalIgnoreCase))
-            throw new ApplicationException(
-                $"O cliente da NF do SAP ({sapInvoices[0].CardCode}) é diferente do cliente do contrato da liberação.");
+        // O cliente da NF NÃO precisa ser o do contrato da liberação: por instrução da trading o contrato é feito
+        // num cliente e o faturamento sai em outro. O documento de saída obedece a NF (Build usa sap.CardCode);
+        // o saldo é baixado no contrato da liberação escolhida.
 
         // O saldo é lido ANTES da transação, então esta comparação sozinha não protege de um faturamento
         // concorrente. Ela só é segura porque, dentro da transação, o guard de saldo da carga (chamado pelo
