@@ -144,10 +144,16 @@ Com a recusa `Pending`, considerando só as devoluções não canceladas:
 - todas as vivas confirmadas → conclui como acima, com a quantidade das confirmadas;
 - senão, nada.
 
-**Recusa concluída não se desfaz pelo 2b.** Cancelar a NF-e de uma devolução cuja recusa está `Completed`
-deixaria para trás a entrada no armazém, as liberações e o transbordo: é barrado antes da SEFAZ
-(`EnsureCanCancelAsync`) e no cancelamento do documento — "Esta devolução concluiu a recusa da carga X: a NF-e
-não pode ser cancelada pelo Siagro." (`SalesInvoicesRefusalLink`).
+**Recusa concluída se desfaz pelo cancelamento da NF-e (revisto em 18/11/2026, caso CG000096 da CEAGUI).**
+Antes era barrado ("Esta devolução concluiu a recusa da carga X: a NF-e não pode ser cancelada pelo Siagro"), e a
+devolução emitida errada ficava sem saída. Agora o 2b desfaz os efeitos da recusa `Completed`
+(`ShipmentLoadRefusalReopenService`): cancela o romaneio 12 e as liberações (Armazém) ou o romaneio 18 (Quebra de
+trajeto), devolve a recusa a `Pending` e deixa a reavaliação acima decidir — sem devolução viva a recusa é
+cancelada e a carga volta a Faturada; com outras devoluções confirmadas ela é concluída de novo só com elas.
+O ensaio antes da SEFAZ (`EnsureCanCancelAsync`) recusa o que não dá para desfazer: mercadoria devolvida já
+reembarcada, saldo do armazém insuficiente, volume já refaturado na carga (destino Refaturamento), outra recusa
+pendente na carga e transbordo aberto pela recusa ainda existente (o transbordo é estornado pelo usuário na
+Montagem de Carga, antes). Fora do cancelamento da NF-e a trava antiga continua (`SalesInvoicesRefusalLink`).
 
 O painel da recusa pendente (`ShipmentLoadsPendingRefusalService`) não lista devoluções canceladas.
 

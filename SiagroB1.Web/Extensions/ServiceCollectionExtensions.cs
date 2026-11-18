@@ -692,6 +692,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsReopenService>();
         services.AddScoped<ShipmentLoadRefusalEffectsService>();
         services.AddScoped<ShipmentLoadRefusalCompleteService>();
+        services.AddScoped<ShipmentLoadRefusalReopenService>();
         services.AddScoped<ShipmentLoadsRefuseService>();
         services.AddScoped<ShipmentLoadsCancelRefusalService>();
         services.AddScoped<ShipmentLoadsRefusableDocumentsService>();
