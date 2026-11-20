@@ -166,7 +166,8 @@ public static class NfeLoadRefusalTestSeed
 
     /// <summary>Estorno da recusa concluída pelo cancelamento da NF-e da devolução.</summary>
     public static ShipmentLoadRefusalReopenService Reopen(IUnitOfWork db) =>
-        new(db, new ShipmentReleasesRecalculateShippedService(db.Context), new ShipmentLoadsMovementLogService(db.Context));
+        new(db, new ShipmentReleasesRecalculateShippedService(db.Context), new ShipmentLoadsMovementLogService(db.Context),
+            new SalesInvoiceNfeReturnBuilder(db, NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone), Create((UnitOfWork)db));
 
     /// <summary>"Cancelar recusa" (spec 2026-10-09 §5.4).</summary>
     public static ShipmentLoadsCancelRefusalService CancelRefusalService(UnitOfWork db) =>
