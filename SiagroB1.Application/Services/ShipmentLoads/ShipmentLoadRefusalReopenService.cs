@@ -1,29 +1,51 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
-/// Estorno da recusa CONCLUÍDA, disparado pelo cancelamento da NF-e de uma devolução dela (caso CG000096 da CEAGUI,
-/// 18/11/2026: a NF-e de entrada emitida errada não tinha saída). Desfaz os efeitos do destino — romaneio 12 e
-/// liberações (Armazém) ou romaneio 18 (Quebra de trajeto) — e devolve a recusa a Pendente, para que a reavaliação
-/// de sempre (<see cref="ShipmentLoadRefusalCompleteService.TryCompleteAsync"/>) a cancele (não sobrou devolução)
-/// ou a conclua de novo só com as devoluções que continuam valendo.
+/// O que o cancelamento da NF-e fez com a recusa concluída. <see cref="KeptReason"/> preenchido = os efeitos do
+/// destino ficaram de pé e a devolução cancelada precisa ser SUBSTITUÍDA
+/// (<see cref="ShipmentLoadRefusalReopenService.ReplaceReturnAsync"/>).
+/// </summary>
+public sealed record RefusalReopenOutcome(Guid LoadKey, Guid? EntryKey, string? KeptReason)
+{
+    public bool KeepsEffects => KeptReason is not null;
+}
+
+/// <summary>
+/// Cancelamento da NF-e de uma devolução de recusa CONCLUÍDA (caso CG000096 da CEAGUI, 18/11/2026: a NF-e de
+/// entrada emitida errada não tinha saída). Dois desfechos:
+/// <list type="bullet">
+/// <item><b>Desfaz</b> — enquanto a mercadoria devolvida está onde a recusa a deixou: cancela o romaneio 12 e as
+/// liberações (Armazém) ou o romaneio 18 (Quebra de trajeto) e devolve a recusa a Pendente, para que a reavaliação de
+/// sempre (<see cref="ShipmentLoadRefusalCompleteService.TryCompleteAsync"/>) a cancele (não sobrou devolução) ou a
+/// conclua de novo só com as devoluções que continuam valendo.</item>
+/// <item><b>Substitui</b> — quando o físico já andou (mercadoria reembarcada, saldo do armazém consumido, volume
+/// refaturado, transbordo da recusa de pé): nada é desfeito, a recusa continua Concluída e nasce uma devolução
+/// Pendente igual à cancelada, com os mesmos vínculos, para o usuário corrigir e transmitir. O erro era só do
+/// documento fiscal; travar o cancelamento deixava o usuário sem saída (20/11/2026).</item>
+/// </list>
 /// </summary>
 /// <remarks>
-/// <see cref="EnsureCanReopenAsync"/> é o ensaio que roda ANTES de falar com a SEFAZ: tudo que impediria o estorno
+/// <see cref="EnsureCanReopenAsync"/> é o ensaio que roda ANTES de falar com a SEFAZ: tudo que impediria o desfecho
 /// precisa recusar ali, porque depois do evento registrado a NF-e está cancelada de qualquer jeito.
 /// <para>
-/// O destino Transbordo não é desfeito daqui: o transbordo tem ciclo próprio (entrada, saída do lote, liberação) e
-/// o estorno dele é do usuário, na Montagem de Carga. Enquanto o transbordo aberto pela recusa existir, o ensaio
-/// recusa. ⚠️ Não há chave entre a recusa e o transbordo: ele é achado por <c>Origin = Refusal</c> criado a partir
-/// da conclusão da recusa.
+/// ⚠️ Não há chave entre a recusa e o transbordo: ele é achado por <c>Origin = Refusal</c> criado a partir da
+/// conclusão da recusa.
+/// </para>
+/// <para>
+/// ⚠️ Entre o cancelamento e a autorização da devolução substituta, a origem volta a valer com o romaneio de pé: o
+/// saldo da carga fica negativo nesse intervalo, de propósito — ele fecha quando a substituta é confirmada.
 /// </para>
 /// <para>
 /// Roda SEMPRE na transação de quem chama (<c>SalesInvoicesCancelService</c>); só salva, nunca comita.
@@ -32,25 +54,37 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 public class ShipmentLoadRefusalReopenService(
     IUnitOfWork db,
     ShipmentReleasesRecalculateShippedService recalcShipped,
-    ShipmentLoadsMovementLogService movementLog)
+    ShipmentLoadsMovementLogService movementLog,
+    SalesInvoiceNfeReturnBuilder? nfeReturnBuilder = null,
+    SalesInvoicesCreateService? createService = null)
 {
     private const decimal Tolerance = 0.001m;
 
     private sealed record Plan(
-        ShipmentLoadRefusal Refusal, ShipmentLoad Load, StorageTransaction? Entry, List<ShipmentRelease> Releases);
+        ShipmentLoadRefusal Refusal, ShipmentLoad Load, StorageTransaction? Entry, List<ShipmentRelease> Releases,
+        string? KeptReason);
 
-    /// <summary>Ensaio: recusa o que não pode ser desfeito, sem alterar nada. No-op fora de recusa concluída.</summary>
-    public async Task EnsureCanReopenAsync(SalesInvoice returnInvoice) => await BuildPlanAsync(returnInvoice);
+    /// <summary>Ensaio: recusa o que não pode ser desfeito nem substituído, sem alterar nada. No-op fora de recusa concluída.</summary>
+    public async Task EnsureCanReopenAsync(SalesInvoice returnInvoice)
+    {
+        if (await BuildPlanAsync(returnInvoice) is { KeptReason: not null })
+            await BuildReplacementAsync(returnInvoice, "ensaio");
+    }
 
     /// <summary>
-    /// Desfaz os efeitos da recusa concluída e a devolve a Pendente. No-op fora de recusa concluída.
+    /// Desfaz os efeitos da recusa concluída e a devolve a Pendente — ou, quando o físico já andou, não mexe em nada e
+    /// avisa que a devolução precisa ser substituída. <c>null</c> fora de recusa concluída.
     /// </summary>
-    public async Task ReopenAsync(SalesInvoice returnInvoice, string userName)
+    public async Task<RefusalReopenOutcome?> ReopenAsync(SalesInvoice returnInvoice, string userName)
     {
         if (await BuildPlanAsync(returnInvoice) is not { } plan)
-            return;
+            return null;
 
-        var (refusal, load, entry, releases) = plan;
+        var (refusal, load, entry, releases, keptReason) = plan;
+
+        if (keptReason is not null)
+            return new RefusalReopenOutcome(load.Key, entry?.Key, keptReason);
+
         var now = DateTime.Now;
 
         foreach (var release in releases)
@@ -104,6 +138,73 @@ public class ShipmentLoadRefusalReopenService(
         load.UpdatedAt = now;
         load.UpdatedBy = userName;
         await db.SaveChangesAsync();
+
+        return new RefusalReopenOutcome(load.Key, entry?.Key, null);
+    }
+
+    /// <summary>
+    /// Depois do cancelamento gravado (a origem já voltou a valer): cria a devolução Pendente que substitui a
+    /// cancelada, com os vínculos da recusa e do romaneio. A recusa continua Concluída — a confirmação da substituta
+    /// não reaplica efeito nenhum (<see cref="ShipmentLoadRefusalCompleteService"/> só age em recusa Pendente).
+    /// </summary>
+    public async Task<SalesInvoice> ReplaceReturnAsync(
+        SalesInvoice cancelledReturn, RefusalReopenOutcome outcome, string userName)
+    {
+        var create = createService ?? throw new InvalidOperationException("SalesInvoicesCreateService não registrado.");
+        var replacement = await BuildReplacementAsync(cancelledReturn, userName);
+
+        await create.ExecuteAsync(replacement, userName, CommitMode.Deferred, nfeReturn: true);
+
+        // DEPOIS da criação: ela zera os vínculos vindos do corpo (SalesInvoiceNfeLock.ResetIssuanceFields).
+        replacement.ShipmentLoadRefusalKey = cancelledReturn.ShipmentLoadRefusalKey;
+        replacement.RefusalStorageTransactionKey = cancelledReturn.RefusalStorageTransactionKey ?? outcome.EntryKey;
+        await db.SaveChangesAsync();
+
+        var load = await db.Context.ShipmentLoads.FirstAsync(x => x.Key == outcome.LoadKey);
+
+        movementLog.Register(
+            load.Key,
+            ShipmentLoadMovementType.Refused,
+            decimal.Zero,
+            load.AvailableQuantity,
+            $"NF-e da devolução {cancelledReturn.InvoiceNumber} cancelada com a recusa mantida ({outcome.KeptReason}). " +
+            $"Devolução {replacement.InvoiceNumber} criada para substituí-la, aguardando NF-e de entrada.",
+            userName,
+            replacement.Key,
+            replacement.InvoiceNumber,
+            ShipmentLoadMovementContext.FromInvoice(replacement, null));
+
+        load.UpdatedAt = DateTime.Now;
+        load.UpdatedBy = userName;
+        await db.SaveChangesAsync();
+
+        return replacement;
+    }
+
+    /// <summary>Monta (sem gravar) a devolução substituta: mesma origem, mesmas quantidades por item.</summary>
+    private async Task<SalesInvoice> BuildReplacementAsync(SalesInvoice cancelledReturn, string userName)
+    {
+        var builder = nfeReturnBuilder
+                      ?? throw new InvalidOperationException("SalesInvoiceNfeReturnBuilder não registrado.");
+
+        var origin = await db.Context.SalesInvoices
+                         .Include(i => i.Items)
+                         .FirstOrDefaultAsync(i => i.Key == cancelledReturn.SalesInvoiceOriginKey)
+                     ?? throw new DefaultException(
+                         $"A devolução {cancelledReturn.InvoiceNumber} está sem o documento de origem. Acione o suporte.");
+
+        var quantities = (await db.Context.SalesInvoicesItems.AsNoTracking()
+                .Where(i => i.SalesInvoiceKey == cancelledReturn.Key && i.SalesInvoiceItemOriginKey != null)
+                .Select(i => new { Key = i.SalesInvoiceItemOriginKey!.Value, i.Quantity })
+                .ToListAsync())
+            .GroupBy(i => i.Key)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+        if (quantities.Count == 0)
+            throw new DefaultException(
+                $"A devolução {cancelledReturn.InvoiceNumber} está sem itens ligados à origem. Acione o suporte.");
+
+        return await builder.BuildAsync(origin, quantities, cancelledReturn.Comments ?? string.Empty, userName);
     }
 
     private async Task<Plan?> BuildPlanAsync(SalesInvoice returnInvoice)
@@ -117,66 +218,63 @@ public class ShipmentLoadRefusalReopenService(
 
         var load = await db.Context.ShipmentLoads.FirstAsync(x => x.Key == refusal.ShipmentLoadKey);
 
-        // Índice único: uma recusa Pendente por carga. Voltar esta a Pendente colidiria com a outra.
-        if (await db.Context.ShipmentLoadRefusals.AnyAsync(x =>
-                x.ShipmentLoadKey == load.Key && x.Key != refusalKey && x.Status == ShipmentLoadRefusalStatus.Pending))
-            throw new DefaultException(
-                $"A carga {load.Code} tem outra recusa aguardando NF-e: conclua ou cancele essa recusa antes de " +
-                "cancelar a NF-e desta devolução.");
-
-        if (refusal.Destination == RefusalDestination.Transshipment)
-            await EnsureTransshipmentReversedAsync(refusal, load);
-
         var entry = await ResolveEntryAsync(refusal, load, returnInvoice);
         List<ShipmentRelease> releases = [];
 
-        if (entry is { TransactionType: StorageTransactionType.SalesShipmentReturn })
+        var keptReason = refusal.Destination == RefusalDestination.Transshipment
+            ? await TransshipmentKeptReasonAsync(refusal, load)
+            : null;
+
+        if (keptReason is null && entry is { TransactionType: StorageTransactionType.SalesShipmentReturn })
         {
             releases = await db.Context.ShipmentReleases
                 .Where(x => x.GeneratedByStorageTransactionKey == entry.Key && x.Status != ReleaseStatus.Cancelled)
                 .ToListAsync();
 
-            // Antes do saldo do armazém: a mensagem acionável é "estorne o embarque", não "saldo curto".
             foreach (var release in releases)
             {
-                var shipped = await recalcShipped.CalculateShippedAsync(release.Key, release.Origin);
-                if (shipped > decimal.Zero)
-                    throw new DefaultException(
-                        $"A mercadoria devolvida pelo romaneio {entry.Code} já foi embarcada de novo " +
-                        $"({shipped:N3} de {release.ReleasedQuantity:N3}, pela liberação {release.DocNumber}). " +
-                        "Estorne esse embarque antes de cancelar a NF-e da devolução.");
+                if (await recalcShipped.CalculateShippedAsync(release.Key, release.Origin) > decimal.Zero)
+                {
+                    keptReason = $"a mercadoria devolvida pelo romaneio {entry.Code} já foi embarcada de novo";
+                    break;
+                }
             }
 
-            var warehouseBalance = await StorageTransactionsWarehouseBalanceService.CalculateAsync(
-                db.Context, entry.WarehouseCode, entry.ItemCode);
+            if (keptReason is null)
+            {
+                var warehouseBalance = await StorageTransactionsWarehouseBalanceService.CalculateAsync(
+                    db.Context, entry.WarehouseCode, entry.ItemCode);
 
-            if (warehouseBalance < entry.NetWeight)
-                throw new DefaultException(
-                    $"A mercadoria da carga {load.Code} foi devolvida ao armazém {entry.WarehouseCode} pelo romaneio " +
-                    $"{entry.Code}. Saldo do armazém hoje ({warehouseBalance:N3}) menor que a quantidade a debitar de " +
-                    $"volta ({entry.NetWeight:N3}) — parte já foi consumida por outra operação. " +
-                    "A NF-e da devolução não pode ser cancelada.");
+                if (warehouseBalance < entry.NetWeight)
+                    keptReason =
+                        $"o armazém {entry.WarehouseCode} já não tem o saldo devolvido pelo romaneio {entry.Code}";
+            }
         }
 
         // Sem romaneio (Refaturamento, Transbordo já estornado), o volume devolvido voltou ao saldo da carga e a
         // origem volta a consumi-lo. Com romaneio o efeito é neutro: ele sai e a origem volta, na mesma quantidade.
-        if (entry is null)
+        if (keptReason is null && entry is null)
         {
             var quantity = await db.Context.SalesInvoicesItems
                 .Where(i => i.SalesInvoiceKey == returnInvoice.Key)
                 .SumAsync(i => (decimal?)i.Quantity) ?? decimal.Zero;
 
             if (returnInvoice.InvoiceStatus == InvoiceStatus.Confirmed && load.AvailableQuantity < quantity - Tolerance)
-                throw new DefaultException(
-                    $"O volume desta devolução já foi faturado de novo na carga {load.Code} (saldo a faturar " +
-                    $"{load.AvailableQuantity:N3}, devolução {quantity:N3}): cancele o novo documento de saída antes de " +
-                    "cancelar a NF-e da devolução.");
+                keptReason = $"o volume devolvido já foi faturado de novo na carga {load.Code}";
         }
 
-        return new Plan(refusal, load, entry, releases);
+        // Índice único: uma recusa Pendente por carga. Voltar esta a Pendente colidiria com a outra. Na substituição
+        // a recusa continua Concluída e não há colisão.
+        if (keptReason is null && await db.Context.ShipmentLoadRefusals.AnyAsync(x =>
+                x.ShipmentLoadKey == load.Key && x.Key != refusalKey && x.Status == ShipmentLoadRefusalStatus.Pending))
+            throw new DefaultException(
+                $"A carga {load.Code} tem outra recusa aguardando NF-e: conclua ou cancele essa recusa antes de " +
+                "cancelar a NF-e desta devolução.");
+
+        return new Plan(refusal, load, entry, releases, keptReason);
     }
 
-    private async Task EnsureTransshipmentReversedAsync(ShipmentLoadRefusal refusal, ShipmentLoad load)
+    private async Task<string?> TransshipmentKeptReasonAsync(ShipmentLoadRefusal refusal, ShipmentLoad load)
     {
         // CompletedAt é carimbado logo antes dos efeitos; a folga cobre relógio e arredondamento do datetime.
         var since = (refusal.CompletedAt ?? refusal.CreatedAt).AddMinutes(-1);
@@ -187,10 +285,7 @@ public class ShipmentLoadRefusalReopenService(
             .Select(x => (int?)x.Sequence)
             .FirstOrDefaultAsync();
 
-        if (sequence is not null)
-            throw new DefaultException(
-                $"A recusa da carga {load.Code} abriu o transbordo {sequence}: estorne o transbordo na Montagem de " +
-                "Carga antes de cancelar a NF-e da devolução.");
+        return sequence is null ? null : $"o transbordo {sequence} aberto pela recusa continua de pé";
     }
 
     /// <summary>

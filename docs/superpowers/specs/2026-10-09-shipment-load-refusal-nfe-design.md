@@ -150,10 +150,19 @@ devolução emitida errada ficava sem saída. Agora o 2b desfaz os efeitos da re
 (`ShipmentLoadRefusalReopenService`): cancela o romaneio 12 e as liberações (Armazém) ou o romaneio 18 (Quebra de
 trajeto), devolve a recusa a `Pending` e deixa a reavaliação acima decidir — sem devolução viva a recusa é
 cancelada e a carga volta a Faturada; com outras devoluções confirmadas ela é concluída de novo só com elas.
-O ensaio antes da SEFAZ (`EnsureCanCancelAsync`) recusa o que não dá para desfazer: mercadoria devolvida já
-reembarcada, saldo do armazém insuficiente, volume já refaturado na carga (destino Refaturamento), outra recusa
-pendente na carga e transbordo aberto pela recusa ainda existente (o transbordo é estornado pelo usuário na
-Montagem de Carga, antes). Fora do cancelamento da NF-e a trava antiga continua (`SalesInvoicesRefusalLink`).
+**Quando o físico já andou, a devolução é substituída (revisto em 20/11/2026, mesmo caso).** A CG000096 teve o grão
+devolvido embarcado de novo em duas cargas antes de o usuário cancelar a NF-e errada; barrar o cancelamento o
+deixava sem saída, porque o embarque não pode ser estornado (a mercadoria viajou). Então, se a mercadoria devolvida
+já foi reembarcada, o saldo do armazém não cobre o romaneio, o volume já foi refaturado na carga (destino
+Refaturamento) ou o transbordo aberto pela recusa continua de pé, o 2b NÃO desfaz nada: a recusa continua
+`Completed`, o romaneio e as liberações ficam, a devolução é cancelada e nasce na mesma transação uma devolução
+`Pending` igual (mesma origem e quantidades, mesmos `ShipmentLoadRefusalKey` e `RefusalStorageTransactionKey`) para
+o usuário corrigir e transmitir. A confirmação da substituta não reaplica efeitos (a conclusão só age em recusa
+`Pending`). A substituta não pode ser cancelada nem excluída. ⚠️ Entre o cancelamento e a autorização da substituta
+o saldo da carga fica negativo (origem valendo + romaneio de pé); fecha na confirmação.
+O ensaio antes da SEFAZ ainda recusa: outra recusa pendente na carga (só no caminho que desfaz) e substituta que não
+pode ser montada (natureza de devolução ausente). Fora do cancelamento da NF-e a trava antiga continua
+(`SalesInvoicesRefusalLink`).
 
 O painel da recusa pendente (`ShipmentLoadsPendingRefusalService`) não lista devoluções canceladas.
 

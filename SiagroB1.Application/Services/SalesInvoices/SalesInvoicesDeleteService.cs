@@ -27,6 +27,7 @@ public class SalesInvoicesDeleteService(
             await InvoiceSettledFinancialGuard.EnsureSalesHasNoSettlementAsync(db.Context, entity.Key, entity.InvoiceNumber);
             await StorageCustodyGuard.EnsureSalesHasNoLaterStepAsync(db.Context, entity.Key);
             await SalesInvoicesRefusalLink.EnsureNotInPendingRefusalAsync(db.Context, entity);
+            await SalesInvoicesRefusalLink.EnsureNotInCompletedRefusalAsync(db.Context, entity);
 
             // GAC-1226: a origem devolvida voltaria a segurar uma NF do SAP já vinculada a outro documento.
             await SalesInvoicesReturnOriginRestoreService.EnsureOriginSapLinkFreeAsync(db.Context, entity);

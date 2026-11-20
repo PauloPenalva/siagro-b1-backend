@@ -42,8 +42,17 @@ public static class SalesInvoicesRefusalLink
             .Select(r => r.ShipmentLoad!.Code)
             .FirstOrDefaultAsync();
 
-        if (loadCode is not null)
+        if (loadCode is null)
+            return;
+
+        // Pendente dentro de recusa concluída = a substituta de uma devolução cuja NF-e foi cancelada com os efeitos
+        // da recusa mantidos (ShipmentLoadRefusalReopenService): sem ela o romaneio fica sem documento fiscal.
+        if (invoice.InvoiceStatus == InvoiceStatus.Pending)
             throw new DefaultException(
-                $"Esta devolução concluiu a recusa da carga {loadCode}: a NF-e não pode ser cancelada pelo Siagro.");
+                $"Esta devolução substitui a NF-e cancelada da recusa da carga {loadCode}: corrija o documento e " +
+                "transmita a NF-e. Ela não pode ser cancelada nem excluída.");
+
+        throw new DefaultException(
+            $"Esta devolução concluiu a recusa da carga {loadCode}: a NF-e não pode ser cancelada pelo Siagro.");
     }
 }

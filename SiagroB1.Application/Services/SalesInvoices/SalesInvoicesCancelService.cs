@@ -108,8 +108,10 @@ public class SalesInvoicesCancelService(
 
             // Recusa CONCLUÍDA: desfaz os efeitos do destino e a devolve a Pendente ANTES do cancelamento — a
             // reavaliação no fim (TryCompleteAsync) a cancela ou a conclui de novo com as devoluções que sobraram.
-            if (reopensRefusal)
-                await refusalReopen!.ReopenAsync(existingInvoice, userName);
+            // Quando o físico já andou (mercadoria reembarcada), nada é desfeito: a devolução é SUBSTITUÍDA no fim.
+            var reopenOutcome = reopensRefusal
+                ? await refusalReopen!.ReopenAsync(existingInvoice, userName)
+                : null;
 
             foreach (var salesTransactionsKey in salesTransactionsKeys)
             {
@@ -216,6 +218,11 @@ public class SalesInvoicesCancelService(
 
                 await db.SaveChangesAsync();
             }
+
+            // Recusa concluída cujos efeitos ficaram de pé: nasce a devolução Pendente que substitui a cancelada.
+            // DEPOIS do cancelamento gravado — a origem precisa ter voltado a valer para ser devolvida de novo.
+            if (reopenOutcome is { KeepsEffects: true })
+                await refusalReopen!.ReplaceReturnAsync(existingInvoice, reopenOutcome, userName);
 
             // Spec 2026-10-09: o 2b cancelou a NF-e de uma devolução de recusa pendente. Sem reavaliar aqui, nada
             // concluiria (as demais já confirmadas) nem cancelaria (era a única viva) a recusa — carga travada para
