@@ -20,7 +20,10 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// <c>ShipmentLoadsTransshipmentRegisterEntryService</c> — a pergunta é
 /// "este armazém é próprio AGORA?". Aqui <c>WarehouseComplement.IsOwn</c> lido ao vivo é a
 /// resposta certa: não existe ainda nenhuma estrutura persistida para consultar, e é exatamente o
-/// cadastro atual do armazém que decide que romaneio a entrada vai exigir.
+/// cadastro atual do armazém que decide que romaneio a entrada vai exigir. Desde o GAC-1232 o ramo
+/// próprio depende de <c>IsOwn</c> <b>e</b> do <see cref="ShipmentLoadTransshipment.Type"/> da
+/// linha (já persistido desde o início): só o transbordo vincula o <c>Receipt</c> do lote; a
+/// transferência segue sempre o ramo de terceiro, seja qual for o armazém.
 /// </item>
 /// <item>
 /// <b>Ao decidir sobre um transbordo que JÁ EXISTE</b> — o estorno

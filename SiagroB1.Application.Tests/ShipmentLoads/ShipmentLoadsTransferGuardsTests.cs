@@ -31,8 +31,7 @@ public class ShipmentLoadsTransferGuardsTests
     private ShipmentLoadsTransshipmentStartService StartService() => new(
         _db,
         new FakeWarehouseService(new Dictionary<string, string> { [DestinationWarehouse] = "ARMAZEM DESTINO" }),
-        MovementLog(),
-        new WarehouseComplementService(_db));
+        MovementLog());
 
     private async Task<(ShipmentLoad Load, ShipmentLoadTransshipment Transshipment)> SeedCompletedByTransferAsync()
     {
@@ -230,12 +229,9 @@ public class ShipmentLoadsTransferGuardsTests
         Assert.False((await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync(x => x.Key == load.Key)).IsInTransfer);
     }
 
-    /// <summary>
-    /// Mercadoria que fica em armazém PRÓPRIO é Entrada em Armazenagem. Recusar já no início evita
-    /// que o operador descubra só na hora de concluir que escolheu o processo errado.
-    /// </summary>
+    /// <summary>GAC-1232: a transferência pode terminar em armazém PRÓPRIO, pelo caminho do terceiro.</summary>
     [Fact]
-    public async Task A_transfer_to_an_own_warehouse_is_refused_at_the_start()
+    public async Task A_transfer_to_an_own_warehouse_can_be_started()
     {
         var load = OpenLoad();
         _db.Context.WarehouseComplements.Add(new WarehouseComplement
@@ -245,10 +241,13 @@ public class ShipmentLoadsTransferGuardsTests
         });
         await _db.Context.SaveChangesAsync();
 
-        var ex = await Assert.ThrowsAsync<ApplicationException>(() => StartService().ExecuteAsync(
-            load.Key, DestinationWarehouse, DateTime.Today, null, "tester", TransshipmentType.Transfer));
+        var transshipment = await StartService().ExecuteAsync(
+            load.Key, DestinationWarehouse, DateTime.Today, null, "tester", TransshipmentType.Transfer);
 
-        Assert.Contains("armazém próprio", ex.Message);
-        Assert.Empty(await _db.Context.ShipmentLoadsTransshipments.AsNoTracking().ToListAsync());
+        Assert.Equal(TransshipmentType.Transfer, transshipment.Type);
+
+        var saved = await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync(x => x.Key == load.Key);
+        Assert.Equal(ShipmentLoadStatus.InTransshipment, saved.Status);
+        Assert.True(saved.IsInTransfer);
     }
 }
