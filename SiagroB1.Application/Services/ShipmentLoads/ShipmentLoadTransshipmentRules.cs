@@ -372,19 +372,15 @@ public static class ShipmentLoadTransshipmentRules
     public static async Task<ShipmentLoadTransshipment> ResolveOpenTransshipmentForLotExitAsync(
         AppDbContext context, string lotCode, string? truckCode)
     {
-        var matching = await context.ShipmentLoadsTransshipments
+        var matching = await OpenTransshipmentsAwaitingLotExit(context, lotCode)
             .Include(x => x.ShipmentLoad)
-            .Where(x => x.LotExitStorageTransactionKey == null &&
-                        x.EntryStorageTransaction != null &&
-                        x.EntryStorageTransaction.TransactionType == StorageTransactionType.Receipt &&
-                        x.EntryStorageTransaction.StorageAddressCode == lotCode &&
-                        x.ShipmentLoad!.TruckCode == truckCode)
+            .Where(x => x.ShipmentLoad!.TruckCode == truckCode)
             .ToListAsync();
 
         if (matching.Count == 0)
             throw new ApplicationException(
                 $"O lote {lotCode} não tem entrada de transbordo registrada para o caminhão " +
-                $"{truckCode}. Registre a Entrada na carga do transbordo antes de pesar a saída.");
+                $"{truckCode}. Registre a Entrada na carga do transbordo antes de lançar/confirmar a saída.");
 
         if (matching.Count > 1)
         {
@@ -392,10 +388,31 @@ public static class ShipmentLoadTransshipmentRules
                 $"carga {x.ShipmentLoad?.Code} (transbordo {x.Sequence})"));
             throw new ApplicationException(
                 $"Mais de um transbordo em aberto no lote {lotCode} está aguardando saída do " +
-                $"caminhão {truckCode}: {candidates}. Corrija na carga antes de pesar a saída — a " +
+                $"caminhão {truckCode}: {candidates}. Corrija na carga antes de lançar/confirmar a saída — a " +
                 "liberação não pode nascer sem saber qual carga é a dona.");
         }
 
         return matching[0];
     }
+
+    /// <summary>
+    /// Transbordos em armazém PRÓPRIO ainda aguardando a saída do lote (sem filtro de caminhão):
+    /// definição única de "candidato", usada por <see cref="ResolveOpenTransshipmentForLotExitAsync"/>
+    /// e por <see cref="HasOpenTransshipmentAwaitingLotExitAsync"/>.
+    /// </summary>
+    private static IQueryable<ShipmentLoadTransshipment> OpenTransshipmentsAwaitingLotExit(
+        AppDbContext context, string lotCode) =>
+        context.ShipmentLoadsTransshipments
+            .Where(x => x.LotExitStorageTransactionKey == null &&
+                        x.EntryStorageTransaction != null &&
+                        x.EntryStorageTransaction.TransactionType == StorageTransactionType.Receipt &&
+                        x.EntryStorageTransaction.StorageAddressCode == lotCode);
+
+    /// <summary>
+    /// GAC-1232: existe transbordo em armazém próprio aguardando a saída deste lote? Na confirmação
+    /// MANUAL só então o romaneio de saída precisa casar com um transbordo; sem nenhum (sobra,
+    /// correção, saída depois do vínculo) ele confirma como qualquer outro.
+    /// </summary>
+    public static Task<bool> HasOpenTransshipmentAwaitingLotExitAsync(AppDbContext context, string lotCode) =>
+        OpenTransshipmentsAwaitingLotExit(context, lotCode).AnyAsync();
 }

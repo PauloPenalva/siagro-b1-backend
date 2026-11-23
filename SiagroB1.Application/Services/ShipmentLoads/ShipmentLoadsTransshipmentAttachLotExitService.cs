@@ -77,11 +77,15 @@ public class ShipmentLoadsTransshipmentAttachLotExitService(
     /// conclusão do ticket de pesagem (<c>WeighingTicketsCompletedService</c>) e a confirmação
     /// manual da tela Romaneios de Movimentação (<c>StorageTransactionsConfirmWithTransshipmentService</c>,
     /// GAC-1232 — a Yokotobi não usa o módulo de Pesagem).
+    /// <paramref name="onlyWhenOpenTransshipmentExists"/>: a pesagem é estrita (sempre resolve e
+    /// recusa sem candidato); a confirmação manual só tenta o vínculo quando há transbordo aberto
+    /// no lote, para que sobras e correções confirmem normalmente.
     /// </remarks>
     public async Task AttachIfTransshipmentLotExitAsync(
         StorageTransaction confirmed,
         string userName,
-        CommitMode commitMode)
+        CommitMode commitMode,
+        bool onlyWhenOpenTransshipmentExists = false)
     {
         if (confirmed.TransactionType != StorageTransactionType.Shipment ||
             string.IsNullOrWhiteSpace(confirmed.StorageAddressCode))
@@ -94,6 +98,19 @@ public class ShipmentLoadsTransshipmentAttachLotExitService(
 
         if (nature != StorageAddressNature.Transshipment)
             return;
+
+        if (onlyWhenOpenTransshipmentExists)
+        {
+            if (!await ShipmentLoadTransshipmentRules.HasOpenTransshipmentAwaitingLotExitAsync(
+                    db.Context, confirmed.StorageAddressCode))
+                return;
+
+            // Sem placa o romaneio casaria com uma carga sem caminhão (TruckCode nulo).
+            if (string.IsNullOrWhiteSpace(confirmed.TruckCode))
+                throw new ApplicationException(
+                    $"O lote {confirmed.StorageAddressCode} tem transbordo aguardando saída: informe a " +
+                    "placa do veículo no romaneio antes de confirmar.");
+        }
 
         var transshipment = await ShipmentLoadTransshipmentRules.ResolveOpenTransshipmentForLotExitAsync(
             db.Context, confirmed.StorageAddressCode, confirmed.TruckCode);

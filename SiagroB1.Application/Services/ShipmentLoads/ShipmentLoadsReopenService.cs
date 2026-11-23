@@ -37,7 +37,7 @@ public class ShipmentLoadsReopenService(
         // não há conferência a estornar — quem reabre é a ação do próprio transbordo.
         if (await ShipmentLoadCompletionRules.IsCompletedByTransferAsync(db.Context, load))
             throw new ApplicationException(
-                $"A carga {load.Code} foi concluída por transferência entre armazéns de terceiros: " +
+                $"A carga {load.Code} foi concluída por transferência: " +
                 "use Reabrir Transferência no transbordo da carga.");
 
         if (load.LoadType != ShipmentLoadType.Removal)

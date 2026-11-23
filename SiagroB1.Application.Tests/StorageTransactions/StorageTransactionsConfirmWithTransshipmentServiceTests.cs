@@ -228,10 +228,65 @@ public class StorageTransactionsConfirmWithTransshipmentServiceTests
         await SeedOpenTransshipmentAsync(db, entryQuantity: 50_000m, originReleaseKey: null);
         var lotExit = await SeedPendingLotExitAsync(db, OtherTruckCode, grossWeight: 49_000m);
 
-        var error = await Assert.ThrowsAnyAsync<Exception>(
+        // O provider InMemory ignora transações: "o romaneio continua Pendente" (rollback) não
+        // pode ser afirmado aqui — só a recusa e a ausência de liberação.
+        var error = await Assert.ThrowsAsync<ApplicationException>(
             () => Service(db).ExecuteAsync(lotExit.Key, "tester"));
 
         Assert.Contains("não tem entrada de transbordo registrada", error.Message);
+        Assert.Empty(await db.Context.ShipmentReleases
+            .Where(x => x.Origin == ReleaseOrigin.Transshipment).ToListAsync());
+    }
+
+    /// <summary>Sem transbordo aberto no lote (sobra, correção): confirma como antes do GAC-1232.</summary>
+    [Fact]
+    public async Task ManualExit_InTransshipmentLot_WithoutOpenTransshipment_ConfirmsWithoutRelease()
+    {
+        var db = await SeedLotAsync();
+        var lotExit = await SeedPendingLotExitAsync(db, TruckCode, grossWeight: 1_000m);
+
+        await Service(db).ExecuteAsync(lotExit.Key, "tester");
+
+        var confirmed = await db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == lotExit.Key);
+        Assert.Equal(StorageTransactionsStatus.Confirmed, confirmed.TransactionStatus);
+        Assert.Null(confirmed.ShipmentLoadTransshipmentKey);
+        Assert.Empty(await db.Context.ShipmentReleases.ToListAsync());
+    }
+
+    /// <summary>Sobra: a saída do transbordo já foi vinculada; a segunda saída só confirma.</summary>
+    [Fact]
+    public async Task ManualExit_AfterLotExitAlreadyLinked_SecondExitConfirmsWithoutNewRelease()
+    {
+        var db = await SeedLotAsync();
+        var originReleaseKey = await SeedOriginReleaseAsync(db);
+        await SeedOpenTransshipmentAsync(db, entryQuantity: 50_000m, originReleaseKey);
+        var first = await SeedPendingLotExitAsync(db, TruckCode, grossWeight: 49_000m);
+        await Service(db).ExecuteAsync(first.Key, "tester");
+
+        var second = await SeedPendingLotExitAsync(db, TruckCode, grossWeight: 1_000m);
+        await Service(db).ExecuteAsync(second.Key, "tester");
+
+        var confirmed = await db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == second.Key);
+        Assert.Equal(StorageTransactionsStatus.Confirmed, confirmed.TransactionStatus);
+        Assert.Null(confirmed.ShipmentLoadTransshipmentKey);
+        Assert.Single(await db.Context.ShipmentReleases
+            .Where(x => x.Origin == ReleaseOrigin.Transshipment).ToListAsync());
+    }
+
+    /// <summary>Placa em branco casaria com carga sem caminhão: recusa pedindo a placa.</summary>
+    [Fact]
+    public async Task ManualExit_BlankTruck_WithOpenTransshipmentInLot_RefusesAskingForPlate()
+    {
+        var db = await SeedLotAsync();
+        await SeedOpenTransshipmentAsync(db, entryQuantity: 50_000m, originReleaseKey: null);
+        var lotExit = await SeedPendingLotExitAsync(db, truckCode: null!, grossWeight: 49_000m);
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service(db).ExecuteAsync(lotExit.Key, "tester"));
+
+        Assert.Contains("placa", error.Message);
         Assert.Empty(await db.Context.ShipmentReleases
             .Where(x => x.Origin == ReleaseOrigin.Transshipment).ToListAsync());
     }

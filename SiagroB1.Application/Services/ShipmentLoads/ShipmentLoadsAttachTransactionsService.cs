@@ -305,8 +305,8 @@ public class ShipmentLoadsAttachTransactionsService(
         // Expedição de Grãos, em OUTRA carga, consumindo a liberação que a entrada emitiu.
         if (transshipment.Type == TransshipmentType.Transfer || transshipment.FinalDestinationAt != null)
             throw new ApplicationException(
-                $"O transbordo {transshipment.Sequence} é uma transferência entre armazéns de " +
-                "terceiros: a carga termina no armazém e não aceita Expedição de saída. A mercadoria " +
+                $"O transbordo {transshipment.Sequence} é uma transferência: " +
+                "a carga termina no armazém e não aceita Expedição de saída. A mercadoria " +
                 "sai dali em outra carga, pela liberação gerada na entrada.");
 
         if (transshipment.EntryStorageTransactionKey == null)

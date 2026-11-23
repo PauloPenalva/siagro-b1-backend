@@ -47,7 +47,8 @@ public class StorageTransactionsConfirmWithTransshipmentService(
             var st = await db.Context.StorageTransactions.FirstOrDefaultAsync(x => x.Key == key) ??
                      throw new NotFoundException("Storage transaction not found.");
 
-            await attachLotExit.AttachIfTransshipmentLotExitAsync(st, userName, CommitMode.Deferred);
+            await attachLotExit.AttachIfTransshipmentLotExitAsync(
+                st, userName, CommitMode.Deferred, onlyWhenOpenTransshipmentExists: true);
 
             await db.CommitAsync();
         }
