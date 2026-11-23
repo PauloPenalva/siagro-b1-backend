@@ -141,23 +141,52 @@ public class ShipmentLoadsOwnWarehouseTransferTests
         Assert.Null(release.StorageAddressCode);
     }
 
-    [Fact]
-    public async Task RegisterEntry_TransferToOwnWarehouse_WithoutWeight_IsRefused()
+    /// <summary>Receipt solto (sem vínculo): no transbordo próprio ele seria aceito como entrada.</summary>
+    private async Task<StorageTransaction> LooseReceiptAsync(ShipmentLoadTransshipment transshipment)
     {
-        var (_, transshipment, _) = await SeedAsync();
-        // Receipt qualquer: no caminho de transbordo próprio ele seria aceito como entrada.
         var receipt = await RegisterOwnWarehouseEntryAsync(_db, transshipment);
         receipt.ShipmentLoadTransshipmentKey = null;
         transshipment.EntryQuantity = decimal.Zero;
         transshipment.EntryStorageTransactionKey = null;
         await _db.Context.SaveChangesAsync();
+        return receipt;
+    }
 
-        await Assert.ThrowsAsync<ApplicationException>(() => RegisterService().ExecuteAsync(
+    [Fact]
+    public async Task RegisterEntry_TransferToOwnWarehouse_WithoutWeight_IsRefused()
+    {
+        var (_, transshipment, _) = await SeedAsync();
+        var receipt = await LooseReceiptAsync(transshipment);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => RegisterService().ExecuteAsync(
             transshipment.Key!.Value, 0m, DateTime.Today, receipt.Key, "tester"));
 
+        Assert.Equal("Informe o peso pesado na entrada do transbordo.", ex.Message);
         Assert.Empty(await _db.Context.StorageTransactions.AsNoTracking()
             .Where(x => x.TransactionType == StorageTransactionType.TransshipmentReceipt)
             .ToListAsync());
+        Assert.Null((await _db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == receipt.Key)).ShipmentLoadTransshipmentKey);
+    }
+
+    /// <summary>Numa transferência o Receipt informado é IGNORADO: vale o peso, não o lote.</summary>
+    [Fact]
+    public async Task RegisterEntry_TransferToOwnWarehouse_IgnoresTheSuppliedReceipt()
+    {
+        var (_, transshipment, _) = await SeedAsync();
+        var receipt = await LooseReceiptAsync(transshipment);
+
+        await RegisterService().ExecuteAsync(
+            transshipment.Key!.Value, 29_800m, DateTime.Today, receipt.Key, "tester");
+
+        var entry = await _db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.TransshipmentReceipt);
+        Assert.Equal(29_800m, entry.NetWeight);
+
+        var saved = await _db.Context.ShipmentLoadsTransshipments.AsNoTracking()
+            .SingleAsync(x => x.Key == transshipment.Key);
+        Assert.Equal(entry.Key, saved.EntryStorageTransactionKey);
+
         Assert.Null((await _db.Context.StorageTransactions.AsNoTracking()
             .SingleAsync(x => x.Key == receipt.Key)).ShipmentLoadTransshipmentKey);
     }
