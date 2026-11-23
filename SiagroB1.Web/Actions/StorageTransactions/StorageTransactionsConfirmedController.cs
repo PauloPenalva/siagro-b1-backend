@@ -7,7 +7,9 @@ using SiagroB1.Domain.Exceptions;
 namespace SiagroB1.Web.Actions.StorageTransactions;
 
 public class StorageTransactionsConfirmedController(
-    StorageTransactionsConfirmedService service
+    // GAC-1232: a confirmação pela tela também dispara a liberação do transbordo em armazém
+    // próprio — ver StorageTransactionsConfirmWithTransshipmentService.
+    StorageTransactionsConfirmWithTransshipmentService service
     ) : ODataController
 {
 

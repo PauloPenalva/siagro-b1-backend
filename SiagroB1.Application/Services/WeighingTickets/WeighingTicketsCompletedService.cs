@@ -119,22 +119,13 @@ public class WeighingTicketsCompletedService(
             st = await stCreateService.ExecuteAsync(st, userName, TransactionCode.WeighingTicket);
             await stConfirmedService.ExecuteAsync(st.Key, userName);
 
-            // GAC-1181 fase 2 (redesenho): a saída confirmada num lote de TRANSBORDO é o novo
-            // gatilho da liberação de embarque — substitui o botão "Vincular Saída do Lote" da
-            // carga. Lote COMUM não entra aqui: nada muda para a pesagem normal.
-            if (existingTicket.Type == WeighingTicketType.Shipment &&
-                storageAddress.Nature == StorageAddressNature.Transshipment)
-            {
-                var transshipment = await ShipmentLoadTransshipmentRules
-                    .ResolveOpenTransshipmentForLotExitAsync(
-                        db.Context, existingTicket.StorageAddressCode!, existingTicket.TruckCode);
-
-                // CommitMode.Deferred: este serviço passa a rodar DENTRO da transação da pesagem
-                // (aberta acima) — UnitOfWork.CommitAsync não é aninhável, então ele não pode
-                // abrir/comitar/desfazer transação própria aqui. Ver o <remarks> do serviço.
-                await transshipmentAttachLotExitService.ExecuteAsync(
-                    transshipment.Key!.Value, st.Key, userName, CommitMode.Deferred);
-            }
+            // GAC-1181 fase 2 (redesenho): a saída confirmada num lote de TRANSBORDO é o
+            // gatilho da liberação de embarque. Lote COMUM e ticket de entrada passam sem efeito.
+            // A mesma regra serve a confirmação manual do romaneio (GAC-1232).
+            // CommitMode.Deferred: roda DENTRO da transação da pesagem (aberta acima) —
+            // UnitOfWork.CommitAsync não é aninhável. Ver o <remarks> do serviço.
+            await transshipmentAttachLotExitService.AttachIfTransshipmentLotExitAsync(
+                st, userName, CommitMode.Deferred);
 
             await db.CommitAsync();
         }

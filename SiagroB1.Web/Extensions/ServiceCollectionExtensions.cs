@@ -766,6 +766,7 @@ public static class ServiceCollectionExtensions
         // storage transactions
         services.AddScoped<StorageTransactionsCancelService>();
         services.AddScoped<StorageTransactionsConfirmedService>();
+        services.AddScoped<StorageTransactionsConfirmWithTransshipmentService>();
         services.AddScoped<StorageTransactionsCopyService>();
         services.AddScoped<StorageTransactionsCreateService>();
         services.AddScoped<StorageTransactionsGetService>();

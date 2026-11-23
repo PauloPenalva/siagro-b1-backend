@@ -67,6 +67,40 @@ public class ShipmentLoadsTransshipmentAttachLotExitService(
     ShipmentReleasesFromReturnService returnReleases,
     ShipmentLoadsMovementLogService movementLog)
 {
+    /// <summary>
+    /// Gatilho da liberação: se o romaneio recém-confirmado é uma SAÍDA (<see cref="StorageTransactionType.Shipment"/>)
+    /// num lote de natureza <see cref="StorageAddressNature.Transshipment"/>, acha o transbordo
+    /// dono pelo caminhão e vincula. Qualquer outro romaneio passa sem efeito.
+    /// </summary>
+    /// <remarks>
+    /// Único lugar da regra, chamado pelos DOIS caminhos de confirmação da saída do lote: a
+    /// conclusão do ticket de pesagem (<c>WeighingTicketsCompletedService</c>) e a confirmação
+    /// manual da tela Romaneios de Movimentação (<c>StorageTransactionsConfirmWithTransshipmentService</c>,
+    /// GAC-1232 — a Yokotobi não usa o módulo de Pesagem).
+    /// </remarks>
+    public async Task AttachIfTransshipmentLotExitAsync(
+        StorageTransaction confirmed,
+        string userName,
+        CommitMode commitMode)
+    {
+        if (confirmed.TransactionType != StorageTransactionType.Shipment ||
+            string.IsNullOrWhiteSpace(confirmed.StorageAddressCode))
+            return;
+
+        var nature = await db.Context.StorageAddresses
+            .Where(x => x.Code == confirmed.StorageAddressCode)
+            .Select(x => (StorageAddressNature?)x.Nature)
+            .FirstOrDefaultAsync();
+
+        if (nature != StorageAddressNature.Transshipment)
+            return;
+
+        var transshipment = await ShipmentLoadTransshipmentRules.ResolveOpenTransshipmentForLotExitAsync(
+            db.Context, confirmed.StorageAddressCode, confirmed.TruckCode);
+
+        await ExecuteAsync(transshipment.Key!.Value, confirmed.Key, userName, commitMode);
+    }
+
     public async Task<ShipmentLoadTransshipment> ExecuteAsync(
         Guid transshipmentKey,
         Guid lotExitStorageTransactionKey,
