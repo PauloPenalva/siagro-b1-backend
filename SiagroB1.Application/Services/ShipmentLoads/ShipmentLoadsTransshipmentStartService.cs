@@ -28,8 +28,7 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 public class ShipmentLoadsTransshipmentStartService(
     IUnitOfWork db,
     IWarehouseService warehouseService,
-    ShipmentLoadsMovementLogService movementLog,
-    IWarehouseComplementService warehouseComplementService)
+    ShipmentLoadsMovementLogService movementLog)
 {
     public async Task<ShipmentLoadTransshipment> ExecuteAsync(
         Guid loadKey,
@@ -51,18 +50,9 @@ public class ShipmentLoadsTransshipmentStartService(
         var warehouse = await warehouseService.GetByIdAsync(warehouseCode.Trim())
                         ?? throw new ApplicationException($"Armazém {warehouseCode} não encontrado.");
 
-        // GAC-1176: a transferência TERMINA no armazém, e mercadoria que fica em armazém próprio
-        // é Entrada em Armazenagem. IsOwn lido AO VIVO porque isto é criação — ver o remarks de
-        // ShipmentLoadTransshipmentRules sobre a regra temporal do discriminador.
-        if (type == TransshipmentType.Transfer)
-        {
-            var complement = await warehouseComplementService.GetAsync(warehouse.Code ?? warehouseCode.Trim());
-
-            if (complement?.IsOwn == true)
-                throw new ApplicationException(
-                    $"O armazém {warehouse.Code} é armazém próprio. A transferência é entre armazéns " +
-                    "de terceiros: para armazém próprio use a Entrada em Armazenagem.");
-        }
+        // GAC-1232: a transferência também termina em armazém PRÓPRIO — a entrada é pesada, como
+        // em armazém de terceiro (ver ShipmentLoadsTransshipmentRegisterEntryService), então não há
+        // mais o que recusar aqui pelo cadastro do armazém.
 
         var invoiced = await ShipmentLoadsRecalculateInvoicedService.CalculateInvoicedAsync(
             db.Context, loadKey, excludedInvoiceKeys: null);

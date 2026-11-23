@@ -79,7 +79,10 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
                             $"Armazém {transshipment.WarehouseCode} não encontrado.");
 
         var complement = await warehouseComplementService.GetAsync(transshipment.WarehouseCode);
-        var isOwn = complement?.IsOwn == true;
+        // GAC-1232: transferência segue SEMPRE o ramo de terceiro (entrada pesada + romaneio 15 +
+        // liberação sem lote), própria ou não. O tipo da linha já está persistido desde o início,
+        // então só o transbordo depende de IsOwn ao vivo.
+        var usesOwnLot = complement?.IsOwn == true && transshipment.Type == TransshipmentType.Transshipment;
 
         StorageTransaction? existingReceipt = null;
         decimal quantity;
@@ -91,7 +94,7 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
         // — é essa marca que distingue o transbordo de uma Entrada em Armazenagem comum, cujo
         // Receipt credita só o lote e deixaria o armazém sem o crédito simétrico que a Expedição
         // do passo 6 vai debitar.
-        if (isOwn)
+        if (usesOwnLot)
         {
             if (receiptStorageTransactionKey is not { } receiptKey)
                 throw new ApplicationException(
@@ -148,7 +151,7 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
 
             StorageTransaction entry;
 
-            if (isOwn)
+            if (usesOwnLot)
             {
                 // O Receipt não é um romaneio novo: o grão já entrou no LOTE pela Entrada em
                 // Armazenagem lançada na tela de sempre — aqui só se registra o papel dela no

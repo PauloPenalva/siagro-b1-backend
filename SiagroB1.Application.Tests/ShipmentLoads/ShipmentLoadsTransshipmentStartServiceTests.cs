@@ -24,8 +24,7 @@ public class ShipmentLoadsTransshipmentStartServiceTests
     private ShipmentLoadsTransshipmentStartService Service() => new(
         _db,
         Warehouses(),
-        new ShipmentLoadsMovementLogService(_db.Context),
-        new SiagroB1.Application.Services.WarehouseComplementService(_db));
+        new ShipmentLoadsMovementLogService(_db.Context));
 
     private ShipmentLoad Load(
         ShipmentLoadStatus status = ShipmentLoadStatus.Open,

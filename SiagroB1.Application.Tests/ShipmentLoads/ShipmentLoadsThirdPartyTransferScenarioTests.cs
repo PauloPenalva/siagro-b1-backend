@@ -56,7 +56,7 @@ public class ShipmentLoadsThirdPartyTransferScenarioTests
     private ShipmentLoadsAttachTransactionsService Attach() => new(_db, MovementLog());
 
     private ShipmentLoadsTransshipmentStartService Start() =>
-        new(_db, Warehouses(), MovementLog(), new WarehouseComplementService(_db));
+        new(_db, Warehouses(), MovementLog());
 
     private ShipmentLoadsTransshipmentRegisterEntryService RegisterEntry() => new(
         _db,

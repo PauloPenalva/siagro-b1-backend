@@ -7,8 +7,8 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
-/// Conclui a TRANSFERÊNCIA entre armazéns de terceiros (GAC-1176): a carga descarregou num armazém
-/// de terceiro e termina ali — encerra sem faturamento, porque não atendeu contrato de venda.
+/// Conclui a TRANSFERÊNCIA (GAC-1176, GAC-1232): a carga descarregou num armazém (de terceiro ou
+/// próprio) e termina ali — encerra sem faturamento, porque não atendeu contrato de venda.
 /// </summary>
 /// <remarks>
 /// O processo até aqui é o do transbordo (GAC-1181): saída da carga, entrada pesada, quebra,
@@ -27,9 +27,10 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// armazém de destino e sai dali depois, pela Expedição de Grãos, em OUTRA carga.
 /// </para>
 /// <para>
-/// ⚠️ <b>Só armazém de terceiro, decidido pela estrutura persistida</b> (a entrada é o
+/// ⚠️ <b>Só entrada pesada, decidido pela estrutura persistida</b> (a entrada é o
 /// <see cref="StorageTransactionType.TransshipmentReceipt"/>), não por <c>IsOwn</c> lido ao vivo —
-/// é linha já existente. Ver o <c>remarks</c> de <see cref="ShipmentLoadTransshipmentRules"/>.
+/// é linha já existente. Transferência para armazém próprio também nasce assim (GAC-1232); o
+/// transbordo comum em armazém próprio, cuja entrada é um <c>Receipt</c>, é recusado. Ver o <c>remarks</c> de <see cref="ShipmentLoadTransshipmentRules"/>.
 /// </para>
 /// <para>
 /// O transbordo comum concluído aqui VIRA <see cref="TransshipmentType.Transfer"/>: o plano mudou
@@ -75,9 +76,9 @@ public class ShipmentLoadsTransshipmentCompleteService(
 
         if (entry.TransactionType != StorageTransactionType.TransshipmentReceipt)
             throw new ApplicationException(
-                $"O transbordo {transshipment.Sequence} é em armazém próprio: a mercadoria que " +
-                "fica em armazém próprio é registrada pela Entrada em Armazenagem, não pela " +
-                "transferência entre armazéns de terceiros.");
+                $"O transbordo {transshipment.Sequence} teve a entrada vinculada a uma Entrada em " +
+                "Armazenagem (transbordo em armazém próprio): ele não conclui como transferência. " +
+                "Estorne o transbordo e inicie uma transferência.");
 
         if (await ShipmentLoadsRecalculateTransshippedService.IsClosedAsync(db.Context, transshipmentKey))
             throw new ApplicationException(
