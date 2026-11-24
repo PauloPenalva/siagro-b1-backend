@@ -27,6 +27,7 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
     [Theory]
     [InlineData("SQL")]
     [InlineData("LinksSql")]
+    [InlineData("TransshipmentExitsSql")]
     public void Every_table_reference_has_nolock_hint(string field)
     {
         var sql = StripComments(ReadSql(field));
@@ -128,5 +129,24 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
     {
         Assert.Null(typeof(PurchaseContractsGetAllocationsByContractService)
             .GetField("ReturnsSql", BindingFlags.NonPublic | BindingFlags.Static));
+    }
+
+    /// <summary>
+    /// GAC-1233: a saída pela liberação de transbordo não debita o contrato (o volume já foi baixado pela
+    /// Compra na saída do fornecedor) e por isso não tem linha no ledger. A aba lista esses romaneios como
+    /// linhas informativas, com quantidade ZERO, para que a soma da coluna continue batendo com o alocado.
+    /// </summary>
+    [Fact]
+    public void Transshipment_exits_query_lists_only_informative_rows_of_the_contract()
+    {
+        var sql = Regex.Replace(StripComments(ReadSql("TransshipmentExitsSql")), @"\s+", " ");
+
+        Assert.Contains("SR.Origin = 3", sql);
+        Assert.Contains("SR.PurchaseContractKey = @purchaseContractKey", sql);
+        Assert.Contains("ST.TransactionType IN (7, 12, 13)", sql);
+        Assert.Contains("ST.TransactionStatus <> 2", sql);
+        Assert.Contains("CAST(0 AS decimal(18,3)) AS Volume", sql);
+        Assert.Contains("'TransshipmentExit' AS Origin", sql);
+        Assert.Matches(@"NOT EXISTS \( SELECT 1 FROM PURCHASE_CONTRACTS_ALLOCATIONS PA WITH \(NOLOCK\) WHERE PA\.StorageTransactionKey = ST\.\[Key\] AND PA\.PurchaseContractKey = SR\.PurchaseContractKey \)", sql);
     }
 }

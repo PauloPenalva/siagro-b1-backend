@@ -169,6 +169,86 @@ public class PurchaseContractsGetAllocationsByContractService(
         WHERE PA.PurchaseContractKey = @purchaseContractKey AND PI.InvoiceStatus <> 2
         """;
 
+    /// <summary>
+    /// GAC-1233: romaneios que consomem liberações de TRANSBORDO do contrato (Origin = 3). Eles não debitam
+    /// o contrato — o volume já foi baixado pela Compra(8) na saída do fornecedor — e por isso não têm linha
+    /// no ledger; sem esta consulta somem da aba e a conferência com o armazém não fecha. São linhas só de
+    /// exibição: Volume ZERO, para a soma da coluna continuar igual ao alocado (o peso vai no Motivo).
+    /// Tipos 7/12/13 e status ≠ cancelado (2): os mesmos que ShipmentReleasesRecalculateShippedService conta
+    /// no embarcado da liberação. O NOT EXISTS evita duplicar um romaneio que já tenha alocação no contrato.
+    /// Consulta à parte, e não UNION na principal, para não mexer no plano dela (ver o aviso do STRING_AGG).
+    /// </summary>
+    private static readonly string TransshipmentExitsSql = """
+        SELECT
+            ST.BranchCode AS BranchCode,
+            B.BranchName AS BranchName,
+            ST.Code AS StorageTransactionCode,
+            ST.TransactionDate AS StorageTransactionDate,
+            CASE
+                WHEN ST.TransactionType = 12 THEN N'Dev. transbordo'
+                WHEN ST.TransactionType = 13 THEN N'Perda transbordo'
+                ELSE N'Saída transbordo'
+            END AS StorageTransactionTypeName,
+            PC.Code AS ContractNumber,
+            CAST(0 AS decimal(18,3)) AS Volume,
+            ST.UnitOfMeasureCode AS UnitOfMeasureCode,
+            ST.WarehouseCode AS WarehouseCode,
+            ST.TruckCode AS TruckCode,
+            ST.CardCode AS SupplierCode,
+            INV.TaxDocumentNumber AS NotaFiscalVenda,
+            'TransshipmentExit' AS Origin,
+            SLOAD.Code AS LoadCode,
+            ST.[Key] AS StorageTransactionKey,
+            ST.ItemCode AS ItemCode,
+            ST.TransactionType AS TransactionType,
+            ST.NetWeight AS NetWeight,
+            STGEN.Code AS GeneratorCode
+        FROM STORAGE_TRANSACTIONS ST WITH (NOLOCK)
+        JOIN SHIPMENT_RELEASES SR WITH (NOLOCK)
+               ON SR.[Key] = ST.ShipmentReleaseKey
+        LEFT JOIN PURCHASE_CONTRACTS PC WITH (NOLOCK)
+               ON PC.[Key] = SR.PurchaseContractKey
+        LEFT JOIN BRANCHS B WITH (NOLOCK)
+               ON B.Code = ST.BranchCode
+        LEFT JOIN SHIPMENT_LOADS SLOAD WITH (NOLOCK)
+               ON SLOAD.[Key] = ST.ShipmentLoadKey
+        LEFT JOIN SALES_INVOICES INV WITH (NOLOCK)
+               ON INV.[Key] = ST.SalesInvoiceKey
+        LEFT JOIN STORAGE_TRANSACTIONS STGEN WITH (NOLOCK)
+               ON STGEN.[Key] = SR.GeneratedByStorageTransactionKey
+        WHERE SR.PurchaseContractKey = @purchaseContractKey
+          AND SR.Origin = 3
+          AND ST.TransactionType IN (7, 12, 13)
+          AND ST.TransactionStatus <> 2
+          AND NOT EXISTS (
+                SELECT 1
+                FROM PURCHASE_CONTRACTS_ALLOCATIONS PA WITH (NOLOCK)
+                WHERE PA.StorageTransactionKey = ST.[Key]
+                  AND PA.PurchaseContractKey = SR.PurchaseContractKey
+          )
+        """;
+
+    private static readonly System.Globalization.CultureInfo PtBr = new("pt-BR");
+
+    /// <summary>
+    /// GAC-1233: Motivo da linha informativa da saída de transbordo — o romaneio de entrada que gerou a
+    /// liberação e o peso do romaneio, que não aparece na coluna Quantidade (lá a linha vale zero).
+    /// </summary>
+    public static string TransshipmentExitReason(
+        int transactionType, string? generatorCode, decimal netWeight, string? unitOfMeasureCode)
+    {
+        var prefix = transactionType switch
+        {
+            12 => "Devolução ao transbordo",
+            13 => "Perda no transbordo",
+            _ => "Saída do transbordo",
+        };
+        var generator = string.IsNullOrWhiteSpace(generatorCode) ? string.Empty : " " + generatorCode.Trim();
+        var unit = string.IsNullOrWhiteSpace(unitOfMeasureCode) ? string.Empty : " " + unitOfMeasureCode.Trim();
+
+        return $"{prefix}{generator} — {netWeight.ToString("#,##0.###", PtBr)}{unit}";
+    }
+
     public async Task<ICollection<PurchaseContractAllocationsByContractDto>> ExecuteAsync(Guid purchaseContractKey)
     {
         var allocations = new List<PurchaseContractAllocationsByContractDto>();
@@ -231,6 +311,43 @@ public class PurchaseContractsGetAllocationsByContractService(
             });
         }
 
+        // GAC-1233: saídas por liberação de transbordo — linhas informativas, fora do ledger.
+        foreach (var exit in dbConnection.Query(TransshipmentExitsSql, new { purchaseContractKey }).ToList())
+        {
+            var fiscalColumns = BuildFiscalColumns((string?)exit.Origin, 0m, 0m, false, false, null, false);
+
+            allocations.Add(new PurchaseContractAllocationsByContractDto
+            {
+                BranchCode = exit.BranchCode,
+                BranchName = exit.BranchName,
+                StorageTransactionCode = exit.StorageTransactionCode,
+                StorageTransactionDate = exit.StorageTransactionDate,
+                StorageTransactionTypeName = exit.StorageTransactionTypeName,
+                ContractNumber = exit.ContractNumber,
+                Volume = exit.Volume,
+                UnitOfMeasureCode = exit.UnitOfMeasureCode,
+                WarehouseCode = exit.WarehouseCode,
+                WarehouseName = await GetSupplierName((string?)exit.WarehouseCode),
+                TruckCode = exit.TruckCode,
+                SupplierCode = exit.SupplierCode,
+                SupplierName = await GetSupplierName((string?)exit.SupplierCode),
+                NotaFiscalVenda = exit.NotaFiscalVenda,
+                Origin = exit.Origin,
+                ReasonDescription = TransshipmentExitReason(
+                    Convert.ToInt32((object)exit.TransactionType), (string?)exit.GeneratorCode,
+                    (decimal?)exit.NetWeight ?? 0m, (string?)exit.UnitOfMeasureCode),
+                LoadCode = exit.LoadCode,
+                StorageTransactionKey = (Guid?)exit.StorageTransactionKey,
+                ItemCode = (string?)exit.ItemCode,
+                SupplierInvoiceNumbers = fiscalColumns.SupplierInvoiceNumbers,
+                PhysicalQuantity = fiscalColumns.PhysicalQuantity,
+                FiscalQuantity = fiscalColumns.FiscalQuantity,
+                FiscalDifference = fiscalColumns.FiscalDifference,
+                FiscalStatus = fiscalColumns.FiscalStatus,
+                IsSplitAcrossContracts = fiscalColumns.IsSplitAcrossContracts,
+            });
+        }
+
         return allocations
             .OrderBy(a => a.StorageTransactionDate)
             .ThenBy(a => a.StorageTransactionCode, StringComparer.Ordinal)
@@ -255,7 +372,7 @@ public class PurchaseContractsGetAllocationsByContractService(
         string? origin, decimal physical, decimal fiscal, bool hasFiscalLink, bool fiscalReconciled,
         string? supplierInvoiceNumbers, bool isSplitAcrossContracts)
     {
-        if (origin is "LoadRefusal" or "ReturnRedelivery")
+        if (origin is "LoadRefusal" or "ReturnRedelivery" or "TransshipmentExit")
             return new FiscalColumns(0m, 0m, 0m, null, null, false);
 
         return new FiscalColumns(
@@ -268,7 +385,7 @@ public class PurchaseContractsGetAllocationsByContractService(
             isSplitAcrossContracts);
     }
 
-    private async Task<string?> GetSupplierName(string cardCode)
+    private async Task<string?> GetSupplierName(string? cardCode)
     {
         var model = await businessPartnerService.GetByIdAsync(cardCode);
         return model?.CardName;
