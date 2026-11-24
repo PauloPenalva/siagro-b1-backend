@@ -51,6 +51,8 @@ public class PurchaseContractAllocationsByContractDto
     /// pela aprovação da Conferência de Saldo de Armazém, GAC-1164), <c>DischargeLoss</c>/
     /// <c>DischargeGain</c> (quebra/sobra de descarga gerada pela Conferência de Entregas, troca
     /// nota). O tipo continua Compra/Dev.Compra/Quebra Descarga/Sobra Descarga conforme o caso.
+    /// <c>TransshipmentExit</c> (GAC-1233) é a saída pela liberação de transbordo: linha só informativa,
+    /// com Volume zero, porque o contrato já foi baixado pela Compra na saída do fornecedor.
     /// </summary>
     [JsonPropertyName("Origin")]
     public string? Origin { get; set; }

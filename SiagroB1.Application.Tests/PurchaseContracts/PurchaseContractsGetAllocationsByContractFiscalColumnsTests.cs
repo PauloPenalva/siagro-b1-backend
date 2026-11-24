@@ -11,6 +11,7 @@ public class PurchaseContractsGetAllocationsByContractFiscalColumnsTests
     [Theory]
     [InlineData("LoadRefusal")]
     [InlineData("ReturnRedelivery")]
+    [InlineData("TransshipmentExit")]
     public void Derived_rows_have_no_fiscal_columns(string origin)
     {
         var result = PurchaseContractsGetAllocationsByContractService.BuildFiscalColumns(
