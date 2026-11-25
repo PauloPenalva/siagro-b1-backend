@@ -270,8 +270,16 @@ em minuto não lê XML.
 **Sincronização.** Comportamento atual mantido, inclusive excluir o documento Pendente e reabrir cargas
 Descarregadas ou Concluídas quando a NF é cancelada no SAP.
 
-### Em aberto com o usuário
+### Decisões do usuário de 25/11
 
-1. Recusa total para armazém, transbordo ou quebra de um documento com divergência: o efeito físico usa a
-   quantidade efetiva ou a da NF?
-2. Contrato sem preço confirmado (a fixar) ou em dólar: como classificar o valor?
+**Recusa total de documento com divergência (armazém, transbordo ou quebra).** O efeito físico usa a **quantidade
+efetiva**: quantidade devolvida da NF + `QuantityDifference` do registro vivo do documento. O documento de
+devolução continua espelhando a NF. Exemplo: carga de 30.000, NF de 29.800, recusa total para armazém → devolução
+de 29.800, romaneio de entrada de 30.000; faturado líquido 0, termo de divergência 0 (documento totalmente
+devolvido), devolvido a armazém 30.000, saldo 0. Recusa **parcial** move a quantidade informada e mantém o
+registro. O ajuste vale só quando a recusa devolve o documento inteiro.
+
+**Contrato sem preço confirmado ou em moeda diferente de R$.** Não há VE: classifica **só pela quantidade** (QE =
+QNF → tipo 0, sem registro; QE ≠ QNF → tipo 2, com o alerta do tipo 2). `EffectiveValue` e `ValueDifference`
+ficam nulos no registro; `InvoiceValue` é sempre gravado. A função das liberações devolve preço nulo nesses casos
+e a tela não mostra VE nem a diferença de valor.
