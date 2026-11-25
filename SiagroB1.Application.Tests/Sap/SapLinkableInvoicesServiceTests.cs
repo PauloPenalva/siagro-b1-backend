@@ -22,6 +22,8 @@ public class SapLinkableInvoicesServiceTests
 {
     private const string Item = "SOJA";
     private const string Carrier = "F004702";
+    private const string Customer = "C0001";
+    private const string Plate = "ABC1D23";
     private const decimal Quantity = 90_000m;
     private static readonly DateTime Today = new(2026, 11, 16);
 
@@ -37,6 +39,9 @@ public class SapLinkableInvoicesServiceTests
 
         public List<SapInvoiceRef> Requested { get; } = [];
 
+        /// <summary>Finalidade por DocEntry; nulo = toda invoice pedida tem finalidade "1".</summary>
+        public Dictionary<int, string>? Purposes { get; init; }
+
         public Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
             IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default)
         {
@@ -44,13 +49,18 @@ public class SapLinkableInvoicesServiceTests
             return Task.FromResult<IReadOnlyDictionary<int, SapFiscalDocumentInfo>>(
                 infos.ToDictionary(i => i.DocEntry));
         }
+
+        public Task<IReadOnlyDictionary<int, string>> GetInvoicePurposesAsync(
+            IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyDictionary<int, string>>(
+                Purposes ?? invoices.ToDictionary(i => i.DocEntry, _ => "1"));
     }
 
     private SapLinkableInvoicesService Service(ISapFiscalDocumentSource? fiscal = null) =>
         new(_db.Context, _sap, fiscal ?? new FakeFiscal(false),
             new ShipmentLoadsBillingGuardService(_db.Context));
 
-    private async Task SeedLoadAsync()
+    private async Task SeedLoadAsync(string? card = Customer, string? carrier = Carrier, string? plate = Plate)
     {
         _load = new ShipmentLoad
         {
@@ -59,7 +69,9 @@ public class SapLinkableInvoicesServiceTests
             BranchCode = "3",
             ItemCode = Item,
             UnitOfMeasureCode = "KG",
-            CarrierCardCode = Carrier,
+            CardCode = card,
+            CarrierCardCode = carrier,
+            TruckCode = plate,
             TotalQuantity = Quantity,
             Status = ShipmentLoadStatus.Open,
         };
@@ -77,8 +89,9 @@ public class SapLinkableInvoicesServiceTests
             DocEntry = docEntry,
             DocNum = docEntry + 1000,
             DocDate = Today.AddDays(-1),
-            CardCode = "C0001",
+            CardCode = Customer,
             CardName = "CLIENTE TESTE",
+            DocCur = "R$",
             BPLId = 3,
             Canceled = "N",
             Serial = 198105,
@@ -95,6 +108,7 @@ public class SapLinkableInvoicesServiceTests
             LineTotal = Quantity * 2.5m,
             CfopCode = "5101",
             Usage = 70,
+            UnitMsr = "KG",
         };
         tweak?.Invoke(invoice);
         tweakLine?.Invoke(line);
@@ -107,7 +121,7 @@ public class SapLinkableInvoicesServiceTests
 
         if (!noTransport)
             _sap.SapInvoiceTransports.Add(transport ?? new SapInvoiceTransport
-                { DocEntry = docEntry, Carrier = Carrier, Incoterms = "0" });
+                { DocEntry = docEntry, Carrier = Carrier, Incoterms = "0", Vehicle = Plate });
 
         await _sap.SaveChangesAsync();
     }
@@ -134,7 +148,6 @@ public class SapLinkableInvoicesServiceTests
         Assert.Equal(70, dto.UsageCode);
         Assert.Null(dto.UsageName); // natureza fora do OUSG: fica só o código
         Assert.Equal(Carrier, dto.CarrierCode);
-        Assert.False(dto.CarrierMismatch);
         Assert.Equal(FreightTerms.Cif, dto.FreightTerms);
         Assert.Null(dto.AccessKey);
     }
@@ -341,23 +354,6 @@ public class SapLinkableInvoicesServiceTests
         Assert.Equal([5, 4, 2, 1], result.Select(r => r.DocEntry).ToArray());
     }
 
-    [Fact]
-    public async Task Carrier_mismatch_is_flagged_only_when_the_invoice_carrier_is_filled_and_differs()
-    {
-        await SeedLoadAsync();
-        await AddInvoiceAsync(1, transport: new SapInvoiceTransport { DocEntry = 1, Carrier = "OUTRA", Incoterms = "1" });
-        await AddInvoiceAsync(2, transport: new SapInvoiceTransport { DocEntry = 2, Carrier = "", Incoterms = "2" });
-        await AddInvoiceAsync(3);
-
-        var result = (await ListAsync()).ToDictionary(r => r.DocEntry);
-
-        Assert.True(result[1].CarrierMismatch);
-        Assert.Equal(FreightTerms.Fob, result[1].FreightTerms);
-        Assert.False(result[2].CarrierMismatch);
-        Assert.Equal(FreightTerms.Ter, result[2].FreightTerms);
-        Assert.False(result[3].CarrierMismatch);
-    }
-
     [Theory]
     [InlineData("0", FreightTerms.Cif)]
     [InlineData("1", FreightTerms.Fob)]
@@ -366,7 +362,7 @@ public class SapLinkableInvoicesServiceTests
     public async Task Incoterms_maps_to_the_freight_terms(string incoterms, FreightTerms expected)
     {
         await SeedLoadAsync();
-        await AddInvoiceAsync(1, transport: new SapInvoiceTransport { DocEntry = 1, Carrier = Carrier, Incoterms = incoterms });
+        await AddInvoiceAsync(1, transport: new SapInvoiceTransport { DocEntry = 1, Carrier = Carrier, Incoterms = incoterms, Vehicle = Plate });
 
         Assert.Equal(expected, Assert.Single(await ListAsync()).FreightTerms);
     }
@@ -379,7 +375,7 @@ public class SapLinkableInvoicesServiceTests
     public async Task Empty_or_unmapped_incoterms_leave_the_invoice_out(string? incoterms)
     {
         await SeedLoadAsync();
-        await AddInvoiceAsync(1, transport: new SapInvoiceTransport { DocEntry = 1, Carrier = Carrier, Incoterms = incoterms });
+        await AddInvoiceAsync(1, transport: new SapInvoiceTransport { DocEntry = 1, Carrier = Carrier, Incoterms = incoterms, Vehicle = Plate });
 
         Assert.Empty(await ListAsync());
         Assert.Null(await Service().FindAsync(_load.Key, 1));
@@ -451,6 +447,21 @@ public class SapLinkableInvoicesServiceTests
             throw failure;
     }
 
+    /// <summary>Add-on que lê a situação mas cai na hora de ler a finalidade.</summary>
+    private sealed class FailingPurposeFiscal(Exception failure) : ISapFiscalDocumentSource
+    {
+        public bool IsAvailable => true;
+
+        public Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
+            IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyDictionary<int, SapFiscalDocumentInfo>>(
+                invoices.ToDictionary(i => i.DocEntry, i => new SapFiscalDocumentInfo(i.DocEntry, "K", true, false, "135")));
+
+        public Task<IReadOnlyDictionary<int, string>> GetInvoicePurposesAsync(
+            IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default) =>
+            throw failure;
+    }
+
     public static IEnumerable<object[]> Failures() =>
     [
         [new FakeDbException()],
@@ -500,6 +511,133 @@ public class SapLinkableInvoicesServiceTests
     }
 
     [Fact]
+    public async Task Lists_only_invoices_of_the_load_customer()
+    {
+        await SeedLoadAsync();
+        await AddInvoiceAsync(1);
+        await AddInvoiceAsync(2, i => i.CardCode = "C0002");
+
+        Assert.Equal(1, Assert.Single(await ListAsync()).DocEntry);
+    }
+
+    [Fact]
+    public async Task Lists_only_invoices_of_the_load_carrier()
+    {
+        await SeedLoadAsync();
+        await AddInvoiceAsync(1);
+        await AddInvoiceAsync(2, transport: new SapInvoiceTransport
+            { DocEntry = 2, Carrier = "OUTRA", Incoterms = "0", Vehicle = Plate });
+        await AddInvoiceAsync(3, transport: new SapInvoiceTransport
+            { DocEntry = 3, Carrier = "", Incoterms = "0", Vehicle = Plate });
+
+        Assert.Equal(1, Assert.Single(await ListAsync()).DocEntry);
+    }
+
+    [Theory]
+    [InlineData("abc-1d23")]
+    [InlineData("ABC 1D23")]
+    [InlineData("ABC1D23")]
+    public async Task Plate_matches_ignoring_case_hyphen_and_space(string loadPlate)
+    {
+        await SeedLoadAsync(plate: loadPlate);
+        await AddInvoiceAsync(1);                         // INV12.Vehicle = "ABC1D23"
+        await AddInvoiceAsync(2, transport: new SapInvoiceTransport
+            { DocEntry = 2, Carrier = Carrier, Incoterms = "0", Vehicle = "abc-1d23" });
+        await AddInvoiceAsync(3, transport: new SapInvoiceTransport
+            { DocEntry = 3, Carrier = Carrier, Incoterms = "0", Vehicle = "XYZ9K88" });
+        await AddInvoiceAsync(4, transport: new SapInvoiceTransport
+            { DocEntry = 4, Carrier = Carrier, Incoterms = "0", Vehicle = null });
+
+        Assert.Equal([1, 2], (await ListAsync()).Select(d => d.DocEntry).OrderBy(d => d));
+    }
+
+    [Fact]
+    public async Task Invoice_in_another_unit_or_currency_is_not_listed()
+    {
+        await SeedLoadAsync();
+        await AddInvoiceAsync(1);
+        await AddInvoiceAsync(2, tweakLine: l => l.UnitMsr = "TON");
+        await AddInvoiceAsync(3, i => i.DocCur = "US$");
+
+        Assert.Equal(1, Assert.Single(await ListAsync()).DocEntry);
+    }
+
+    [Fact]
+    public async Task Complement_invoice_is_not_listed()
+    {
+        await SeedLoadAsync();
+        await AddInvoiceAsync(1);
+        await AddInvoiceAsync(2);
+        var fiscal = new FakeFiscal(true,
+            new SapFiscalDocumentInfo(1, "K1", true, false, "135"),
+            new SapFiscalDocumentInfo(2, "K2", true, false, "135"))
+        { Purposes = new() { [1] = "1", [2] = "2" } };
+
+        Assert.Equal(1, Assert.Single(await ListAsync(Service(fiscal))).DocEntry);
+    }
+
+    [Fact]
+    public async Task Invoice_without_readable_purpose_is_not_listed()
+    {
+        await SeedLoadAsync();
+        await AddInvoiceAsync(1);
+        await AddInvoiceAsync(2);
+        var fiscal = new FakeFiscal(true,
+            new SapFiscalDocumentInfo(1, "K1", true, false, "135"),
+            new SapFiscalDocumentInfo(2, "K2", true, false, "135"))
+        { Purposes = new() { [1] = "1" } };
+
+        Assert.Equal(1, Assert.Single(await ListAsync(Service(fiscal))).DocEntry);
+    }
+
+    [Fact]
+    public async Task Without_fiscal_addon_the_purpose_filter_does_not_apply()
+    {
+        await SeedLoadAsync();
+        await AddInvoiceAsync(1);
+        var fiscal = new FakeFiscal(false) { Purposes = [] };
+
+        Assert.Single(await ListAsync(Service(fiscal)));
+    }
+
+    [Theory]
+    [MemberData(nameof(Failures))]
+    public async Task Fiscal_addon_failure_on_purposes_becomes_a_business_error(Exception failure)
+    {
+        await SeedLoadAsync();
+        await AddInvoiceAsync(1);
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => ListAsync(Service(new FailingPurposeFiscal(failure))));
+
+        Assert.Equal(
+            "Não foi possível consultar a situação das notas fiscais no add-on fiscal. Tente novamente em instantes.",
+            ex.Message);
+    }
+
+    [Theory]
+    [InlineData(null, "T01", "ABC1D23", "Informe o cliente da carga para vincular a NF do SAP.")]
+    [InlineData("C01", null, "ABC1D23", "Informe a transportadora da carga para vincular a NF do SAP.")]
+    [InlineData("C01", "T01", " ", "Informe a placa da carga para vincular a NF do SAP.")]
+    public async Task Load_missing_data_is_refused(string? card, string? carrier, string? plate, string message)
+    {
+        await SeedLoadAsync(card, carrier, plate);
+
+        var list = await Assert.ThrowsAsync<BusinessException>(() => ListAsync());
+        var find = await Assert.ThrowsAsync<BusinessException>(() => Service().FindAsync(_load.Key, 1));
+
+        Assert.Equal(message, list.Message);
+        Assert.Equal(message, find.Message);
+    }
+
+    [Theory]
+    [InlineData("abc-1d23", "ABC1D23")]
+    [InlineData(" ab c-1 ", "ABC1")]
+    [InlineData(null, "")]
+    [InlineData("  ", "")]
+    public void NormalizePlate_uppercases_and_drops_hyphen_and_space(string? plate, string expected) =>
+        Assert.Equal(expected, SapLinkableInvoicesService.NormalizePlate(plate));
+
+    [Fact]
     public void Sap_queries_translate_to_sql_server()
     {
         // Provider SqlServer com connection string fictícia: ToQueryString não abre conexão, mas
@@ -508,9 +646,9 @@ public class SapLinkableInvoicesServiceTests
             .UseSqlServer("Server=localhost;Database=dummy;User Id=x;Password=x;TrustServerCertificate=True").Options);
 
         var list = SapLinkableInvoicesService.BuildSapQuery(
-            sap, Item, 3, Today.AddDays(-15), Today.AddDays(1), null).ToQueryString();
+            sap, Item, 3, "C0001", "F004702", "ABC1D23", Today.AddDays(-15), Today.AddDays(1), null).ToQueryString();
         var find = SapLinkableInvoicesService.BuildSapQuery(
-            sap, Item, 3, null, null, 42).ToQueryString();
+            sap, Item, 3, "C0001", "F004702", "ABC1D23", null, null, 42).ToQueryString();
 
         foreach (var sql in new[] { list, find })
         {
@@ -522,6 +660,11 @@ public class SapLinkableInvoicesServiceTests
             Assert.Contains("Serial", sql);
             Assert.Contains("BPLId", sql);
             Assert.Contains("Incoterms", sql);
+            Assert.Contains("[Vehicle]", sql);
+            Assert.Contains("[DocCur]", sql);
+            Assert.Contains("[unitMsr]", sql);
+            Assert.Contains("REPLACE", sql.ToUpperInvariant());
+            Assert.Contains("UPPER", sql.ToUpperInvariant());
             Assert.Contains("COUNT", sql.ToUpperInvariant());
         }
 

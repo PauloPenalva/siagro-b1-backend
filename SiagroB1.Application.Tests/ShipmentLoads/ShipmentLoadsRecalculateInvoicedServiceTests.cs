@@ -294,4 +294,56 @@ public class ShipmentLoadsRecalculateInvoicedServiceTests
         var saved = await _db.Context.StorageTransactions.SingleAsync(x => x.Key == shipment.Key);
         Assert.Equal(StorageTransactionsStatus.Confirmed, saved.TransactionStatus);
     }
+
+    private void Divergence(ShipmentLoad load, SalesInvoice invoice, decimal invoiceQuantity)
+    {
+        _db.Context.SalesInvoiceDivergences.Add(new SalesInvoiceDivergence
+        {
+            Key = Guid.NewGuid(),
+            SalesInvoiceKey = invoice.Key,
+            ShipmentLoadKey = load.Key,
+            LinkType = SapLinkType.QuantityAndValueDivergent,
+            EffectiveQuantity = load.TotalQuantity,
+            InvoiceQuantity = invoiceQuantity,
+            QuantityDifference = load.TotalQuantity - invoiceQuantity,
+            InvoiceValue = 1_000m,
+            Status = SalesInvoiceDivergenceStatus.Open,
+            CreatedAt = DateTime.Now,
+        });
+    }
+
+    [Fact]
+    public async Task Load_with_a_smaller_invoice_and_its_divergence_is_invoiced()
+    {
+        // GAC-1226: o documento espelha a NF (29.800) e a diferença (200) fecha o saldo.
+        var load = Load(30_000);
+        var invoice = Invoice(load, 29_800);
+        Divergence(load, invoice, 29_800);
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(load.Key);
+
+        var saved = await _db.Context.ShipmentLoads.SingleAsync();
+        Assert.Equal(29_800m, saved.InvoicedQuantity);
+        Assert.Equal(200m, saved.InvoiceDivergenceQuantity);
+        Assert.Equal(decimal.Zero, saved.AvailableQuantity);
+        Assert.Equal(ShipmentLoadStatus.Invoiced, saved.Status);
+    }
+
+    [Fact]
+    public async Task Load_with_a_larger_invoice_is_invoiced_with_a_negative_divergence()
+    {
+        var load = Load(30_000);
+        var invoice = Invoice(load, 30_150);
+        Divergence(load, invoice, 30_150);
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(load.Key);
+
+        var saved = await _db.Context.ShipmentLoads.SingleAsync();
+        Assert.Equal(30_150m, saved.InvoicedQuantity);
+        Assert.Equal(-150m, saved.InvoiceDivergenceQuantity);
+        Assert.Equal(decimal.Zero, saved.AvailableQuantity);
+        Assert.Equal(ShipmentLoadStatus.Invoiced, saved.Status);
+    }
 }

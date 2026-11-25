@@ -127,6 +127,24 @@ public class ShipmentLoadsRefuseTransitLossTests
             .Where(x => x.TransactionType == StorageTransactionType.TransitLoss)
             .ToListAsync();
 
+    /// <summary>
+    /// GAC-1226: carga de 30.000 faturada por NF de 29.800, perdida por inteiro — perderam-se os 30.000 físicos.
+    /// </summary>
+    [Fact]
+    public async Task Full_refusal_as_transit_loss_loses_the_effective_quantity()
+    {
+        var (load, invoice) = await _fixture.DivergentBilledLoadAsync();
+
+        await _fixture.Service().ExecuteAsync(TransitLossRequest(load, invoice, 29_800m), "tester");
+
+        Assert.Equal(30_000m, Assert.Single(await TransitLossEntriesAsync()).NetWeight);
+
+        var refused = await _fixture.LoadAsync(load.Key);
+        Assert.Equal(30_000m, refused.TransitLossQuantity);
+        Assert.Equal(decimal.Zero, refused.InvoiceDivergenceQuantity);
+        Assert.Equal(decimal.Zero, refused.AvailableQuantity);
+    }
+
     [Fact]
     public async Task TotalLoss_ClosesLoadAndKeepsPurchaseDelivered()
     {

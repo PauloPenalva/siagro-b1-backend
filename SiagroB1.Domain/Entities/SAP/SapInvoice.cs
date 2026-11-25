@@ -45,6 +45,10 @@ public class SapInvoice
     [Column("Model", TypeName = "NVARCHAR(6)")]
     public string? Model { get; set; }
 
+    /// <summary>Moeda do documento (OINV.DocCur); "R$" para reais.</summary>
+    [Column("DocCur", TypeName = "NVARCHAR(3)")]
+    public string? DocCur { get; set; }
+
     public ICollection<SapInvoiceLine> Lines { get; set; } = new List<SapInvoiceLine>();
 
     public SapInvoiceTransport? Transport { get; set; }

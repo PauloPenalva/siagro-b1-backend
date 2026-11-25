@@ -1,3 +1,5 @@
+using SiagroB1.Domain.Enums;
+
 namespace SiagroB1.Application.Services.ShipmentBilling;
 
 /// <summary>
@@ -13,4 +15,6 @@ public record SapInvoiceLink(
     string? Cfop,
     // Natureza de operação da linha da invoice (INV1.Usage + nome do OUSG). Nula quando o SAP não informa.
     int? UsageCode = null,
-    string? UsageName = null);
+    string? UsageName = null,
+    // Tipo do vínculo (GAC-1226): normal, divergência de valor ou de quantidade e valor.
+    SapLinkType LinkType = SapLinkType.Normal);

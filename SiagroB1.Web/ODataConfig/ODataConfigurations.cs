@@ -1029,6 +1029,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesInvoiceChangeLog>("SalesInvoicesChangeLogs");
         // Histórico de CC-e: somente leitura; o XML do evento sai do EDM (download pela function).
         modelBuilder.EntitySet<SalesInvoiceNfeCorrection>("SalesInvoicesNfeCorrections");
+        modelBuilder.EntitySet<SalesInvoiceDivergence>("SalesInvoiceDivergences");
         modelBuilder.EntityType<SalesInvoiceNfeCorrection>().Ignore(x => x.ProcEventXml);
         modelBuilder.EntitySet<SalesInvoiceComment>("SalesInvoicesComments");
 
@@ -1672,19 +1673,14 @@ public static class ODataConfigurations
         shipmentLoadsLinkSapInvoice.Parameter<Guid>("Key");
         shipmentLoadsLinkSapInvoice.CollectionParameter<int>("SapDocEntries");
         shipmentLoadsLinkSapInvoice.Parameter<Guid>("SalesShipmentReleaseKey");
+        // GAC-1226: o usuário aceitou o alerta de divergência; ausente = falso.
+        shipmentLoadsLinkSapInvoice.Parameter<bool>("ConfirmDivergence").Optional();
         shipmentLoadsLinkSapInvoice.Returns<IActionResult>();
 
-        // GAC-1226: NF de devolução do SAP (A/R Credit Memo) no documento de devolução da carga.
-        var shipmentLoadsLinkSapCreditMemo = modelBuilder.Action("ShipmentLoadsLinkSapCreditMemo");
-        shipmentLoadsLinkSapCreditMemo.Parameter<Guid>("Key");
-        shipmentLoadsLinkSapCreditMemo.Parameter<Guid>("SalesInvoiceKey");
-        shipmentLoadsLinkSapCreditMemo.Parameter<int>("SapDocEntry");
-        shipmentLoadsLinkSapCreditMemo.Returns<IActionResult>();
-
-        var shipmentLoadsUnlinkSapCreditMemo = modelBuilder.Action("ShipmentLoadsUnlinkSapCreditMemo");
-        shipmentLoadsUnlinkSapCreditMemo.Parameter<Guid>("Key");
-        shipmentLoadsUnlinkSapCreditMemo.Parameter<Guid>("SalesInvoiceKey");
-        shipmentLoadsUnlinkSapCreditMemo.Returns<IActionResult>();
+        // GAC-1226: desfaz o vínculo cancelando todos os documentos da carga ligados a NFs do SAP.
+        var shipmentLoadsUnlinkSapInvoices = modelBuilder.Action("ShipmentLoadsUnlinkSapInvoices");
+        shipmentLoadsUnlinkSapInvoices.Parameter<Guid>("Key");
+        shipmentLoadsUnlinkSapInvoices.Returns<IActionResult>();
 
         var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");
         shipmentLoadsDetach.Parameter<Guid>("Key");
@@ -1903,12 +1899,12 @@ public static class ODataConfigurations
         shipmentLoadsGetLinkableSapInvoices.Parameter<string>("DateTo");
         shipmentLoadsGetLinkableSapInvoices.ReturnsCollection<SapLinkableInvoiceDto>();
 
-        var shipmentLoadsGetLinkableSapCreditMemos = modelBuilder.Function("ShipmentLoadsGetLinkableSapCreditMemos");
-        shipmentLoadsGetLinkableSapCreditMemos.Parameter<Guid>("Key");
-        shipmentLoadsGetLinkableSapCreditMemos.Parameter<Guid>("SalesInvoiceKey");
-        shipmentLoadsGetLinkableSapCreditMemos.Parameter<string>("DateFrom");
-        shipmentLoadsGetLinkableSapCreditMemos.Parameter<string>("DateTo");
-        shipmentLoadsGetLinkableSapCreditMemos.ReturnsCollection<SapLinkableCreditMemoDto>();
+        // GAC-1226: prévia do vínculo (tipo e alerta de divergência). SapDocEntries = DocEntry separados por vírgula.
+        var shipmentLoadsGetSapLinkPreview = modelBuilder.Function("ShipmentLoadsGetSapLinkPreview");
+        shipmentLoadsGetSapLinkPreview.Parameter<Guid>("Key");
+        shipmentLoadsGetSapLinkPreview.Parameter<Guid>("SalesShipmentReleaseKey");
+        shipmentLoadsGetSapLinkPreview.Parameter<string>("SapDocEntries");
+        shipmentLoadsGetSapLinkPreview.Returns<SapLinkPreviewDto>();
 
         var shipmentLoadsGetPendingRefusal = modelBuilder.Function("ShipmentLoadsGetPendingRefusal");
         shipmentLoadsGetPendingRefusal.Parameter<Guid>("Key");

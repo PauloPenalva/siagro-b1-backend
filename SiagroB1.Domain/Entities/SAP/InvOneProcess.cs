@@ -29,4 +29,7 @@ public class InvOneProcess
 
     [Column(TypeName = "NVARCHAR(200)")]
     public string? ProtocolNumber { get; set; }
+
+    /// <summary>XML assinado da NF-e, comprimido em deflate sem cabeçalho (varbinary).</summary>
+    public byte[]? XmlEnvAssinado { get; set; }
 }

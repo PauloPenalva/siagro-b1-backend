@@ -151,6 +151,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SalesInvoiceNfeXml> SalesInvoiceNfeXmls { get; set; }
     public DbSet<PurchaseInvoiceNfeXml> PurchaseInvoiceNfeXmls { get; set; }
     public DbSet<SalesInvoiceNfeCorrection> SalesInvoiceNfeCorrections { get; set; }
+    public DbSet<SalesInvoiceDivergence> SalesInvoiceDivergences { get; set; }
     public DbSet<PurchaseInvoiceNfeCorrection> PurchaseInvoiceNfeCorrections { get; set; }
     public DbSet<PurchaseInvoiceTransportedDocument> PurchaseInvoiceTransportedDocuments { get; set; }
     public DbSet<SalesInvoiceChangeLog> SalesInvoicesChangeLogs { get; set; }
@@ -571,12 +572,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .IsUnique()
             .HasFilter($"[SapDocEntry] IS NOT NULL AND [InvoiceStatus] <> {(int)InvoiceStatus.Cancelled} AND [InvoiceStatus] <> {(int)InvoiceStatus.Returned}");
 
-        // Uma NF de devolução do SAP (A/R Credit Memo), uma devolução ativa (GAC-1226). Índice próprio: o DocEntry
-        // de ORIN é outra sequência e colide com o de OINV.
-        modelBuilder.Entity<SalesInvoice>()
-            .HasIndex(x => x.SapCreditMemoDocEntry)
+        // GAC-1226: divergência entre o efetivo da carga e a NF do SAP. Cascade na NF (documento Pendente excluído leva
+        // o registro junto); NoAction na carga. Um registro ABERTO por documento — a anulada libera o índice.
+        modelBuilder.Entity<SalesInvoiceDivergence>()
+            .HasOne(x => x.SalesInvoice)
+            .WithMany()
+            .HasForeignKey(x => x.SalesInvoiceKey)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SalesInvoiceDivergence>()
+            .HasOne<ShipmentLoad>()
+            .WithMany(x => x.InvoiceDivergences)
+            .HasForeignKey(x => x.ShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<SalesInvoiceDivergence>()
+            .HasIndex(x => x.ShipmentLoadKey);
+        modelBuilder.Entity<SalesInvoiceDivergence>()
+            .HasIndex(x => x.SalesInvoiceKey)
             .IsUnique()
-            .HasFilter($"[SapCreditMemoDocEntry] IS NOT NULL AND [InvoiceStatus] <> {(int)InvoiceStatus.Cancelled} AND [InvoiceStatus] <> {(int)InvoiceStatus.Returned}");
+            .HasFilter($"[Status] = {(int)SalesInvoiceDivergenceStatus.Open}");
 
         modelBuilder.Entity<PurchaseInvoiceNfeXml>()
             .HasIndex(x => new { x.PurchaseInvoiceKey, x.Kind });

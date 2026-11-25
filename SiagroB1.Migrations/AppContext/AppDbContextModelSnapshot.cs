@@ -7701,16 +7701,13 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("SapCancelPendingReason")
                         .HasColumnType("VARCHAR(500)");
 
-                    b.Property<int?>("SapCreditMemoDocEntry")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("SapCreditMemoDocNum")
-                        .HasColumnType("int");
-
                     b.Property<int?>("SapDocEntry")
                         .HasColumnType("int");
 
                     b.Property<int?>("SapDocNum")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SapLinkType")
                         .HasColumnType("int");
 
                     b.Property<Guid?>("ShipmentLoadKey")
@@ -7781,10 +7778,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("RefusalStorageTransactionKey");
 
                     b.HasIndex("SalesInvoiceOriginKey");
-
-                    b.HasIndex("SapCreditMemoDocEntry")
-                        .IsUnique()
-                        .HasFilter("[SapCreditMemoDocEntry] IS NOT NULL AND [InvoiceStatus] <> 2 AND [InvoiceStatus] <> 3");
 
                     b.HasIndex("SapDocEntry")
                         .IsUnique()
@@ -7860,6 +7853,68 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("SalesInvoiceKey");
 
                     b.ToTable("SALES_INVOICES_COMMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoiceDivergence", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<decimal>("EffectiveQuantity")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<decimal?>("EffectiveValue")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("InvoiceQuantity")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<decimal>("InvoiceValue")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<int>("LinkType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("QuantityDifference")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<Guid>("SalesInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ShipmentLoadKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("ValueDifference")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<string>("VoidReason")
+                        .HasColumnType("NVARCHAR(200)");
+
+                    b.Property<DateTime?>("VoidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VoidedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("SalesInvoiceKey")
+                        .IsUnique()
+                        .HasFilter("[Status] = 0");
+
+                    b.HasIndex("ShipmentLoadKey");
+
+                    b.ToTable("SALES_INVOICE_DIVERGENCES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoiceItem", b =>
@@ -8312,6 +8367,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<bool>("HasExcess")
                         .HasColumnType("bit");
+
+                    b.Property<decimal>("InvoiceDivergenceQuantity")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
                     b.Property<decimal>("InvoicedQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
@@ -13595,6 +13653,23 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("SalesInvoice");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoiceDivergence", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.SalesInvoice", "SalesInvoice")
+                        .WithMany()
+                        .HasForeignKey("SalesInvoiceKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.ShipmentLoad", null)
+                        .WithMany("InvoiceDivergences")
+                        .HasForeignKey("ShipmentLoadKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("SalesInvoice");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoiceItem", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.SalesInvoiceItem", "ComplementedItem")
@@ -14869,6 +14944,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("CommentEntries");
 
                     b.Navigation("Discharges");
+
+                    b.Navigation("InvoiceDivergences");
 
                     b.Navigation("Invoices");
 

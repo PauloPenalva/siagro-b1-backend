@@ -83,6 +83,52 @@ public class ShipmentLoadRefusalCompleteTests
         Assert.Equal(ShipmentLoadStatus.Returned, load.Status);
     }
 
+    /// <summary>
+    /// GAC-1226: o ajuste do efetivo é calculado na CONCLUSÃO, quando os efeitos são aplicados. A venda autorizada do
+    /// cenário é de 30.000 (a NF); a carga passa a ter 30.200 efetivos, com o registro Open de 200 — recusada por
+    /// inteiro, a entrada no armazém leva os 30.200 físicos.
+    /// </summary>
+    [Fact]
+    public async Task Two_step_refusal_completion_moves_the_effective_quantity()
+    {
+        var s = await NfeLoadRefusalTestSeed.SeedAsync();
+        var context = s.Db.Context;
+        var load = await context.ShipmentLoads.SingleAsync();
+        load.TotalQuantity = 30_200m;
+        context.SalesInvoiceDivergences.Add(new SalesInvoiceDivergence
+        {
+            Key = Guid.NewGuid(), SalesInvoiceKey = s.SaleKeys[0], ShipmentLoadKey = load.Key,
+            LinkType = SapLinkType.QuantityAndValueDivergent, EffectiveQuantity = 30_200m, InvoiceQuantity = 30_000m,
+            QuantityDifference = 200m, EffectiveValue = 60_400m, InvoiceValue = 60_000m, ValueDifference = 400m,
+            Status = SalesInvoiceDivergenceStatus.Open, CreatedAt = DateTime.Now, CreatedBy = "tester",
+        });
+        await s.Db.SaveChangesAsync();
+        await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(context, load.Key, excludedInvoiceKeys: null);
+        await s.Db.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        await NfeLoadRefusalTestSeed.RefuseService(s.Db).ExecuteAsync(
+            new RefusalRequest(load.Key, [new RefusalLine(s.SaleKeys[0], 30_000m)],
+                RefusalDestination.Warehouse, NfeLoadRefusalTestSeed.DestinationWarehouse, "Recusado por umidade"),
+            "tester");
+        var returnKey = await context.SalesInvoices.AsNoTracking()
+            .Where(i => i.InvoiceType == SalesInvoiceType.Return).Select(i => i.Key).SingleAsync();
+        context.ChangeTracker.Clear();
+
+        await ConfirmAsync(s, returnKey);
+
+        Assert.Equal(ShipmentLoadRefusalStatus.Completed, (await RefusalAsync(s)).Status);
+        var entry = await context.StorageTransactions.AsNoTracking()
+            .SingleAsync(t => t.TransactionType == StorageTransactionType.SalesShipmentReturn);
+        Assert.Equal(30_200m, entry.NetWeight);
+
+        var refused = await LoadAsync(s);
+        Assert.Equal(30_200m, refused.ReturnedToWarehouseQuantity);
+        Assert.Equal(decimal.Zero, refused.InvoiceDivergenceQuantity);
+        Assert.Equal(decimal.Zero, refused.AvailableQuantity);
+        Assert.Equal(ShipmentLoadStatus.Returned, refused.Status);
+    }
+
     [Fact]
     public async Task Rebilling_puts_the_load_back_on_billing()
     {

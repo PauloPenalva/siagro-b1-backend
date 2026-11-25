@@ -14,7 +14,7 @@ public class SalesInvoiceSapLinkLockTests
     {
         var invoice = new SalesInvoice
         {
-            CardCode = "C1", SapDocEntry = 10, SapDocNum = 20, SapCancelPending = true,
+            CardCode = "C1", SapDocEntry = 10, SapDocNum = 20, SapLinkType = SapLinkType.ValueDivergent, SapCancelPending = true,
             SapCancelPendingReason = "x", SapCancelDetectedAt = DateTime.UtcNow,
         };
 
@@ -22,6 +22,7 @@ public class SalesInvoiceSapLinkLockTests
 
         Assert.Null(invoice.SapDocEntry);
         Assert.Null(invoice.SapDocNum);
+        Assert.Null(invoice.SapLinkType);
         Assert.False(invoice.SapCancelPending);
         Assert.Null(invoice.SapCancelPendingReason);
         Assert.Null(invoice.SapCancelDetectedAt);
@@ -36,7 +37,8 @@ public class SalesInvoiceSapLinkLockTests
         var invoice = new SalesInvoice
         {
             Key = Guid.NewGuid(), CardCode = "C1", BranchCode = "01", InvoiceStatus = InvoiceStatus.Pending,
-            SapDocEntry = 10, SapDocNum = 20, SapCancelPending = true, SapCancelPendingReason = "motivo",
+            SapDocEntry = 10, SapDocNum = 20, SapLinkType = SapLinkType.QuantityAndValueDivergent,
+            SapCancelPending = true, SapCancelPendingReason = "motivo",
             SapCancelDetectedAt = detected,
         };
         db.Context.SalesInvoices.Add(invoice);
@@ -44,6 +46,7 @@ public class SalesInvoiceSapLinkLockTests
 
         invoice.SapDocEntry = 99;
         invoice.SapDocNum = 98;
+        invoice.SapLinkType = SapLinkType.Normal;
         invoice.SapCancelPending = false;
         invoice.SapCancelPendingReason = "outro";
         invoice.SapCancelDetectedAt = null;
@@ -51,6 +54,7 @@ public class SalesInvoiceSapLinkLockTests
 
         Assert.Equal(10, invoice.SapDocEntry);
         Assert.Equal(20, invoice.SapDocNum);
+        Assert.Equal(SapLinkType.QuantityAndValueDivergent, invoice.SapLinkType);
         Assert.True(invoice.SapCancelPending);
         Assert.Equal("motivo", invoice.SapCancelPendingReason);
         Assert.Equal(detected, invoice.SapCancelDetectedAt);

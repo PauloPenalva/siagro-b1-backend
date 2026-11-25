@@ -8,6 +8,7 @@ using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Tests.SalesInvoices;
 
@@ -80,5 +81,67 @@ public class SalesInvoicesCancelServiceTests
         await Service(scenario.Db).CancelAfterNfeAsync(scenario.InvoiceKey, "tester");
 
         Assert.Equal(InvoiceStatus.Cancelled, (await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync()).InvoiceStatus);
+    }
+
+    // ---------- GAC-1226: divergência do vínculo com NF do SAP ----------
+
+    private static async Task<(SalesInvoiceDivergenceScenario Scenario, string DbName)> SeedDivergenceAsync()
+    {
+        var name = Guid.NewGuid().ToString();
+        await using var seed = new AppDbContext(TestDb.Options(name));
+        return (await SalesInvoiceDivergenceTestSeed.SeedAsync(seed), name);
+    }
+
+    [Fact]
+    public async Task Cancelling_a_divergent_document_voids_the_record_and_reopens_the_load()
+    {
+        var (scenario, name) = await SeedDivergenceAsync();
+        var db = TestDb.CreateUnitOfWork(name);
+
+        await Service(db).ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        await using var fresh = new AppDbContext(TestDb.Options(name));
+        var divergence = await fresh.SalesInvoiceDivergences.AsNoTracking().SingleAsync();
+        Assert.Equal(SalesInvoiceDivergenceStatus.Voided, divergence.Status);
+        Assert.Equal(SalesInvoiceDivergenceRules.CancelledReason, divergence.VoidReason);
+        Assert.Equal("Documento de saída cancelado.", divergence.VoidReason);
+        Assert.Equal("tester", divergence.VoidedBy);
+        Assert.NotNull(divergence.VoidedAt);
+
+        var load = await fresh.ShipmentLoads.AsNoTracking().SingleAsync(l => l.Key == scenario.LoadKey);
+        Assert.Equal(0m, load.InvoiceDivergenceQuantity);
+        Assert.Equal(0m, load.InvoicedQuantity);
+        Assert.Equal(30_000m, load.AvailableQuantity);
+        Assert.Equal(ShipmentLoadStatus.Open, load.Status);
+    }
+
+    [Fact]
+    public async Task Cancel_for_unlink_uses_the_unlink_reason_and_does_not_commit()
+    {
+        var (scenario, name) = await SeedDivergenceAsync();
+        var counting = new CountingUnitOfWork(TestDb.CreateUnitOfWork(name));
+        var service = new SalesInvoicesCancelService(counting,
+            new SalesShipmentReleasesRecalculateShippedService(counting.Context),
+            new SalesContractsAllocationDeleteForInvoiceService(counting),
+            new ShipmentLoadsBalanceHookService(counting.Context, new ShipmentLoadsMovementLogService(counting.Context)),
+            NullLogger<SalesInvoicesCancelService>.Instance);
+
+        await service.CancelForUnlinkAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal((0, 0, 0), (counting.Begins, counting.Commits, counting.Rollbacks));
+
+        await using var fresh = new AppDbContext(TestDb.Options(name));
+        Assert.Equal(InvoiceStatus.Cancelled,
+            (await fresh.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == scenario.InvoiceKey)).InvoiceStatus);
+        var divergence = await fresh.SalesInvoiceDivergences.AsNoTracking().SingleAsync();
+        Assert.Equal(SalesInvoiceDivergenceStatus.Voided, divergence.Status);
+        Assert.Equal(SalesInvoiceDivergenceRules.UnlinkedReason, divergence.VoidReason);
+        Assert.Equal("Notas fiscais do SAP desvinculadas da carga.", divergence.VoidReason);
+        Assert.Equal("tester", divergence.VoidedBy);
+
+        var load = await fresh.ShipmentLoads.AsNoTracking().SingleAsync(l => l.Key == scenario.LoadKey);
+        Assert.Equal(0m, load.InvoiceDivergenceQuantity);
+        Assert.Equal(30_000m, load.AvailableQuantity);
+        Assert.Equal(ShipmentLoadStatus.Open, load.Status);
     }
 }

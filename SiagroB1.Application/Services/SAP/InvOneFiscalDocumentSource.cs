@@ -1,3 +1,6 @@
+using System.IO.Compression;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities.SAP;
 using SiagroB1.Domain.Interfaces;
@@ -5,7 +8,10 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.SAP;
 
-/// <summary>Lê chave de acesso e status da NF-e no banco do add-on InvOne.</summary>
+/// <summary>
+/// Lê chave de acesso e status da NF-e no banco do add-on InvOne e, só sob demanda, a finalidade (finNFe) do XML
+/// assinado (<see cref="GetInvoicePurposesAsync"/>).
+/// </summary>
 /// <remarks>
 /// Como a linha AUTORIZADA vence o desempate, um cancelamento na SEFAZ gravado pelo add-on como NOVA linha de
 /// <c>Process</c> ao lado da autorizada original não é visto por aqui — para esse caso a sincronização conta com
@@ -16,8 +22,7 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
     private const int ArInvoiceDocType = 13;
 
     /// <summary>
-    /// DocType do A/R Credit Memo em <c>Process</c>. HIPÓTESE (ObjType de ORIN no SAP), ainda não conferida na base
-    /// da Yokotobi: com o valor errado nenhuma NF de devolução aparece para vincular (falha fechada).
+    /// DocType do A/R Credit Memo em <c>Process</c>: confirmado na produção da Yokotobi em 24/11/2026.
     /// </summary>
     internal const int ArCreditMemoDocType = 14;
     private const int AuthorizedStatus = 4;
@@ -40,6 +45,81 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
         IReadOnlyCollection<SapInvoiceRef> creditMemos, CancellationToken ct = default) =>
         GetAsync(creditMemos, BuildCreditMemoQuery, ct);
 
+    /// <summary>
+    /// finNFe das invoices autorizadas (DocType 13, StatusId 4), lido do XML assinado. Mesmos lotes e filtro de
+    /// filial de <see cref="GetAsync"/>. A sincronização não chama este método: o XML pesa ~4 KB por documento.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<int, string>> GetInvoicePurposesAsync(
+        IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default)
+    {
+        var result = new Dictionary<int, string>();
+
+        var wanted = invoices.Where(i => i.BranchId.HasValue)
+            .Select(i => (i.DocEntry, Branch: i.BranchId!.Value))
+            .Distinct()
+            .ToList();
+        var branches = wanted.Select(w => w.Branch).Distinct().ToList();
+        var pairs = wanted.ToHashSet();
+
+        foreach (var batch in wanted.Select(w => w.DocEntry).Distinct().Chunk(BatchSize))
+        {
+            var rows = await BuildPurposeQuery(db, batch, branches).ToListAsync(ct);
+
+            foreach (var row in rows.Where(r => r.DocEntry.HasValue && r.CompanyId.HasValue
+                                           && pairs.Contains((r.DocEntry.Value, r.CompanyId.Value))))
+            {
+                var purpose = ReadPurpose(row.XmlEnvAssinado);
+                if (purpose != null) result[row.DocEntry!.Value] = purpose;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// O lote das invoices autorizadas com o XML assinado; separado para o teste provar que é a única leitura que
+    /// traz o XML.
+    /// </summary>
+    internal static IQueryable<InvOnePurposeRow> BuildPurposeQuery(
+        InvOneDbContext db, IReadOnlyCollection<int> docEntries, IReadOnlyCollection<int> branches) =>
+        BuildQuery(db, docEntries, branches)
+            .Where(p => p.StatusId == AuthorizedStatus)
+            .Select(p => new InvOnePurposeRow(p.DocEntry, p.CompanyId, p.XmlEnvAssinado));
+
+    internal sealed record InvOnePurposeRow(int? DocEntry, int? CompanyId, byte[]? XmlEnvAssinado);
+
+    private static readonly Regex PurposeRegex = new(@"<finNFe>(\d)</finNFe>", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Descomprime o XML (deflate sem cabeçalho; UTF-16LE se o segundo byte for 0, senão UTF-8) e devolve o
+    /// finNFe. Qualquer falha devolve null.
+    /// </summary>
+    internal static string? ReadPurpose(byte[]? compressedXml)
+    {
+        if (compressedXml is not { Length: > 0 }) return null;
+        try
+        {
+            using var input = new MemoryStream(compressedXml);
+            using var deflate = new DeflateStream(input, CompressionMode.Decompress);
+            using var output = new MemoryStream();
+            deflate.CopyTo(output);
+            var bytes = output.ToArray();
+            if (bytes.Length == 0) return null;
+
+            // BOM primeiro (FF FE = UTF-16LE, EF BB BF = UTF-8); sem BOM vale a heurística do segundo byte.
+            var text = bytes is [0xFF, 0xFE, ..] ? Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2)
+                : bytes is [0xEF, 0xBB, 0xBF, ..] ? Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3)
+                : bytes.Length > 1 && bytes[1] == 0 ? Encoding.Unicode.GetString(bytes)
+                : Encoding.UTF8.GetString(bytes);
+            var match = PurposeRegex.Match(text);
+            return match.Success ? match.Groups[1].Value : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private async Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetAsync(
         IReadOnlyCollection<SapInvoiceRef> invoices,
         Func<InvOneDbContext, IReadOnlyCollection<int>, IReadOnlyCollection<int>, IQueryable<InvOneProcess>> buildQuery,
@@ -59,7 +139,8 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
         foreach (var batch in wanted.Select(w => w.DocEntry).Distinct().Chunk(BatchSize))
         {
             // A tabela guarda várias bases (CompanyId = OINV.BPLId): filtra por filial também.
-            var rows = await buildQuery(db, batch, branches).ToListAsync(ct);
+            // Projetada: sem o XML assinado, que a sincronização não usa.
+            var rows = await BuildStatusQuery(buildQuery(db, batch, branches)).ToListAsync(ct);
 
             foreach (var group in rows.Where(p => p.DocEntry.HasValue && p.CompanyId.HasValue
                                              && pairs.Contains((p.DocEntry.Value, p.CompanyId.Value)))
@@ -86,6 +167,17 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
         return result;
     }
 
+    /// <summary>
+    /// Só as colunas de status de um lote — nunca o <c>XmlEnvAssinado</c> (~4 KB por NF), que a sincronização de
+    /// minuto em minuto não pode baixar. Separada para o teste provar o SQL.
+    /// </summary>
+    internal static IQueryable<InvOneStatusRow> BuildStatusQuery(IQueryable<InvOneProcess> query) =>
+        query.Select(p => new InvOneStatusRow(p.DocEntry, p.CompanyId, p.StatusId, p.IsCanceled, p.KeyNfe,
+            p.ProtocolNumber));
+
+    internal sealed record InvOneStatusRow(
+        int? DocEntry, int? CompanyId, int? StatusId, bool? IsCanceled, string? KeyNfe, string? ProtocolNumber);
+
     /// <summary>Consulta de um lote; separada para o teste provar que traduz para SQL.</summary>
     internal static IQueryable<InvOneProcess> BuildQuery(
         InvOneDbContext db, IReadOnlyCollection<int> docEntries, IReadOnlyCollection<int> branches) =>
@@ -105,9 +197,9 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
             .Where(p => entries.Contains(p.DocEntry) && branchList.Contains(p.CompanyId));
     }
 
-    private static bool IsAuthorized(InvOneProcess p) => p.StatusId == AuthorizedStatus;
+    private static bool IsAuthorized(InvOneStatusRow p) => p.StatusId == AuthorizedStatus;
 
-    private static bool IsCancelled(InvOneProcess p) => p.StatusId == CancelledStatus || p.IsCanceled == true;
+    private static bool IsCancelled(InvOneStatusRow p) => p.StatusId == CancelledStatus || p.IsCanceled == true;
 
     private static string? NormalizeKey(string? raw)
     {

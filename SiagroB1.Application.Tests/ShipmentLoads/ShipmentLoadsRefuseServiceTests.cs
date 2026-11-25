@@ -229,6 +229,62 @@ public class ShipmentLoadsRefuseServiceTests
         return (load, invoice);
     }
 
+    /// <summary>
+    /// GAC-1226: carga de <paramref name="loadQuantity"/> faturada por um documento que espelha a NF do SAP de
+    /// <paramref name="invoiceQuantity"/>, com o registro de divergência Open (efetivo − NF). O faturamento passa pelo
+    /// caminho REAL; a NF MAIOR que a carga (divergência negativa) não passa pela trava do faturamento, então o
+    /// documento é faturado pelo efetivo e a quantidade dele é levada à da NF depois — o estado que o vínculo deixa.
+    /// </summary>
+    internal async Task<(ShipmentLoad Load, SalesInvoice Invoice)> DivergentBilledLoadAsync(
+        decimal invoiceQuantity = 29_800m, decimal loadQuantity = 30_000m)
+    {
+        var (load, contract, release, _) = await SeedAsync(loadQuantity);
+        var invoice = InvoiceFor(load, contract, release, Math.Min(invoiceQuantity, loadQuantity));
+
+        await BillingService().ExecuteAsync(invoice, "tester");
+
+        if (invoiceQuantity > loadQuantity)
+        {
+            var item = await _db.Context.SalesInvoicesItems.SingleAsync(x => x.SalesInvoiceKey == invoice.Key);
+            item.Quantity = invoiceQuantity;
+            await _db.SaveChangesAsync();
+        }
+
+        await AddDivergenceAsync(load, invoice, effectiveQuantity: loadQuantity, invoiceQuantity: invoiceQuantity);
+
+        return (load, invoice);
+    }
+
+    /// <summary>
+    /// Grava o registro Open de divergência (efetivo − NF) de um documento já faturado e recalcula a carga pelo
+    /// escritor real.
+    /// </summary>
+    internal async Task AddDivergenceAsync(
+        ShipmentLoad load, SalesInvoice invoice, decimal effectiveQuantity, decimal invoiceQuantity)
+    {
+        _db.Context.SalesInvoiceDivergences.Add(new SalesInvoiceDivergence
+        {
+            Key = Guid.NewGuid(),
+            SalesInvoiceKey = invoice.Key,
+            ShipmentLoadKey = load.Key,
+            LinkType = SapLinkType.QuantityAndValueDivergent,
+            EffectiveQuantity = effectiveQuantity,
+            InvoiceQuantity = invoiceQuantity,
+            QuantityDifference = effectiveQuantity - invoiceQuantity,
+            EffectiveValue = effectiveQuantity * 90m,
+            InvoiceValue = invoiceQuantity * 90m,
+            ValueDifference = (effectiveQuantity - invoiceQuantity) * 90m,
+            Status = SalesInvoiceDivergenceStatus.Open,
+            CreatedAt = DateTime.Now,
+            CreatedBy = "tester",
+        });
+        await _db.SaveChangesAsync();
+
+        await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(_db.Context, load.Key, null);
+        await _db.SaveChangesAsync();
+        _db.Context.ChangeTracker.Clear();
+    }
+
     internal static RefusalRequest Request(
         ShipmentLoad load,
         SalesInvoice invoice,
@@ -1097,5 +1153,114 @@ public class ShipmentLoadsRefuseServiceTests
 
         Assert.Empty(await _db.Context.ShipmentReleases
             .AsNoTracking().Where(x => x.Origin == ReleaseOrigin.SalesReturn).ToListAsync());
+    }
+
+    // ─── GAC-1226: recusa de documento vinculado a NF do SAP com divergência ───
+
+    private Task<StorageTransaction> ReturnEntryAsync() =>
+        _db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.SalesShipmentReturn);
+
+    /// <summary>
+    /// Carga de 30.000 faturada por NF de 29.800: devolvido o documento inteiro, o caminhão traz de volta os 30.000
+    /// físicos. A devolução espelha a NF; o romaneio de entrada leva o efetivo.
+    /// </summary>
+    [Fact]
+    public async Task Full_refusal_to_warehouse_moves_the_effective_quantity()
+    {
+        var (load, invoice) = await DivergentBilledLoadAsync();
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 29_800m, RefusalDestination.Warehouse, DestinationWarehouse), "tester");
+
+        var returnInvoice = await _db.Context.SalesInvoices.AsNoTracking().Include(x => x.Items)
+            .SingleAsync(x => x.InvoiceType == SalesInvoiceType.Return);
+        Assert.Equal(29_800m, returnInvoice.Items.Sum(x => x.Quantity));
+        Assert.Equal(30_000m, (await ReturnEntryAsync()).NetWeight);
+
+        var refused = await LoadAsync(load.Key);
+        Assert.Equal(30_000m, refused.ReturnedToWarehouseQuantity);
+        Assert.Equal(decimal.Zero, refused.InvoicedQuantity);
+        Assert.Equal(decimal.Zero, refused.InvoiceDivergenceQuantity);
+        Assert.Equal(decimal.Zero, refused.AvailableQuantity);
+        Assert.Equal(ShipmentLoadStatus.Returned, refused.Status);
+    }
+
+    /// <summary>A recusa parcial move só o informado; o documento segue vivo e a divergência continua contando.</summary>
+    [Fact]
+    public async Task Partial_refusal_to_warehouse_moves_what_was_informed_and_keeps_the_divergence()
+    {
+        var (load, invoice) = await DivergentBilledLoadAsync();
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 10_000m, RefusalDestination.Warehouse, DestinationWarehouse), "tester");
+
+        Assert.Equal(10_000m, (await ReturnEntryAsync()).NetWeight);
+
+        var refused = await LoadAsync(load.Key);
+        Assert.Equal(200m, refused.InvoiceDivergenceQuantity);
+        Assert.Equal(decimal.Zero, refused.AvailableQuantity);
+    }
+
+    /// <summary>"Segue viagem" não move nada físico: a carga volta inteira ao faturamento, sem romaneio.</summary>
+    [Fact]
+    public async Task Full_refusal_that_follows_the_trip_frees_the_effective_quantity()
+    {
+        var (load, invoice) = await DivergentBilledLoadAsync();
+
+        await Service().ExecuteAsync(Request(load, invoice, 29_800m), "tester");
+
+        var refused = await LoadAsync(load.Key);
+        Assert.Equal(30_000m, refused.AvailableQuantity);
+        Assert.Equal(decimal.Zero, refused.InvoiceDivergenceQuantity);
+        Assert.False(await _db.Context.StorageTransactions.AsNoTracking()
+            .AnyAsync(x => x.TransactionType == StorageTransactionType.SalesShipmentReturn));
+    }
+
+    /// <summary>NF MAIOR que a carga (30.150 sobre 30.000, registro −150): o físico devolvido é o efetivo, 30.000.</summary>
+    [Fact]
+    public async Task Negative_divergence_reduces_the_physical_quantity()
+    {
+        var (load, invoice) = await DivergentBilledLoadAsync(invoiceQuantity: 30_150m);
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 30_150m, RefusalDestination.Warehouse, DestinationWarehouse), "tester");
+
+        Assert.Equal(30_000m, (await ReturnEntryAsync()).NetWeight);
+
+        var refused = await LoadAsync(load.Key);
+        Assert.Equal(decimal.Zero, refused.InvoiceDivergenceQuantity);
+        Assert.Equal(decimal.Zero, refused.AvailableQuantity);
+        Assert.Equal(ShipmentLoadStatus.Returned, refused.Status);
+    }
+
+    /// <summary>
+    /// Uma recusa de DOIS documentos (15.000 e 14.800, carga de 30.000): o primeiro devolvido em parte (5.000), o
+    /// segundo por inteiro (14.800). Só o registro do documento devolvido por inteiro entra no físico.
+    /// </summary>
+    [Theory]
+    [InlineData(true, 20_000)]   // registro de 200 no documento devolvido por inteiro → 19.800 + 200
+    [InlineData(false, 19_800)]  // registro de 200 no documento devolvido em parte → sem ajuste
+    public async Task Two_document_refusal_adjusts_only_the_fully_returned_divergent_document(
+        bool divergenceOnFullyReturned, decimal expectedPhysical)
+    {
+        var (load, contract, release, _) = await SeedAsync(30_000m);
+        var partial = InvoiceFor(load, contract, release, 15_000m);
+        await BillingService().ExecuteAsync(partial, "tester");
+        var full = InvoiceFor(load, contract, release, 14_800m);
+        await BillingService().ExecuteAsync(full, "tester");
+
+        if (divergenceOnFullyReturned)
+            await AddDivergenceAsync(load, full, effectiveQuantity: 15_000m, invoiceQuantity: 14_800m);
+        else
+            await AddDivergenceAsync(load, partial, effectiveQuantity: 15_200m, invoiceQuantity: 15_000m);
+
+        await Service().ExecuteAsync(
+            new RefusalRequest(load.Key,
+                [new RefusalLine(partial.Key, 5_000m), new RefusalLine(full.Key, 14_800m)],
+                RefusalDestination.Warehouse, DestinationWarehouse, "Recusado por qualidade no porto"),
+            "tester");
+
+        Assert.Equal(expectedPhysical, (await ReturnEntryAsync()).NetWeight);
     }
 }

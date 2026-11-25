@@ -54,13 +54,12 @@ public static class SalesInvoiceNfeLock
     [
         nameof(SalesInvoice.SapDocEntry), nameof(SalesInvoice.SapDocNum), nameof(SalesInvoice.SapCancelPending),
         nameof(SalesInvoice.SapCancelPendingReason), nameof(SalesInvoice.SapCancelDetectedAt),
-        nameof(SalesInvoice.SapCreditMemoDocEntry), nameof(SalesInvoice.SapCreditMemoDocNum),
+        nameof(SalesInvoice.SapLinkType),
     ];
 
-    /// <summary>Gravado com vínculo a uma nota do SAP: invoice de venda ou Credit Memo de devolução.</summary>
+    /// <summary>Gravado com vínculo a uma invoice de venda do SAP.</summary>
     private static bool WasSapLinked(EntityEntry<SalesInvoice> entry) =>
-        entry.OriginalValues[nameof(SalesInvoice.SapDocEntry)] is not null
-        || entry.OriginalValues[nameof(SalesInvoice.SapCreditMemoDocEntry)] is not null;
+        entry.OriginalValues[nameof(SalesInvoice.SapDocEntry)] is not null;
 
     /// <summary>Campos comerciais da linha que vêm da NF do SAP (GAC-1226): a conferência de entrega não os toca.</summary>
     private static readonly string[] SapLinkedItemFields =
@@ -172,11 +171,10 @@ public static class SalesInvoiceNfeLock
         invoice.RefusalStorageTransactionKey = null;
         invoice.SapDocEntry = null;
         invoice.SapDocNum = null;
+        invoice.SapLinkType = null;
         invoice.SapCancelPending = false;
         invoice.SapCancelPendingReason = null;
         invoice.SapCancelDetectedAt = null;
-        invoice.SapCreditMemoDocEntry = null;
-        invoice.SapCreditMemoDocNum = null;
     }
 
     /// <summary>Chamado DEPOIS do SetValues da linha. A Conferência de entregas mexe em campos fora do XML e passa.</summary>

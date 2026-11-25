@@ -31,7 +31,7 @@ public class ShipmentLoadTransitLossModelTests
     [InlineData(40_000, 10_000, 5_000, 5_000, 8_000, 12_000)]
     public void CalculateAvailableQuantity_SubtractsTheFiveTerms(
         decimal total, decimal invoiced, decimal returned, decimal transshipped, decimal loss, decimal expected) =>
-        Assert.Equal(expected, ShipmentLoad.CalculateAvailableQuantity(total, invoiced, returned, transshipped, loss));
+        Assert.Equal(expected, ShipmentLoad.CalculateAvailableQuantity(total, invoiced, returned, transshipped, loss, 0));
 
     [Fact]
     public void AvailableQuantity_UsesTransitLossQuantity()

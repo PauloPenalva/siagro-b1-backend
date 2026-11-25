@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using SiagroB1.Application.Services.SAP;
@@ -271,5 +273,126 @@ public class InvOneFiscalDocumentSourceTests
         var sql = InvOneFiscalDocumentSource.BuildQuery(db, [1, 2], [1]).ToQueryString();
         Assert.Contains("[Process]", sql);
         Assert.Contains("[DocType] = 13", sql);
+    }
+
+    private static InvOneDbContext CreateSqlServerDb() =>
+        new(new DbContextOptionsBuilder<InvOneDbContext>()
+            .UseSqlServer("Server=localhost;Database=DBInvOne;User Id=x;Password=x;TrustServerCertificate=True;")
+            .Options);
+
+    [Fact]
+    public void Invoice_status_query_does_not_read_the_signed_xml()
+    {
+        using var db = CreateSqlServerDb();
+
+        // A sincronização de minuto em minuto passa por aqui: o XML (~4 KB por NF) não pode vir junto.
+        var sql = InvOneFiscalDocumentSource.BuildStatusQuery(InvOneFiscalDocumentSource.BuildQuery(db, [1, 2], [1]))
+            .ToQueryString();
+
+        Assert.Contains("[DocType] = 13", sql);
+        Assert.Contains("[KeyNfe]", sql);
+        Assert.DoesNotContain("XmlEnvAssinado", sql);
+    }
+
+    [Fact]
+    public void Credit_memo_status_query_does_not_read_the_signed_xml()
+    {
+        using var db = CreateSqlServerDb();
+
+        var sql = InvOneFiscalDocumentSource
+            .BuildStatusQuery(InvOneFiscalDocumentSource.BuildCreditMemoQuery(db, [1, 2], [1]))
+            .ToQueryString();
+
+        Assert.Contains("[DocType] = 14", sql);
+        Assert.DoesNotContain("XmlEnvAssinado", sql);
+    }
+
+    [Fact]
+    public void Purpose_query_reads_the_signed_xml()
+    {
+        using var db = CreateSqlServerDb();
+
+        var sql = InvOneFiscalDocumentSource.BuildPurposeQuery(db, [1, 2], [1]).ToQueryString();
+
+        Assert.Contains("[DocType] = 13", sql);
+        Assert.Contains("[XmlEnvAssinado]", sql);
+    }
+
+    // ---- finalidade da NF-e (finNFe) lida do XML assinado ----
+
+    private const string PurposeXml = "<NFe><infNFe><ide><tpNF>1</tpNF><finNFe>1</finNFe></ide></infNFe></NFe>";
+
+    private static byte[] Deflate(string xml, Encoding encoding)
+    {
+        using var output = new MemoryStream();
+        using (var deflate = new DeflateStream(output, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            var bytes = encoding.GetBytes(xml);
+            deflate.Write(bytes, 0, bytes.Length);
+        }
+        return output.ToArray();
+    }
+
+    [Fact]
+    public void Reads_the_purpose_from_raw_deflate_utf8() =>
+        Assert.Equal("1", InvOneFiscalDocumentSource.ReadPurpose(Deflate(PurposeXml, Encoding.UTF8)));
+
+    [Fact]
+    public void Reads_the_purpose_from_utf16() =>
+        Assert.Equal("1", InvOneFiscalDocumentSource.ReadPurpose(Deflate(PurposeXml, Encoding.Unicode)));
+
+    [Fact]
+    public void Reads_the_purpose_from_utf16_with_bom() =>
+        Assert.Equal("1", InvOneFiscalDocumentSource.ReadPurpose(DeflateWithBom(PurposeXml, Encoding.Unicode)));
+
+    [Fact]
+    public void Reads_the_purpose_from_utf8_with_bom() =>
+        Assert.Equal("1", InvOneFiscalDocumentSource.ReadPurpose(DeflateWithBom(PurposeXml, new UTF8Encoding(true))));
+
+    private static byte[] DeflateWithBom(string xml, Encoding encoding)
+    {
+        using var output = new MemoryStream();
+        using (var deflate = new DeflateStream(output, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            var bytes = encoding.GetPreamble().Concat(encoding.GetBytes(xml)).ToArray();
+            deflate.Write(bytes, 0, bytes.Length);
+        }
+        return output.ToArray();
+    }
+
+    [Fact]
+    public void Complement_invoice_reads_two() =>
+        Assert.Equal("2", InvOneFiscalDocumentSource.ReadPurpose(
+            Deflate(PurposeXml.Replace("<finNFe>1", "<finNFe>2"), Encoding.UTF8)));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(new byte[0])]
+    [InlineData(new byte[] { 1, 2, 3, 4 })]
+    public void Unreadable_xml_has_no_purpose(byte[]? raw) =>
+        Assert.Null(InvOneFiscalDocumentSource.ReadPurpose(raw));
+
+    [Fact]
+    public void Xml_without_the_tag_has_no_purpose() =>
+        Assert.Null(InvOneFiscalDocumentSource.ReadPurpose(Deflate("<NFe/>", Encoding.UTF8)));
+
+    [Fact]
+    public async Task Purposes_ignore_credit_memos_and_unauthorized_rows()
+    {
+        using var db = CreateDb();
+        var authorized = P(1);
+        authorized.XmlEnvAssinado = Deflate(PurposeXml, Encoding.UTF8);
+        var unauthorized = P(2, status: 2);
+        unauthorized.XmlEnvAssinado = Deflate(PurposeXml, Encoding.UTF8);
+        var creditMemo = P(3, docType: 14);
+        creditMemo.XmlEnvAssinado = Deflate(PurposeXml.Replace("<finNFe>1", "<finNFe>4"), Encoding.UTF8);
+        db.Processes.AddRange(authorized, unauthorized, creditMemo);
+        await db.SaveChangesAsync();
+
+        var result = await new InvOneFiscalDocumentSource(db).GetInvoicePurposesAsync(Refs([1, 2, 3]));
+
+        var only = Assert.Single(result);
+        Assert.Equal(1, only.Key);
+        Assert.Equal("1", only.Value);
     }
 }

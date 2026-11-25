@@ -105,4 +105,25 @@ public class AppDbContextModelTests
             nameof(ShipmentRelease.Transactions),
             consuming.PrincipalToDependent!.Name);
     }
+
+    [Fact]
+    public void SalesInvoiceDivergence_MapsTableCascadeFkAndFilteredUniqueIndex()
+    {
+        // Documento Pendente excluído leva o registro junto (Cascade); só UMA divergência aberta por
+        // documento — a anulada libera o índice filtrado para um novo vínculo.
+        using var context = ModelOnlyContext();
+
+        var entity = context.Model.FindEntityType(typeof(SalesInvoiceDivergence))!;
+        Assert.Equal("SALES_INVOICE_DIVERGENCES", entity.GetTableName());
+
+        var invoiceFk = entity.GetForeignKeys().Single(fk => fk.PrincipalEntityType.ClrType == typeof(SalesInvoice));
+        Assert.Equal(DeleteBehavior.Cascade, invoiceFk.DeleteBehavior);
+
+        var loadFk = entity.GetForeignKeys().Single(fk => fk.PrincipalEntityType.ClrType == typeof(ShipmentLoad));
+        Assert.Equal(DeleteBehavior.NoAction, loadFk.DeleteBehavior);
+
+        var unique = entity.GetIndexes().Single(i =>
+            i.IsUnique && i.Properties.Single().Name == nameof(SalesInvoiceDivergence.SalesInvoiceKey));
+        Assert.Equal("[Status] = 0", unique.GetFilter());
+    }
 }

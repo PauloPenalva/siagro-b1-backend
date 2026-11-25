@@ -19,8 +19,8 @@ namespace SiagroB1.Domain.Entities;
 /// removido: existe um único jeito de criar uma carga.
 /// <para>
 /// Os romaneios vinculados são homogêneos em <see cref="TruckCode"/>, <see cref="ItemCode"/> e
-/// <c>BranchCode</c> — essa é a trava. <see cref="WarehouseCode"/> e <see cref="CardCode"/> são
-/// informativos e NÃO travam nada.
+/// <c>BranchCode</c> — essa é a trava. <see cref="WarehouseCode"/> é
+/// informativo e NÃO trava nada; <see cref="CardCode"/> também não trava os romaneios.
 /// </para>
 /// <para>
 /// <see cref="TotalQuantity"/> soma <c>GrossWeight</c> dos romaneios, e não <c>NetWeight</c>,
@@ -84,12 +84,13 @@ public class ShipmentLoad : DocumentEntity
     /// Cliente informado pela Logística no planejamento da carga.
     /// </summary>
     /// <remarks>
-    /// ⚠️ CAMPO MERAMENTE INFORMATIVO. NÃO participa de nenhum cálculo, NÃO é validado contra
+    /// Desde 24/11/2026 (GAC-1226) filtra as NFs do SAP e as liberações oferecidas no vínculo. Continua
+    /// SEM efeito em saldo, romaneio e documento: NÃO participa de nenhum cálculo, NÃO é validado contra
     /// os romaneios vinculados e NÃO alimenta o documento de saída. O cliente real da nota vem
     /// da liberação de entrega escolhida no faturamento — quem fixa o destino é o contrato, não
     /// a carga. Alterar este campo não muda nada no sistema, por decisão do cliente: a Logística
     /// registra o que sabe no momento do planejamento, e a informação correta chega depois,
-    /// pelas expedições e pelos documentos de saída. NÃO ligar regra de negócio aqui.
+    /// pelas expedições e pelos documentos de saída. NÃO ligar regra de negócio além do filtro do vínculo.
     /// </remarks>
     [Column(TypeName = "VARCHAR(10)")]
     public string? CardCode { get; set; }
@@ -166,6 +167,16 @@ public class ShipmentLoad : DocumentEntity
     public decimal TransitLossQuantity { get; set; }
 
     /// <summary>
+    /// Persistido-derivado (GAC-1226): Σ da diferença (QE − QNF, com sinal) dos registros de divergência ABERTOS
+    /// da carga — o sexto termo do saldo. Positivo quando a NF do SAP cobre menos que o efetivo.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal InvoiceDivergenceQuantity { get; set; }
+
+    /// <summary>Registros de divergência entre o efetivo da carga e as NFs do SAP vinculadas.</summary>
+    public virtual ICollection<SalesInvoiceDivergence> InvoiceDivergences { get; } = [];
+
+    /// <summary>
     /// Persistido-derivado (GAC-1176): a carga está <see cref="ShipmentLoadStatus.InTransshipment"/>
     /// e a parada em aberto é uma TRANSFERÊNCIA entre armazéns de terceiros — as telas leem "Em
     /// transferência" em vez de "Em transbordo". Escritor único:
@@ -234,14 +245,14 @@ public class ShipmentLoad : DocumentEntity
     public virtual ICollection<StorageTransaction> RefusalReturns { get; } = [];
 
     /// <summary>
-    /// Saldo a faturar, derivado dos cinco persistidos. Carga cancelada não tem saldo.
+    /// Saldo a faturar, derivado dos seis persistidos. Carga cancelada não tem saldo.
     /// </summary>
     [NotMapped]
     public decimal AvailableQuantity => Status == ShipmentLoadStatus.Cancelled
         ? decimal.Zero
         : CalculateAvailableQuantity(
             TotalQuantity, InvoicedQuantity, ReturnedToWarehouseQuantity, TransshippedQuantity,
-            TransitLossQuantity);
+            TransitLossQuantity, InvoiceDivergenceQuantity);
 
     /// <summary>
     /// Regra de arredondamento do saldo, compartilhada com quem precisa avaliá-lo antes de
@@ -253,7 +264,8 @@ public class ShipmentLoad : DocumentEntity
     /// vivas, <paramref name="returnedToWarehouseQuantity"/> é o volume que saiu
     /// FISICAMENTE da carga de volta para um armazém, e <paramref name="transshippedQuantity"/>
     /// é o volume que saiu para um transbordo (GAC-1181) e <paramref name="transitLossQuantity"/>
-    /// é o volume perdido no trajeto (GAC-1213). Uma recusa que devolve mercadoria ao
+    /// é o volume perdido no trajeto (GAC-1213) e <paramref name="invoiceDivergenceQuantity"/> é a diferença
+    /// com sinal entre o efetivo e a NF do SAP vinculada (GAC-1226). Uma recusa que devolve mercadoria ao
     /// armazém primeiro devolve o saldo comercial (a devolução confirmada abate a origem) e só
     /// então o retira pelo segundo termo — nunca o mesmo volume duas vezes.
     /// </remarks>
@@ -262,9 +274,11 @@ public class ShipmentLoad : DocumentEntity
         decimal invoicedQuantity,
         decimal returnedToWarehouseQuantity,
         decimal transshippedQuantity,
-        decimal transitLossQuantity) =>
+        decimal transitLossQuantity,
+        decimal invoiceDivergenceQuantity) =>
         decimal.Round(
-            totalQuantity - invoicedQuantity - returnedToWarehouseQuantity - transshippedQuantity - transitLossQuantity,
+            totalQuantity - invoicedQuantity - returnedToWarehouseQuantity - transshippedQuantity - transitLossQuantity
+                - invoiceDivergenceQuantity,
             3, MidpointRounding.ToEven);
 
     [NotMapped]

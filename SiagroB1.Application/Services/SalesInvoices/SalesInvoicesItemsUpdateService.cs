@@ -134,13 +134,13 @@ public class SalesInvoicesItemsUpdateService(
 
             var stored = await db.Context.SalesInvoices.AsNoTracking()
                 .Where(i => i.Key == existingEntity.SalesInvoiceKey)
-                .Select(i => new { i.NfeStatus, i.InvoiceStatus, i.InvoiceType, i.BranchCode, i.SapDocEntry, i.SapCreditMemoDocEntry })
+                .Select(i => new { i.NfeStatus, i.InvoiceStatus, i.InvoiceType, i.BranchCode, i.SapDocEntry })
                 .FirstOrDefaultAsync();
             var confirmedFrozen = stored is not null && SalesInvoiceNfeLock.IsConfirmedFrozen(
                 stored.InvoiceStatus, stored.InvoiceType, await taxApply.IsBranchActiveAsync(stored.BranchCode));
             SalesInvoiceNfeLock.EnsureItemEditable(
                 stored?.NfeStatus ?? NfeStatus.None, db.Context.Entry(existingEntity), confirmedFrozen,
-                sapLinked: stored?.SapDocEntry is not null || stored?.SapCreditMemoDocEntry is not null);
+                sapLinked: stored?.SapDocEntry is not null);
 
             await ApplyTaxLockAsync(existingEntity);
 

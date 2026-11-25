@@ -41,8 +41,6 @@ public class SalesInvoicesReverseConfirmService(
     /// </summary>
     private readonly List<Guid> _cancelledReturnEntryKeys = [];
 
-    public const string SapCreditMemoLinkedMessage = "Desvincule a NF de devolução do SAP antes de estornar.";
-
     public async Task ExecuteAsync(Guid key, string userName)
     {
         var invoice = await db.Context.SalesInvoices
@@ -61,11 +59,6 @@ public class SalesInvoicesReverseConfirmService(
             throw new DefaultException(
                 "A devolução com NF-e não pode ser estornada: ela só sai pelo cancelamento da NF-e (botão Cancelar do documento).");
         }
-
-        // Devolução com a NF de devolução do SAP vinculada (GAC-1226): a nota segue válida no SAP; o estorno
-        // desfaria o físico por baixo dela. Primeiro desvincula.
-        if (invoice.SapCreditMemoDocEntry is not null)
-            throw new DefaultException(SapCreditMemoLinkedMessage);
 
         // NF-e emitida continua valendo na SEFAZ: desfazer saldo e alocação dela deixaria a nota
         // sem efeito no sistema. O caminho é o cancelamento da NF-e.
@@ -127,9 +120,16 @@ public class SalesInvoicesReverseConfirmService(
                     var entry = await ResolveRefusalEntryAsync(shipmentLoadKey.Value, invoice);
 
                     if (entry is not null)
-                    {
                         siblings = await FindRefusalSiblingsAsync(shipmentLoadKey.Value, invoice, entry);
 
+                    // GAC-1226: documento divergente só se estorna em ordem inversa — o ajuste do efetivo está no
+                    // romaneio da recusa que completou a devolução. Antes de qualquer escrita.
+                    var reversedTogether = siblings.Select(s => s.Key).Append(invoice.Key).ToList();
+                    foreach (var doc in siblings.Prepend(invoice))
+                        await SalesInvoiceDivergenceRules.EnsureReversalInOrderAsync(db.Context, doc, reversedTogether);
+
+                    if (entry is not null)
+                    {
                         if (entry.TransactionType == StorageTransactionType.TransitLoss)
                         {
                             CancelTransitLoss(entry, invoice, siblings, userName);
