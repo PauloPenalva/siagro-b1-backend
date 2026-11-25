@@ -56,7 +56,7 @@ calculados. Mesmo efeito para o usuário, uma regra só.
 
 ## Backend
 
-### Tarefa 1: remover o vínculo 1:1 da NF de devolução (ORIN)
+### Task 1: remover o vínculo 1:1 da NF de devolução (ORIN)
 
 **Files:**
 - Delete: `SiagroB1.Application/Services/SAP/SapLinkableCreditMemosService.cs`,
@@ -110,7 +110,7 @@ public void Sales_invoice_no_longer_exposes_the_credit_memo_link() =>
   `DB: RemoveSalesInvoiceSapCreditMemoLink`. O commit apaga arquivos: se o classificador barrar, usar pathspecs
   explícitos (memória `commit-with-deletions-blocked-by-classifier`).
 
-### Tarefa 2: modelo da divergência e migration
+### Task 2: modelo da divergência e migration
 
 **Files:**
 - Create: `SiagroB1.Domain/Enums/SapLinkType.cs`, `SiagroB1.Domain/Enums/SalesInvoiceDivergenceStatus.cs`,
@@ -193,7 +193,7 @@ public void Divergence_is_the_sixth_term(decimal total, decimal invoiced, decima
 - [ ] **Passo 6: commit** `feat(shipment): crie o registro de divergência da NF do SAP` com
   `DB: AddSalesInvoiceDivergences`.
 
-### Tarefa 3: sexto termo no saldo e na situação da carga
+### Task 3: sexto termo no saldo e na situação da carga
 
 **Files:**
 - Create: `SiagroB1.Application/Services/ShipmentLoads/ShipmentLoadsRecalculateDivergenceService.cs`
@@ -251,7 +251,7 @@ public static ShipmentLoadStatus ResolveStatus(..., bool endsAtFinalTransshipmen
 - [ ] **Passo 4:** os dois filtros + `~ShipmentLoadsBillingGuard` + `~Transshipment` → PASSA.
 - [ ] **Passo 5: commit** `feat(shipment): abata a divergência de NF do saldo da carga`.
 
-### Tarefa 4: leitura da placa, da moeda e da finalidade (finNFe)
+### Task 4: leitura da placa, da moeda e da finalidade (finNFe)
 
 **Files:**
 - Modify: `SiagroB1.Domain/Entities/SAP/SapInvoiceTransport.cs` (`Vehicle`, coluna `Vehicle`, `NVARCHAR(10)`),
@@ -304,7 +304,7 @@ public void Unreadable_xml_has_no_purpose(byte[]? raw) => Assert.Null(InvOneFisc
 - [ ] **Passo 4:** rodar o filtro → PASSA.
 - [ ] **Passo 5: commit** `feat(sap): leia a finalidade da NF-e no XML do add-on fiscal`.
 
-### Tarefa 5: filtros novos da lista de NFs
+### Task 5: filtros novos da lista de NFs
 
 **Files:**
 - Modify: `SiagroB1.Application/Services/SAP/SapLinkableInvoicesService.cs`, `SiagroB1.Domain/Dtos/SapLinkableInvoiceDto.cs`
@@ -356,7 +356,7 @@ public async Task Load_missing_data_is_refused(string? card, string? carrier, st
 - [ ] **Passo 4:** rodar o filtro → PASSA.
 - [ ] **Passo 5: commit** `feat(sap): filtre as NFs do vínculo por cliente, transportadora, placa e finalidade`.
 
-### Tarefa 6: classificador do vínculo
+### Task 6: classificador do vínculo
 
 **Files:**
 - Create: `SiagroB1.Application/Services/ShipmentLoads/SapLinkClassifier.cs`,
@@ -430,7 +430,7 @@ public static class SapLinkReferencePrice
 - [ ] **Passo 4:** rodar → PASSA.
 - [ ] **Passo 5: commit** `feat(shipment): classifique o vínculo de NF do SAP por quantidade e valor`.
 
-### Tarefa 7: vínculo permissivo, registro e prévia
+### Task 7: vínculo permissivo, registro e prévia
 
 **Files:**
 - Create: `SiagroB1.Application/Services/ShipmentLoads/SapLinkDivergenceException.cs`,
@@ -526,7 +526,7 @@ public class SapLinkPreviewDto   // [JsonPropertyName] PascalCase em todas
 - [ ] **Passo 4:** rodar os três filtros + `~ShipmentBilling` → PASSA.
 - [ ] **Passo 5: commit** `feat(shipment): vincule NF do SAP com divergência de quantidade e valor`.
 
-### Tarefa 8: registro acompanha cancelamento, exclusão e sincronização
+### Task 8: registro acompanha cancelamento, exclusão e sincronização
 
 **Files:**
 - Create: `SiagroB1.Application/Services/SalesInvoices/SalesInvoiceDivergenceRules.cs`
@@ -575,7 +575,7 @@ public Task CancelForUnlinkAsync(Guid key, string userName);
 - [ ] **Passo 4:** rodar → PASSA.
 - [ ] **Passo 5: commit** `feat(invoice): anule a divergência quando o documento é cancelado`.
 
-### Tarefa 9: desvincular as NFs do SAP da carga
+### Task 9: desvincular as NFs do SAP da carga
 
 **Files:**
 - Create: `SiagroB1.Application/Services/ShipmentLoads/ShipmentLoadsUnlinkSapInvoicesService.cs`,
@@ -629,7 +629,7 @@ public async Task Discharged_or_completed_load_is_refused(ShipmentLoadStatus sta
 - [ ] **Passo 4:** rodar → PASSA.
 - [ ] **Passo 5: commit** `feat(shipment): desvincule as NFs do SAP da carga faturada`.
 
-### Tarefa 10: recusa total movimenta a quantidade efetiva
+### Task 10: recusa total movimenta a quantidade efetiva
 
 **Files:**
 - Modify: `SalesInvoices/SalesInvoiceDivergenceRules.cs`, `ShipmentLoads/ShipmentLoadsRefuseService.cs:100-156`,
@@ -675,7 +675,7 @@ public static Task<decimal> PhysicalAdjustmentAsync(AppDbContext context,
 - [ ] **Passo 4:** rodar os filtros + `~ShipmentLoadsCancelRefusal` + `~ShipmentLoadRefusalReopen` → PASSA.
 - [ ] **Passo 5: commit** `feat(shipment): movimente a quantidade efetiva na recusa total com divergência`.
 
-### Tarefa 11: suíte inteira do backend
+### Task 11: suíte inteira do backend
 
 - [ ] `dotnet build SiagroB1.sln` → 0 erros.
 - [ ] `dotnet test SiagroB1.Application.Tests` e `dotnet test SiagroB1.Fiscal.Tests` → tudo verde; falha
@@ -686,7 +686,7 @@ public static Task<decimal> PhysicalAdjustmentAsync(AppDbContext context,
 
 ## Frontend (`worktrees/gac-1226-credit-memo/frontend`)
 
-### Tarefa 12: tirar a NF de devolução da tela
+### Task 12: tirar a NF de devolução da tela
 
 **Files:**
 - Delete: `webapp/helpers/SapCreditMemoLinkDialog.ts`, `webapp/helpers/SapCreditMemoLinkHelpers.ts`,
@@ -704,7 +704,7 @@ public static Task<decimal> PhysicalAdjustmentAsync(AppDbContext context,
 - [ ] **Passo 3:** `yarn ts-typecheck` e `yarn lint` → sem erro.
 - [ ] **Passo 4: commit** `refactor(sap): remova o vínculo da NF de devolução da carga` (stage por caminho).
 
-### Tarefa 13: diálogo de vínculo com prévia e confirmação
+### Task 13: diálogo de vínculo com prévia e confirmação
 
 **Files:**
 - Modify: `webapp/helpers/SapInvoiceLinkHelpers.ts`, `webapp/helpers/SapInvoiceLinkDialog.ts`,
@@ -765,7 +765,7 @@ QUnit.test("formatMoney formata em pt-BR e mostra travessão no nulo", …);
   `.nyc_output/` se aparecerem.
 - [ ] **Passo 5: commit** `feat(shipment): avise e confirme a divergência ao vincular NF do SAP` (stage por caminho).
 
-### Tarefa 14: desvincular e divergências no detalhe da carga
+### Task 14: desvincular e divergências no detalhe da carga
 
 **Files:**
 - Modify: `webapp/view/shipmentLoads/Detail.view.xml`, `webapp/controller/shipmentLoads/Detail.controller.ts`,
@@ -806,7 +806,7 @@ export function divergenceStatusText(status: string): string;                   
 
 ---
 
-## Tarefa 15: verificação no navegador
+## Task 15: verificação no navegador
 
 Ambiente: SAP e InvOne de mentira locais, como na verificação anterior do GAC-1226 (memória
 `gac-1226-sap-invoice-link`), em **cópias** dos bancos (`IDX_SIAGRO_DEV_GAC1226` + `IDX_SIAGRO_COMMON_GAC1226`),
