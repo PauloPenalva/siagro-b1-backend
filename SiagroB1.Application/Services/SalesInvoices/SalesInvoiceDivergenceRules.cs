@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
@@ -17,6 +19,50 @@ public static class SalesInvoiceDivergenceRules
     public const string UnlinkedReason = "Notas fiscais do SAP desvinculadas da carga.";
 
     private const decimal Tolerance = 0.001m;
+
+    public const string ReversalOutOfOrderMessage = "Estorne primeiro a recusa mais recente deste documento.";
+
+    /// <summary>
+    /// Estorno de devolução de documento DIVERGENTE só em ordem inversa: recusa a devolução se houver outra devolução
+    /// Confirmed da mesma origem criada depois dela (<c>CreatedAt</c>). Sem registro Open na origem, não restringe nada.
+    /// </summary>
+    /// <remarks>
+    /// O ajuste do efetivo (<see cref="PhysicalAdjustmentAsync"/>) fica no romaneio da recusa que COMPLETOU o documento.
+    /// Estornar uma recusa anterior deixaria a origem parcialmente devolvida — o termo de divergência volta a contar —
+    /// com a diferença ainda presa no romaneio da recusa posterior: saldo negativo. Em ordem inversa, o romaneio com o
+    /// ajuste sai primeiro e o saldo fecha a cada passo.
+    /// <para>
+    /// Só as devoluções Confirmed contam: a estornada volta a Pending e o romaneio dela é cancelado, então ela já não
+    /// segura o ajuste — e contar Pending travaria a própria ordem inversa (estornada a mais recente, a anterior
+    /// continuaria barrada por ela). <paramref name="reversedTogether"/> são as devoluções estornadas na mesma operação
+    /// (irmãs da mesma recusa), que não barram umas às outras.
+    /// </para>
+    /// </remarks>
+    public static async Task EnsureReversalInOrderAsync(
+        AppDbContext context, SalesInvoice returnInvoice, IReadOnlyCollection<Guid>? reversedTogether = null)
+    {
+        if (returnInvoice.InvoiceType != SalesInvoiceType.Return || returnInvoice.SalesInvoiceOriginKey is not { } originKey)
+            return;
+
+        var divergent = await context.SalesInvoiceDivergences
+            .AnyAsync(d => d.SalesInvoiceKey == originKey && d.Status == SalesInvoiceDivergenceStatus.Open);
+
+        if (!divergent)
+            return;
+
+        var excluded = (reversedTogether ?? []).Append(returnInvoice.Key).ToList();
+        var createdAt = returnInvoice.CreatedAt;
+
+        var hasLaterReturn = await context.SalesInvoices
+            .AnyAsync(i => i.SalesInvoiceOriginKey == originKey
+                           && i.InvoiceType == SalesInvoiceType.Return
+                           && i.InvoiceStatus == InvoiceStatus.Confirmed
+                           && !excluded.Contains(i.Key)
+                           && i.CreatedAt > createdAt);
+
+        if (hasLaterReturn)
+            throw new DefaultException(ReversalOutOfOrderMessage);
+    }
 
     /// <summary>
     /// Σ QuantityDifference dos registros Open dos documentos que esta recusa devolve POR INTEIRO

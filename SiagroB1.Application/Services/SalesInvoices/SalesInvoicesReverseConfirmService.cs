@@ -120,9 +120,16 @@ public class SalesInvoicesReverseConfirmService(
                     var entry = await ResolveRefusalEntryAsync(shipmentLoadKey.Value, invoice);
 
                     if (entry is not null)
-                    {
                         siblings = await FindRefusalSiblingsAsync(shipmentLoadKey.Value, invoice, entry);
 
+                    // GAC-1226: documento divergente só se estorna em ordem inversa — o ajuste do efetivo está no
+                    // romaneio da recusa que completou a devolução. Antes de qualquer escrita.
+                    var reversedTogether = siblings.Select(s => s.Key).Append(invoice.Key).ToList();
+                    foreach (var doc in siblings.Prepend(invoice))
+                        await SalesInvoiceDivergenceRules.EnsureReversalInOrderAsync(db.Context, doc, reversedTogether);
+
+                    if (entry is not null)
+                    {
                         if (entry.TransactionType == StorageTransactionType.TransitLoss)
                         {
                             CancelTransitLoss(entry, invoice, siblings, userName);
