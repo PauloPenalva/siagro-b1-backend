@@ -299,6 +299,25 @@ public class InvOneFiscalDocumentSourceTests
         Assert.Equal("1", InvOneFiscalDocumentSource.ReadPurpose(Deflate(PurposeXml, Encoding.Unicode)));
 
     [Fact]
+    public void Reads_the_purpose_from_utf16_with_bom() =>
+        Assert.Equal("1", InvOneFiscalDocumentSource.ReadPurpose(DeflateWithBom(PurposeXml, Encoding.Unicode)));
+
+    [Fact]
+    public void Reads_the_purpose_from_utf8_with_bom() =>
+        Assert.Equal("1", InvOneFiscalDocumentSource.ReadPurpose(DeflateWithBom(PurposeXml, new UTF8Encoding(true))));
+
+    private static byte[] DeflateWithBom(string xml, Encoding encoding)
+    {
+        using var output = new MemoryStream();
+        using (var deflate = new DeflateStream(output, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            var bytes = encoding.GetPreamble().Concat(encoding.GetBytes(xml)).ToArray();
+            deflate.Write(bytes, 0, bytes.Length);
+        }
+        return output.ToArray();
+    }
+
+    [Fact]
     public void Complement_invoice_reads_two() =>
         Assert.Equal("2", InvOneFiscalDocumentSource.ReadPurpose(
             Deflate(PurposeXml.Replace("<finNFe>1", "<finNFe>2"), Encoding.UTF8)));

@@ -94,7 +94,11 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
             var bytes = output.ToArray();
             if (bytes.Length == 0) return null;
 
-            var text = bytes.Length > 1 && bytes[1] == 0 ? Encoding.Unicode.GetString(bytes) : Encoding.UTF8.GetString(bytes);
+            // BOM primeiro (FF FE = UTF-16LE, EF BB BF = UTF-8); sem BOM vale a heurística do segundo byte.
+            var text = bytes is [0xFF, 0xFE, ..] ? Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2)
+                : bytes is [0xEF, 0xBB, 0xBF, ..] ? Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3)
+                : bytes.Length > 1 && bytes[1] == 0 ? Encoding.Unicode.GetString(bytes)
+                : Encoding.UTF8.GetString(bytes);
             var match = PurposeRegex.Match(text);
             return match.Success ? match.Groups[1].Value : null;
         }
