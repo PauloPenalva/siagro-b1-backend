@@ -91,7 +91,8 @@ public class SalesInvoiceSapLinkedRulesTests
             configuration: config);
 
         return new ShipmentLoadsLinkSapInvoiceService(
-            _db, Linkable(), new SalesInvoiceTaxDocumentDuplicateGuard(_db.Context), billing, config);
+            _db, Linkable(), new SalesInvoiceTaxDocumentDuplicateGuard(_db.Context), billing,
+            new SalesContractsFixedVolumeService(_db.Context), config);
     }
 
     private ShipmentLoadsBalanceHookService Hook() =>
@@ -174,7 +175,7 @@ public class SalesInvoiceSapLinkedRulesTests
             Status = ShipmentLoadStatus.Open,
         };
         var contract = SalesContractsAllocationTestSupport.NewContract(
-            totalVolume: 1_000_000m, cardCode: CardCode, itemCode: Item);
+            totalVolume: 1_000_000m, price: 2.5m, cardCode: CardCode, itemCode: Item);
         _release = SalesContractsAllocationTestSupport.NewRelease(contract.Key, released: 1_000_000m, status: ReleaseStatus.Actived);
         _release.DeliveryLocationCode = "LOCAL77";
 

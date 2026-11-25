@@ -118,11 +118,17 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
                 _db.Context, _sap, fiscal ?? new FakeFiscal(), new ShipmentLoadsBillingGuardService(_db.Context)),
             new SalesInvoiceTaxDocumentDuplicateGuard(_db.Context),
             billing,
+            new SalesContractsFixedVolumeService(_db.Context),
             config);
     }
 
+    /// <remarks>
+    /// O contrato nasce a R$ 2,50/kg, o mesmo preço das NFs de <see cref="AddSapInvoiceAsync"/>: assim o vínculo
+    /// com a quantidade igual ao saldo é Normal (sem divergência de valor).
+    /// </remarks>
     private async Task SeedAsync(string? releaseCard = null, ReleaseStatus releaseStatus = ReleaseStatus.Actived,
-        string contractItem = Item, decimal? freightPrice = 12.5m)
+        string contractItem = Item, decimal? freightPrice = 12.5m, decimal total = Quantity,
+        decimal contractPrice = 2.5m, CurrencyType? currency = null)
     {
         _load = new ShipmentLoad
         {
@@ -137,13 +143,15 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
             TruckDriverCode = "MOT01",
             CarrierCardCode = Carrier,
             CarrierName = "TRANSPORTES YOKOTOBI LTDA",
-            TotalQuantity = Quantity,
+            TotalQuantity = total,
             FreightPrice = freightPrice,
             Status = ShipmentLoadStatus.Open,
         };
 
         _contract = SalesContractsAllocationTestSupport.NewContract(
-            totalVolume: 1_000_000m, cardCode: releaseCard ?? CardCode, itemCode: contractItem);
+            totalVolume: 1_000_000m, price: contractPrice, cardCode: releaseCard ?? CardCode, itemCode: contractItem);
+        _contract.Type = ContractType.Fixed;
+        _contract.StandardCurrency = currency ?? CurrencyType.Brl;
         _release = SalesContractsAllocationTestSupport.NewRelease(
             _contract.Key, released: 1_000_000m, status: releaseStatus);
         _release.DeliveryLocationCode = "LOCAL77";
@@ -157,7 +165,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
 
     private async Task AddSapInvoiceAsync(int docEntry = 1, decimal quantity = Quantity,
         string carrier = Carrier, string incoterms = "1", string? canceled = "N", string cardCode = CardCode,
-        int? serial = null)
+        int? serial = null, decimal price = 2.5m, decimal? lineTotal = null)
     {
         _sap.SapInvoices.Add(new SapInvoice
         {
@@ -176,7 +184,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         _sap.SapInvoiceLines.Add(new SapInvoiceLine
         {
             DocEntry = docEntry, LineNum = 0, ItemCode = Item, Quantity = quantity,
-            Price = 2.5m, LineTotal = quantity * 2.5m, CfopCode = "5101", Usage = 70, UnitMsr = "KG",
+            Price = price, LineTotal = lineTotal ?? quantity * price, CfopCode = "5101", Usage = 70, UnitMsr = "KG",
         });
         if (!await _sap.Usages.AnyAsync(u => u.Code == 70))
             _sap.Usages.Add(new SiagroB1.Domain.Entities.SAP.Usage { Code = 70, Name = "S- Venda p/ Export." });
@@ -199,6 +207,10 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         ShipmentLoadsLinkSapInvoiceService? service = null, params int[] docEntries) =>
         (service ?? Service()).ExecuteAsync(
             _load.Key, docEntries.Length == 0 ? [1] : docEntries, _release.Key, "tester");
+
+    private Task<IReadOnlyList<SalesInvoice>> ConfirmedLinkAsync(params int[] docEntries) =>
+        Service().ExecuteAsync(
+            _load.Key, docEntries.Length == 0 ? [1] : docEntries, _release.Key, "tester", confirmDivergence: true);
 
     [Fact]
     public async Task Links_creating_a_confirmed_document_mirroring_the_sap_invoice()
@@ -599,31 +611,244 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         Assert.Equal(["Begin", "Commit"], _recorder!.Log);
     }
 
-    [Theory]
-    [InlineData(50_000, 30_000, "80.000,000")]
-    [InlineData(60_000, 40_000, "100.000,000")]
-    [InlineData(80_000, 0, "80.000,000")]
-    [InlineData(95_000, 0, "95.000,000")]
-    public async Task Sum_different_from_the_balance_is_refused_and_nothing_is_persisted(
-        int q1, int q2, string sum)
+    // ---------- GAC-1226: vínculo com divergência (carga de 30.000, contrato fixo a R$ 2,00/kg) ----------
+
+    private const decimal DivergentLoad = 30_000m;
+
+    private Task SeedDivergenceAsync(CurrencyType currency = CurrencyType.Brl) =>
+        SeedAsync(total: DivergentLoad, contractPrice: 2m, currency: currency);
+
+    private async Task<List<SalesInvoiceDivergence>> DivergencesAsync() =>
+        await _db.Context.SalesInvoiceDivergences.AsNoTracking().ToListAsync();
+
+    private async Task<ShipmentLoad> SavedLoadAsync() =>
+        await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync(l => l.Key == _load.Key);
+
+    [Fact]
+    public async Task Matching_invoice_links_as_normal_without_a_divergence_record()
     {
-        await SeedAsync();
-        await AddSapInvoiceAsync(1, quantity: q1);
-        int[] entries = [1];
-        if (q2 > 0)
-        {
-            await AddSapInvoiceAsync(2, quantity: q2);
-            entries = [1, 2];
-        }
+        await SeedDivergenceAsync();
+        await AddSapInvoiceAsync(quantity: 30_000m, price: 2m, lineTotal: 60_000.00m);
 
-        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, entries));
+        var created = await LinkAsync();
 
-        Assert.Equal(
-            $"A soma das notas fiscais do SAP ({sum}) é diferente do saldo da carga CG000010 (90.000,000). " +
-            "O vínculo exige que a soma seja igual ao saldo.", ex.Message);
-        await AssertNothingPersistedAsync();
+        var saved = await _db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(Assert.Single(created).Key, saved.Key);
+        Assert.Equal(SapLinkType.Normal, saved.SapLinkType);
+        Assert.Empty(await DivergencesAsync());
+        Assert.Equal(ShipmentLoadStatus.Invoiced, (await SavedLoadAsync()).Status);
     }
 
+    [Fact]
+    public async Task Smaller_invoice_without_confirmation_is_refused_and_writes_nothing()
+    {
+        await SeedDivergenceAsync();
+        await AddSapInvoiceAsync(quantity: 29_800m, price: 2m);
+
+        var ex = await Assert.ThrowsAsync<SapLinkDivergenceException>(() => LinkAsync());
+
+        Assert.Equal(
+            "Valor(es) e qtde(s) da(s) NF(s) diferente(s) do contrato, deseja finalizar o faturamento?", ex.Message);
+        Assert.Equal(SapLinkType.QuantityAndValueDivergent, ex.Assessment.Type);
+        await AssertNothingPersistedAsync();
+        Assert.Empty(await DivergencesAsync());
+        Assert.Equal(["Begin", "Rollback"], _recorder!.Log);
+    }
+
+    [Fact]
+    public async Task Smaller_invoice_confirmed_links_and_closes_the_load()
+    {
+        await SeedDivergenceAsync();
+        await AddSapInvoiceAsync(quantity: 29_800m, price: 2m);
+
+        var created = await ConfirmedLinkAsync();
+
+        var saved = await _db.Context.SalesInvoices.AsNoTracking().Include(i => i.Items).SingleAsync();
+        Assert.Equal(Assert.Single(created).Key, saved.Key);
+        Assert.Equal(29_800m, Assert.Single(saved.Items).Quantity);
+        Assert.Equal(SapLinkType.QuantityAndValueDivergent, saved.SapLinkType);
+
+        var divergence = Assert.Single(await DivergencesAsync());
+        Assert.Equal(saved.Key, divergence.SalesInvoiceKey);
+        Assert.Equal(_load.Key, divergence.ShipmentLoadKey);
+        Assert.Equal(SapLinkType.QuantityAndValueDivergent, divergence.LinkType);
+        Assert.Equal(SalesInvoiceDivergenceStatus.Open, divergence.Status);
+        Assert.Equal("tester", divergence.CreatedBy);
+        Assert.Equal(30_000m, divergence.EffectiveQuantity);
+        Assert.Equal(29_800m, divergence.InvoiceQuantity);
+        Assert.Equal(200m, divergence.QuantityDifference);
+        Assert.Equal(60_000.00m, divergence.EffectiveValue);
+        Assert.Equal(59_600.00m, divergence.InvoiceValue);
+        Assert.Equal(400.00m, divergence.ValueDifference);
+
+        var load = await SavedLoadAsync();
+        Assert.Equal(29_800m, load.InvoicedQuantity);
+        Assert.Equal(200m, load.InvoiceDivergenceQuantity);
+        Assert.Equal(0m, load.AvailableQuantity);
+        Assert.Equal(ShipmentLoadStatus.Invoiced, load.Status);
+
+        // O contrato é baixado pela quantidade da NF.
+        Assert.Equal(29_800m, await _db.Context.SalesContractsAllocations.AsNoTracking().SumAsync(a => a.Volume));
+        Assert.Equal(["Begin", "Commit"], _recorder!.Log);
+    }
+
+    [Fact]
+    public async Task Larger_invoice_confirmed_links_with_a_negative_divergence()
+    {
+        await SeedDivergenceAsync();
+        await AddSapInvoiceAsync(quantity: 30_150m, price: 2m);
+
+        await ConfirmedLinkAsync();
+
+        var divergence = Assert.Single(await DivergencesAsync());
+        Assert.Equal(-150m, divergence.QuantityDifference);
+        Assert.Equal(SapLinkType.QuantityAndValueDivergent, divergence.LinkType);
+
+        var load = await SavedLoadAsync();
+        Assert.Equal(30_150m, load.InvoicedQuantity);
+        Assert.Equal(-150m, load.InvoiceDivergenceQuantity);
+        Assert.Equal(ShipmentLoadStatus.Invoiced, load.Status);
+    }
+
+    [Fact]
+    public async Task Value_divergence_confirmed_records_type_one_with_zero_quantity_difference()
+    {
+        await SeedDivergenceAsync();
+        await AddSapInvoiceAsync(quantity: 30_000m, price: 2.01m, lineTotal: 60_300.00m);
+
+        var unconfirmed = await Assert.ThrowsAsync<SapLinkDivergenceException>(() => LinkAsync());
+        Assert.Equal(
+            "Valor(es) da(s) NF(s) diferente(s) do contrato, deseja finalizar o faturamento?", unconfirmed.Message);
+
+        await ConfirmedLinkAsync();
+
+        Assert.Equal(SapLinkType.ValueDivergent,
+            (await _db.Context.SalesInvoices.AsNoTracking().SingleAsync()).SapLinkType);
+        var divergence = Assert.Single(await DivergencesAsync());
+        Assert.Equal(SapLinkType.ValueDivergent, divergence.LinkType);
+        Assert.Equal(0m, divergence.QuantityDifference);
+        Assert.Equal(-300.00m, divergence.ValueDifference);
+        Assert.Equal(ShipmentLoadStatus.Invoiced, (await SavedLoadAsync()).Status);
+    }
+
+    [Fact]
+    public async Task Two_invoices_get_one_record_each_and_the_shares_sum_the_effective_quantity()
+    {
+        await SeedDivergenceAsync();
+        await AddSapInvoiceAsync(1, quantity: 10_000m, price: 2m);
+        await AddSapInvoiceAsync(2, quantity: 19_800m, price: 2m);
+
+        var created = await ConfirmedLinkAsync(1, 2);
+
+        Assert.Equal(2, created.Count);
+        var divergences = await DivergencesAsync();
+        Assert.Equal(2, divergences.Count);
+        Assert.Equal(
+            created.Select(c => c.Key).OrderBy(k => k), divergences.Select(d => d.SalesInvoiceKey).OrderBy(k => k));
+        Assert.Equal(30_000m, divergences.Sum(d => d.EffectiveQuantity));
+        Assert.Equal(200m, divergences.Sum(d => d.QuantityDifference));
+        Assert.Equal(10_000m, divergences.Single(d => d.SalesInvoiceKey == created[0].Key).InvoiceQuantity);
+        Assert.Equal(19_800m, divergences.Single(d => d.SalesInvoiceKey == created[1].Key).InvoiceQuantity);
+        Assert.All(divergences, d => Assert.Equal(SapLinkType.QuantityAndValueDivergent, d.LinkType));
+
+        var load = await SavedLoadAsync();
+        Assert.Equal(ShipmentLoadStatus.Invoiced, load.Status);
+        Assert.Equal(0m, load.AvailableQuantity);
+    }
+
+    [Fact]
+    public async Task Dollar_contract_classifies_by_quantity_only()
+    {
+        await SeedDivergenceAsync(CurrencyType.Usd);
+        await AddSapInvoiceAsync(1, quantity: 30_000m, price: 7m);
+
+        await LinkAsync();
+
+        Assert.Equal(SapLinkType.Normal, (await _db.Context.SalesInvoices.AsNoTracking().SingleAsync()).SapLinkType);
+        Assert.Empty(await DivergencesAsync());
+
+        // Segunda carga do mesmo contrato, agora com NF menor que o saldo.
+        var second = new ShipmentLoad
+        {
+            Key = Guid.NewGuid(), Code = "CG000011", BranchCode = SapBranch, ItemCode = Item,
+            ItemName = "SOJA EM GRAOS", UnitOfMeasureCode = "KG", CardCode = CardCode, TruckCode = "ABC1D23",
+            TruckDriverCode = "MOT01", CarrierCardCode = Carrier, CarrierName = "TRANSPORTES YOKOTOBI LTDA",
+            TotalQuantity = DivergentLoad, Status = ShipmentLoadStatus.Open,
+        };
+        _db.Context.ShipmentLoads.Add(second);
+        await _db.SaveChangesAsync();
+        await AddSapInvoiceAsync(2, quantity: 29_800m, price: 7m);
+
+        await Service().ExecuteAsync(second.Key, [2], _release.Key, "tester", confirmDivergence: true);
+
+        var divergence = Assert.Single(await DivergencesAsync());
+        Assert.Equal(SapLinkType.QuantityAndValueDivergent, divergence.LinkType);
+        Assert.Equal(200m, divergence.QuantityDifference);
+        Assert.Null(divergence.EffectiveValue);
+        Assert.Null(divergence.ValueDifference);
+    }
+
+    [Fact]
+    public async Task Load_without_balance_is_refused()
+    {
+        await SeedDivergenceAsync();
+        await AddSapInvoiceAsync(1, quantity: 30_000m, price: 2m);
+        await AddSapInvoiceAsync(2, quantity: 1_000m, price: 2m);
+        await LinkAsync(null, 1);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, 2));
+
+        Assert.Equal("A carga CG000010 não tem saldo a faturar.", ex.Message);
+        Assert.Equal(1, await InvoiceCountAsync());
+    }
+
+    [Fact]
+    public async Task Preview_returns_the_assessment_and_writes_nothing()
+    {
+        await SeedDivergenceAsync();
+        await AddSapInvoiceAsync(quantity: 29_800m, price: 2m);
+
+        var assessment = await Service().PreviewAsync(_load.Key, [1], _release.Key);
+
+        Assert.Equal(SapLinkType.QuantityAndValueDivergent, assessment.Type);
+        Assert.Equal(
+            "Valor(es) e qtde(s) da(s) NF(s) diferente(s) do contrato, deseja finalizar o faturamento?",
+            assessment.Message);
+        Assert.Equal(30_000m, assessment.EffectiveQuantity);
+        Assert.Equal(29_800m, assessment.InvoiceQuantity);
+        Assert.Equal(200m, assessment.QuantityDifference);
+        Assert.Equal(60_000.00m, assessment.EffectiveValue);
+        Assert.Equal(59_600.00m, assessment.InvoiceValue);
+        Assert.Equal(400.00m, assessment.ValueDifference);
+
+        await AssertNothingPersistedAsync();
+        Assert.Empty(await DivergencesAsync());
+        Assert.Empty(_recorder!.Log);
+    }
+
+    [Fact]
+    public async Task Preview_outside_sapb1_is_refused()
+    {
+        await SeedDivergenceAsync();
+        await AddSapInvoiceAsync(quantity: 29_800m, price: 2m);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            Service("STANDALONE").PreviewAsync(_load.Key, [1], _release.Key));
+
+        Assert.Equal("Disponível somente com integração SAP Business One.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Invoice_of_another_customer_is_no_longer_available()
+    {
+        await SeedAsync();
+        await AddSapInvoiceAsync(cardCode: "C0099");
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync());
+
+        Assert.Equal("A NF do SAP 000198105 não está mais disponível para vínculo.", ex.Message);
+        await AssertNothingPersistedAsync();
+    }
 
     [Fact]
     public async Task Empty_list_is_refused()

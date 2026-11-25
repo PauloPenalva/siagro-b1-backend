@@ -65,9 +65,13 @@ public class ShipmentBillingCreateSalesInvoiceService(
     /// liberação, títulos, recálculo da carga, log) continuam aqui, gravados dentro dessa transação; não há
     /// trabalho pós-commit. O faturamento manual usa o padrão (<see cref="CommitMode.Auto"/>).
     /// </param>
+    /// <param name="allowLoadExcess">
+    /// GAC-1226: só o vínculo de NF do SAP com divergência confirmada passa <c>true</c> — a NF pode passar do
+    /// saldo da carga. Pula só o teste de quantidade do guard da carga.
+    /// </param>
     public async Task ExecuteAsync(
         SalesInvoice salesInvoice, string username, SapInvoiceLink? sapLink = null,
-        CommitMode commitMode = CommitMode.Auto)
+        CommitMode commitMode = CommitMode.Auto, bool allowLoadExcess = false)
     {
         Validate(salesInvoice);
 
@@ -102,7 +106,8 @@ public class ShipmentBillingCreateSalesInvoiceService(
         {
             // Saldo FÍSICO da carga, decidido sobre o recalculado. Antes de qualquer escrita:
             // uma tentativa recusada não pode deixar efeito no banco.
-            await loadGuard.EnsureCanBillAsync(loadKey.Value, quantity, salesInvoice.TruckingCompanyCode);
+            await loadGuard.EnsureCanBillAsync(
+                loadKey.Value, quantity, salesInvoice.TruckingCompanyCode, allowLoadExcess);
         }
         else
         {
@@ -192,6 +197,7 @@ public class ShipmentBillingCreateSalesInvoiceService(
     {
         salesInvoice.SapDocEntry = sapLink.DocEntry;
         salesInvoice.SapDocNum = sapLink.DocNum;
+        salesInvoice.SapLinkType = sapLink.LinkType;
 
         ApplySapFiscalFields(
             salesInvoice, sapLink.TaxDocumentNumber, sapLink.TaxDocumentSeries, sapLink.AccessKey, sapLink.Cfop,

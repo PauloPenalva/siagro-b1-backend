@@ -1673,6 +1673,8 @@ public static class ODataConfigurations
         shipmentLoadsLinkSapInvoice.Parameter<Guid>("Key");
         shipmentLoadsLinkSapInvoice.CollectionParameter<int>("SapDocEntries");
         shipmentLoadsLinkSapInvoice.Parameter<Guid>("SalesShipmentReleaseKey");
+        // GAC-1226: o usuário aceitou o alerta de divergência; ausente = falso.
+        shipmentLoadsLinkSapInvoice.Parameter<bool>("ConfirmDivergence").Optional();
         shipmentLoadsLinkSapInvoice.Returns<IActionResult>();
 
         var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");
@@ -1891,6 +1893,13 @@ public static class ODataConfigurations
         shipmentLoadsGetLinkableSapInvoices.Parameter<string>("DateFrom");
         shipmentLoadsGetLinkableSapInvoices.Parameter<string>("DateTo");
         shipmentLoadsGetLinkableSapInvoices.ReturnsCollection<SapLinkableInvoiceDto>();
+
+        // GAC-1226: prévia do vínculo (tipo e alerta de divergência). SapDocEntries = DocEntry separados por vírgula.
+        var shipmentLoadsGetSapLinkPreview = modelBuilder.Function("ShipmentLoadsGetSapLinkPreview");
+        shipmentLoadsGetSapLinkPreview.Parameter<Guid>("Key");
+        shipmentLoadsGetSapLinkPreview.Parameter<Guid>("SalesShipmentReleaseKey");
+        shipmentLoadsGetSapLinkPreview.Parameter<string>("SapDocEntries");
+        shipmentLoadsGetSapLinkPreview.Returns<SapLinkPreviewDto>();
 
         var shipmentLoadsGetPendingRefusal = modelBuilder.Function("ShipmentLoadsGetPendingRefusal");
         shipmentLoadsGetPendingRefusal.Parameter<Guid>("Key");

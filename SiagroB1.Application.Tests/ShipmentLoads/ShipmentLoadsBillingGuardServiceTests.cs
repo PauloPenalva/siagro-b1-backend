@@ -88,6 +88,30 @@ public class ShipmentLoadsBillingGuardServiceTests
         Assert.Contains("CG000007", error.Message);
     }
 
+    /// <summary>
+    /// GAC-1226: o vínculo de NF do SAP com divergência pode faturar acima do saldo, mas só o teste de
+    /// quantidade é pulado — as travas de situação e de transportadora continuam.
+    /// </summary>
+    [Fact]
+    public async Task Guard_with_allow_excess_still_refuses_a_planned_load_and_a_different_carrier()
+    {
+        var open = Load();
+        Invoice(open, 40_000);
+        var planned = Load(total: 0, status: ShipmentLoadStatus.Planned);
+        await _db.Context.SaveChangesAsync();
+
+        // Acima do saldo: passa com allowExcess.
+        await Guard().EnsureCanBillAsync(open.Key, 50_150, Carrier, allowExcess: true);
+
+        var plannedError = await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(planned.Key, 10_000m, Carrier, allowExcess: true));
+        Assert.Contains("planejada", plannedError.Message, StringComparison.OrdinalIgnoreCase);
+
+        var carrierError = await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(open.Key, 10_000m, "F009999", allowExcess: true));
+        Assert.Contains("transportadora", carrierError.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

@@ -33,11 +33,18 @@ public class ShipmentLoadsLinkSapInvoiceController(IServiceProvider services) : 
             if (!ShipmentLoadsLinkSapInvoiceService.TryParseDocEntries(entriesObj, out var entries))
                 return BadRequest("Informe as notas fiscais do SAP a vincular.");
 
+            // Opcional (GAC-1226): ausente ou nulo = o usuário ainda não confirmou a divergência.
+            var confirmDivergence = parameters.TryGetValue("ConfirmDivergence", out var confirmObj)
+                                    && confirmObj is true;
+
+            // Divergência sem confirmação: SapLinkDivergenceException é ApplicationException e sai como 400
+            // com o texto do alerta.
             var invoices = await service.ExecuteAsync(
                 Guid.Parse(keyObj.ToString()!),
                 entries,
                 Guid.Parse(releaseObj.ToString()!),
-                User.Identity?.Name ?? "Unknown");
+                User.Identity?.Name ?? "Unknown",
+                confirmDivergence);
 
             // Um item por NF, na ordem de SapDocEntries; com uma NF o detalhe leva o usuário ao documento.
             return Ok(new

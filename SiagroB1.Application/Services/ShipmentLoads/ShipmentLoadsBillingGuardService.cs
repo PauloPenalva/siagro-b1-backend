@@ -42,8 +42,13 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
     /// (<c>CarrierCardCode</c>): são campos com nomes diferentes para o mesmo conceito e nada
     /// no fluxo os copia um para o outro.
     /// </param>
+    /// <param name="allowExcess">
+    /// GAC-1226: o vínculo de NF do SAP com divergência confirmada pode faturar acima do saldo (a diferença
+    /// vira o termo de divergência da carga). Pula SÓ o teste de quantidade; as travas de situação e de
+    /// transportadora continuam valendo.
+    /// </param>
     public async Task EnsureCanBillAsync(
-        Guid shipmentLoadKey, decimal quantity, string? truckingCompanyCode)
+        Guid shipmentLoadKey, decimal quantity, string? truckingCompanyCode, bool allowExcess = false)
     {
         if (quantity <= decimal.Zero)
             throw new ApplicationException("Informe uma quantidade a faturar maior que zero.");
@@ -114,6 +119,9 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
                 $"A transportadora do documento de saída ({truckingCompanyCode}) é diferente da " +
                 $"transportadora da carga {load.Code} (({load.CarrierCardCode}) {load.CarrierName}). " +
                 "Ajuste antes de faturar.");
+
+        if (allowExcess)
+            return;
 
         var balance = await CalculateBalanceAsync(shipmentLoadKey, load.TotalQuantity);
         var available = balance.Available;
