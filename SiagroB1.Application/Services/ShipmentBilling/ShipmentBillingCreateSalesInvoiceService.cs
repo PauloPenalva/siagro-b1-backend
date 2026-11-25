@@ -205,8 +205,8 @@ public class ShipmentBillingCreateSalesInvoiceService(
     }
 
     /// <summary>
-    /// Número, série, chave, CFOP e natureza da nota do SAP, gravados como espelho. Comum à invoice de venda
-    /// (<see cref="ApplySapLink"/>) e à NF de devolução (A/R Credit Memo) vinculada à devolução.
+    /// Número, série, chave, CFOP e natureza da nota do SAP, gravados como espelho. Hoje só a invoice de venda
+    /// (<see cref="ApplySapLink"/>) passa por aqui; separado para a futura conciliação fiscal reaproveitar.
     /// </summary>
     internal static void ApplySapFiscalFields(
         SalesInvoice salesInvoice, string taxDocumentNumber, string taxDocumentSeries, string? accessKey,

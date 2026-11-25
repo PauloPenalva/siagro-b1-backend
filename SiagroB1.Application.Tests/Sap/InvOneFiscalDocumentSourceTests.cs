@@ -275,6 +275,49 @@ public class InvOneFiscalDocumentSourceTests
         Assert.Contains("[DocType] = 13", sql);
     }
 
+    private static InvOneDbContext CreateSqlServerDb() =>
+        new(new DbContextOptionsBuilder<InvOneDbContext>()
+            .UseSqlServer("Server=localhost;Database=DBInvOne;User Id=x;Password=x;TrustServerCertificate=True;")
+            .Options);
+
+    [Fact]
+    public void Invoice_status_query_does_not_read_the_signed_xml()
+    {
+        using var db = CreateSqlServerDb();
+
+        // A sincronização de minuto em minuto passa por aqui: o XML (~4 KB por NF) não pode vir junto.
+        var sql = InvOneFiscalDocumentSource.BuildStatusQuery(InvOneFiscalDocumentSource.BuildQuery(db, [1, 2], [1]))
+            .ToQueryString();
+
+        Assert.Contains("[DocType] = 13", sql);
+        Assert.Contains("[KeyNfe]", sql);
+        Assert.DoesNotContain("XmlEnvAssinado", sql);
+    }
+
+    [Fact]
+    public void Credit_memo_status_query_does_not_read_the_signed_xml()
+    {
+        using var db = CreateSqlServerDb();
+
+        var sql = InvOneFiscalDocumentSource
+            .BuildStatusQuery(InvOneFiscalDocumentSource.BuildCreditMemoQuery(db, [1, 2], [1]))
+            .ToQueryString();
+
+        Assert.Contains("[DocType] = 14", sql);
+        Assert.DoesNotContain("XmlEnvAssinado", sql);
+    }
+
+    [Fact]
+    public void Purpose_query_reads_the_signed_xml()
+    {
+        using var db = CreateSqlServerDb();
+
+        var sql = InvOneFiscalDocumentSource.BuildPurposeQuery(db, [1, 2], [1]).ToQueryString();
+
+        Assert.Contains("[DocType] = 13", sql);
+        Assert.Contains("[XmlEnvAssinado]", sql);
+    }
+
     // ---- finalidade da NF-e (finNFe) lida do XML assinado ----
 
     private const string PurposeXml = "<NFe><infNFe><ide><tpNF>1</tpNF><finNFe>1</finNFe></ide></infNFe></NFe>";

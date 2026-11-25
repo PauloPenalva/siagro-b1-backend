@@ -119,6 +119,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
             new SalesInvoiceTaxDocumentDuplicateGuard(_db.Context),
             billing,
             new SalesContractsFixedVolumeService(_db.Context),
+            new ShipmentLoadsChangeLogService(_db.Context),
             config);
     }
 
@@ -690,6 +691,25 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         // O contrato é baixado pela quantidade da NF.
         Assert.Equal(29_800m, await _db.Context.SalesContractsAllocations.AsNoTracking().SumAsync(a => a.Volume));
         Assert.Equal(["Begin", "Commit"], _recorder!.Log);
+    }
+
+    [Fact]
+    public async Task Confirmed_divergent_link_logs_the_status_change_ending_in_invoiced()
+    {
+        await SeedDivergenceAsync();
+        await AddSapInvoiceAsync(quantity: 29_800m, price: 2m);
+
+        await ConfirmedLinkAsync();
+
+        // O faturamento deixa a carga Faturada Parcial; o segundo recálculo (com o termo de divergência) a fecha.
+        // Sem esta linha o histórico parava em Faturada Parcial com a carga Faturada.
+        var statusRows = await _db.Context.ShipmentLoadsChangeLogs.AsNoTracking()
+            .Where(l => l.ShipmentLoadKey == _load.Key && l.Field == ShipmentLoadChangeLogFields.Status)
+            .ToListAsync();
+        var row = Assert.Single(statusRows);
+        Assert.Equal(ShipmentLoadChangeLogFields.DescribeStatus(ShipmentLoadStatus.PartiallyInvoiced), row.OldValue);
+        Assert.Equal(ShipmentLoadChangeLogFields.DescribeStatus(ShipmentLoadStatus.Invoiced), row.NewValue);
+        Assert.Equal("tester", row.ChangedBy);
     }
 
     [Fact]

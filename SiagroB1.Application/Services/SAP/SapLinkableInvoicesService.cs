@@ -103,7 +103,7 @@ public class SapLinkableInvoicesService(
                         && i.Lines.Count() == 1
                         && i.Lines.Any(l => l.ItemCode == itemCode)
                         // GAC-1226 rodada 2: sem teto — a NF maior que o saldo aparece (ajuda a achar a
-                        // quantidade de carga digitada errada); quem barra é a regra da soma no vínculo.
+                        // quantidade de carga digitada errada); a divergência é classificada no vínculo.
                         && i.Lines.Any(l => l.Quantity > 0)
                         // GAC-1226 rodada 3: só NF do cliente, da transportadora e da placa da carga, em reais
                         // e em KG (a linha única é a de KG). A finalidade (finNFe = 1) vem do add-on, depois.

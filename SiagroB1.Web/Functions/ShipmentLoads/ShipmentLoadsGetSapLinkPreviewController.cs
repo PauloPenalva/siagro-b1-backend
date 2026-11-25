@@ -59,12 +59,14 @@ public class ShipmentLoadsGetSapLinkPreviewController(IServiceProvider services)
 
     /// <summary>
     /// <c>SapDocEntries</c> chega como string OData (anulável e com as aspas): inteiros positivos separados por
-    /// vírgula. Qualquer elemento vazio ou inválido invalida o conjunto.
+    /// vírgula. Qualquer elemento vazio ou inválido invalida o conjunto. Dentro do <c>$batch</c> o valor da rota
+    /// chega ainda percent-encoded (<c>'9172%2C9171'</c>), por isso decodifica antes, como
+    /// <see cref="SiagroB1.Web.Market.ODataKeyNormalizer"/>.
     /// </summary>
     public static bool TryParseDocEntries(string? raw, out List<int> entries)
     {
         entries = [];
-        var text = raw?.Trim().Trim('\'').Trim();
+        var text = raw == null ? null : Uri.UnescapeDataString(raw).Trim().Trim('\'').Trim();
         if (string.IsNullOrEmpty(text))
             return false;
 

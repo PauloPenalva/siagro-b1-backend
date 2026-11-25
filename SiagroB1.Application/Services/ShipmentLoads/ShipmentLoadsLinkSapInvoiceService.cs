@@ -43,6 +43,7 @@ public class ShipmentLoadsLinkSapInvoiceService(
     SalesInvoiceTaxDocumentDuplicateGuard duplicateGuard,
     ShipmentBillingCreateSalesInvoiceService billing,
     SalesContractsFixedVolumeService fixedVolume,
+    ShipmentLoadsChangeLogService changeLog,
     IConfiguration? configuration = null,
     ILogger<ShipmentLoadsLinkSapInvoiceService>? logger = null)
 {
@@ -105,10 +106,11 @@ public class ShipmentLoadsLinkSapInvoiceService(
             {
                 // Dentro da transação: pega também duas NFs do lote com o mesmo número/série/chave.
                 await duplicateGuard.EnsureUniqueAsync(
-                    load.BranchCode ?? string.Empty, sapInvoice.TaxDocumentNumber, sapInvoice.TaxDocumentSeries,
+                    lockedLoad.BranchCode ?? string.Empty, sapInvoice.TaxDocumentNumber, sapInvoice.TaxDocumentSeries,
                     sapInvoice.AccessKey, null);
 
-                var salesInvoice = Build(load, release, sapInvoice);
+                // A carga TRAVADA, não o retrato lido antes da transação.
+                var salesInvoice = Build(lockedLoad, release, sapInvoice);
                 var link = new SapInvoiceLink(
                     sapInvoice.DocEntry, sapInvoice.DocNum, sapInvoice.TaxDocumentNumber,
                     sapInvoice.TaxDocumentSeries, sapInvoice.AccessKey, sapInvoice.Cfop,
@@ -145,8 +147,23 @@ public class ShipmentLoadsLinkSapInvoiceService(
 
                 // Os registros nascem DEPOIS do recálculo que o faturamento já fez, e o termo de divergência é
                 // somado no servidor: grava primeiro, recalcula a carga e grava de novo.
+                // O recálculo estático não grava log: a mudança de situação (Faturada Parcial → Faturada) é
+                // registrada aqui, como faz RecalculateAsync(Guid, string) — senão o histórico pararia em
+                // Faturada Parcial com a carga Faturada. lockedLoad é a mesma instância que o recálculo atualiza.
                 await db.SaveChangesAsync();
+                var statusBefore = lockedLoad.Status;
                 await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(db.Context, load.Key, null);
+                if (lockedLoad.Status != statusBefore)
+                {
+                    lockedLoad.UpdatedBy = username;
+                    changeLog.Register(
+                        lockedLoad.Key,
+                        ShipmentLoadChangeLogFields.Status,
+                        ShipmentLoadChangeLogFields.DescribeStatus(statusBefore),
+                        ShipmentLoadChangeLogFields.DescribeStatus(lockedLoad.Status),
+                        username);
+                }
+
                 await db.SaveChangesAsync();
             }
 

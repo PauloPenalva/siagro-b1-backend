@@ -92,7 +92,8 @@ public class SalesInvoiceSapLinkedRulesTests
 
         return new ShipmentLoadsLinkSapInvoiceService(
             _db, Linkable(), new SalesInvoiceTaxDocumentDuplicateGuard(_db.Context), billing,
-            new SalesContractsFixedVolumeService(_db.Context), config);
+            new SalesContractsFixedVolumeService(_db.Context), new ShipmentLoadsChangeLogService(_db.Context),
+            config);
     }
 
     private ShipmentLoadsBalanceHookService Hook() =>

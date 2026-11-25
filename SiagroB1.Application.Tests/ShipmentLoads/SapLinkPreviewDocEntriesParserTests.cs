@@ -13,6 +13,10 @@ public class SapLinkPreviewDocEntriesParserTests
     [InlineData("5,7", new[] { 5, 7 })]
     [InlineData("'5,7'", new[] { 5, 7 })]
     [InlineData(" ' 5 , 7 ' ", new[] { 5, 7 })]
+    // Dentro do $batch o valor da rota chega ainda percent-encoded (confirmado no navegador).
+    [InlineData("'9172%2C9171'", new[] { 9172, 9171 })]
+    [InlineData("9172%2C%209171", new[] { 9172, 9171 })]
+    [InlineData("%279172%2C9171%27", new[] { 9172, 9171 })]
     public void Parses_a_valid_list(string raw, int[] expected)
     {
         Assert.True(ShipmentLoadsGetSapLinkPreviewController.TryParseDocEntries(raw, out var entries));
