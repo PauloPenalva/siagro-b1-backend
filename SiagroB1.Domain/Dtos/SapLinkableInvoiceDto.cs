@@ -60,10 +60,6 @@ public class SapLinkableInvoiceDto
     [JsonPropertyName("CarrierCode")]
     public string? CarrierCode { get; set; }
 
-    /// <summary>A transportadora da invoice difere da transportadora da carga (só avisa).</summary>
-    [JsonPropertyName("CarrierMismatch")]
-    public bool CarrierMismatch { get; set; }
-
     [JsonPropertyName("FreightTerms")]
     public FreightTerms FreightTerms { get; set; }
 

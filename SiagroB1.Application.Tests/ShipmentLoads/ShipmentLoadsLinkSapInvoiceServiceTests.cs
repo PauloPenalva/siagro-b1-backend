@@ -58,6 +58,10 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         public Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForInvoicesAsync(
             IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyDictionary<int, SapFiscalDocumentInfo>>(infos.ToDictionary(i => i.DocEntry));
+
+        public Task<IReadOnlyDictionary<int, string>> GetInvoicePurposesAsync(
+            IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyDictionary<int, string>>(invoices.ToDictionary(i => i.DocEntry, _ => "1"));
     }
 
     /// <summary>
@@ -128,6 +132,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
             ItemCode = Item,
             ItemName = "SOJA EM GRAOS",
             UnitOfMeasureCode = "KG",
+            CardCode = CardCode,
             TruckCode = "ABC1D23",
             TruckDriverCode = "MOT01",
             CarrierCardCode = Carrier,
@@ -161,6 +166,7 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
             DocDate = new DateTime(2026, 11, 15),
             CardCode = cardCode,
             CardName = "CLIENTE TESTE",
+            DocCur = "R$",
             BPLId = 3,
             Canceled = canceled,
             Serial = serial ?? 198104 + docEntry,
@@ -170,12 +176,12 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         _sap.SapInvoiceLines.Add(new SapInvoiceLine
         {
             DocEntry = docEntry, LineNum = 0, ItemCode = Item, Quantity = quantity,
-            Price = 2.5m, LineTotal = quantity * 2.5m, CfopCode = "5101", Usage = 70,
+            Price = 2.5m, LineTotal = quantity * 2.5m, CfopCode = "5101", Usage = 70, UnitMsr = "KG",
         });
         if (!await _sap.Usages.AnyAsync(u => u.Code == 70))
             _sap.Usages.Add(new SiagroB1.Domain.Entities.SAP.Usage { Code = 70, Name = "S- Venda p/ Export." });
         _sap.SapInvoiceTransports.Add(new SapInvoiceTransport
-            { DocEntry = docEntry, Carrier = carrier, Incoterms = incoterms });
+            { DocEntry = docEntry, Carrier = carrier, Incoterms = incoterms, Vehicle = "ABC1D23" });
         await _sap.SaveChangesAsync();
     }
 
@@ -256,17 +262,6 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         Assert.Equal(Assert.Single(created).Key, movement.SalesInvoiceKey);
     }
 
-    [Fact]
-    public async Task Document_carries_the_loads_carrier_even_when_the_sap_invoice_has_another()
-    {
-        await SeedAsync();
-        await AddSapInvoiceAsync(carrier: "OUTRA01");
-
-        await LinkAsync();
-
-        var saved = await _db.Context.SalesInvoices.AsNoTracking().SingleAsync();
-        Assert.Equal(Carrier, saved.TruckingCompanyCode);
-    }
 
     [Fact]
     public async Task Freight_comes_from_the_load_and_delivery_location_from_the_release()
@@ -629,18 +624,6 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         await AssertNothingPersistedAsync();
     }
 
-    [Fact]
-    public async Task Invoices_of_different_customers_are_refused()
-    {
-        await SeedAsync();
-        await AddSapInvoiceAsync(1, quantity: 60_000m);
-        await AddSapInvoiceAsync(2, quantity: 30_000m, cardCode: "C0002");
-
-        var ex = await Assert.ThrowsAsync<ApplicationException>(() => LinkAsync(null, 1, 2));
-
-        Assert.Equal("As notas fiscais selecionadas devem ser do mesmo cliente.", ex.Message);
-        await AssertNothingPersistedAsync();
-    }
 
     [Fact]
     public async Task Empty_list_is_refused()

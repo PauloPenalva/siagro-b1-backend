@@ -169,7 +169,7 @@ public class SalesInvoiceSapLinkedRulesTests
         _load = new ShipmentLoad
         {
             Key = Guid.NewGuid(), Code = "CG000010", BranchCode = SapBranch, ItemCode = Item, ItemName = "SOJA EM GRAOS",
-            UnitOfMeasureCode = "KG", TruckCode = "ABC1D23", TruckDriverCode = "MOT01", CarrierCardCode = Carrier,
+            UnitOfMeasureCode = "KG", CardCode = CardCode, TruckCode = "ABC1D23", TruckDriverCode = "MOT01", CarrierCardCode = Carrier,
             CarrierName = "TRANSPORTES YOKOTOBI LTDA", TotalQuantity = Quantity, FreightPrice = 12.5m,
             Status = ShipmentLoadStatus.Open,
         };
@@ -190,14 +190,14 @@ public class SalesInvoiceSapLinkedRulesTests
         _sap.SapInvoices.Add(new SapInvoice
         {
             DocEntry = docEntry, DocNum = docEntry + 1000, DocDate = new DateTime(2026, 11, 15), CardCode = CardCode,
-            CardName = "CLIENTE TESTE", BPLId = 3, Canceled = "N", Serial = 198105, SeriesStr = "1", Model = "39",
+            CardName = "CLIENTE TESTE", DocCur = "R$", BPLId = 3, Canceled = "N", Serial = 198105, SeriesStr = "1", Model = "39",
         });
         _sap.SapInvoiceLines.Add(new SapInvoiceLine
         {
             DocEntry = docEntry, LineNum = 0, ItemCode = Item, Quantity = Quantity, Price = 2.5m,
-            LineTotal = Quantity * 2.5m, CfopCode = "5101",
+            LineTotal = Quantity * 2.5m, CfopCode = "5101", UnitMsr = "KG",
         });
-        _sap.SapInvoiceTransports.Add(new SapInvoiceTransport { DocEntry = docEntry, Carrier = Carrier, Incoterms = "1" });
+        _sap.SapInvoiceTransports.Add(new SapInvoiceTransport { DocEntry = docEntry, Carrier = Carrier, Incoterms = "1", Vehicle = "ABC1D23" });
         await _sap.SaveChangesAsync();
     }
 

@@ -206,7 +206,7 @@ public class ShipmentLoadsLinkSapInvoiceService(
             CardCode = sap.CardCode!,
             BranchCode = load.BranchCode ?? string.Empty,
             ShipmentLoadKey = load.Key,
-            // Transportadora da CARGA: a divergência com a da invoice é só aviso na lista, e o guard
+            // Transportadora da CARGA: a lista já só traz invoices da mesma transportadora, e o guard
             // do faturamento exige que o documento tenha a mesma da carga.
             TruckingCompanyCode = load.CarrierCardCode,
             TruckCode = load.TruckCode,

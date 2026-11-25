@@ -38,7 +38,15 @@ public class SapLinkableInvoicesService(
     /// <summary>Tamanho do lote de ids na consulta ao banco do Siagro (limite de parâmetros).</summary>
     private const int ChunkSize = 1_000;
 
-    private sealed record LoadInfo(string ItemCode, string? BranchCode, string? CarrierCardCode);
+    private sealed record LoadInfo(
+        string ItemCode, string? BranchCode, string? CardCode, string? CarrierCardCode, string? TruckCode);
+
+    /// <summary>
+    /// Placa comparável: maiúsculas, sem hífen e sem espaço ("abc-1d23" e "ABC 1D23" viram "ABC1D23");
+    /// vazia vira "". A coluna do SAP recebe a mesma normalização no SQL.
+    /// </summary>
+    public static string NormalizePlate(string? plate) =>
+        (plate ?? string.Empty).Replace("-", "").Replace(" ", "").ToUpperInvariant();
 
     /// <summary>Invoices vinculáveis à carga no período (<paramref name="dateTo"/> inclui o dia inteiro).</summary>
     public async Task<List<SapLinkableInvoiceDto>> ListAsync(
@@ -77,10 +85,11 @@ public class SapLinkableInvoicesService(
 
     /// <summary>
     /// Filtros que o SQL do SAP consegue aplicar. "Exatamente uma linha" e "item da linha" ficam
-    /// traduzíveis (<c>Count()</c> e <c>Any</c>) e só depois vem a projeção.
+    /// traduzíveis (<c>Count()</c> e <c>Any</c>) e só depois vem a projeção. <paramref name="plate"/>
+    /// já vem normalizada por <see cref="NormalizePlate"/>.
     /// </summary>
     public static IQueryable<SapInvoiceProjection> BuildSapQuery(
-        SapErpDbContext sap, string itemCode, int branchId,
+        SapErpDbContext sap, string itemCode, int branchId, string cardCode, string carrierCode, string plate,
         DateTime? from, DateTime? toExclusive, int? docEntry)
     {
         var query = sap.SapInvoices.AsNoTracking()
@@ -95,7 +104,15 @@ public class SapLinkableInvoicesService(
                         && i.Lines.Any(l => l.ItemCode == itemCode)
                         // GAC-1226 rodada 2: sem teto — a NF maior que o saldo aparece (ajuda a achar a
                         // quantidade de carga digitada errada); quem barra é a regra da soma no vínculo.
-                        && i.Lines.Any(l => l.Quantity > 0));
+                        && i.Lines.Any(l => l.Quantity > 0)
+                        // GAC-1226 rodada 3: só NF do cliente, da transportadora e da placa da carga, em reais
+                        // e em KG (a linha única é a de KG). A finalidade (finNFe = 1) vem do add-on, depois.
+                        && i.CardCode == cardCode
+                        && i.Transport.Carrier == carrierCode
+                        && i.Transport.Vehicle != null
+                        && i.Transport.Vehicle.Replace("-", "").Replace(" ", "").ToUpper() == plate
+                        && i.DocCur == "R$"
+                        && i.Lines.Any(l => l.UnitMsr == "KG"));
 
         if (from is { } f) query = query.Where(i => i.DocDate >= f);
         if (toExclusive is { } t) query = query.Where(i => i.DocDate < t);
@@ -171,11 +188,20 @@ public class SapLinkableInvoicesService(
         var load = await context.ShipmentLoads
             .AsNoTracking()
             .Where(x => x.Key == loadKey)
-            .Select(x => new LoadInfo(x.ItemCode, x.BranchCode, x.CarrierCardCode))
+            .Select(x => new LoadInfo(x.ItemCode, x.BranchCode, x.CardCode, x.CarrierCardCode, x.TruckCode))
             .FirstOrDefaultAsync(ct);
 
         if (load == null)
             throw new BusinessException("Carga não encontrada.");
+
+        // Sem cliente, transportadora ou placa não há o que casar com a NF: avisa o que falta na carga.
+        if (string.IsNullOrWhiteSpace(load.CardCode))
+            throw new BusinessException("Informe o cliente da carga para vincular a NF do SAP.");
+        if (string.IsNullOrWhiteSpace(load.CarrierCardCode))
+            throw new BusinessException("Informe a transportadora da carga para vincular a NF do SAP.");
+        var plate = NormalizePlate(load.TruckCode);
+        if (plate.Length == 0)
+            throw new BusinessException("Informe a placa da carga para vincular a NF do SAP.");
 
         // A filial do Siagro é o BPLId do SAP escrito como texto ("3"); "03" não é a mesma filial.
         if (!int.TryParse(load.BranchCode, out var branchId) || branchId.ToString() != load.BranchCode)
@@ -190,7 +216,8 @@ public class SapLinkableInvoicesService(
         try
         {
             rows = await ExecuteSapQueryAsync(
-                BuildSapQuery(sap, load.ItemCode, branchId, from, toExclusive, docEntry), ct);
+                BuildSapQuery(sap, load.ItemCode, branchId, load.CardCode.Trim(), load.CarrierCardCode.Trim(),
+                    plate, from, toExclusive, docEntry), ct);
             usageNames = await LoadUsageNamesAsync(rows, ct);
         }
         catch (Exception e) when (e is DbException or TimeoutException)
@@ -202,12 +229,21 @@ public class SapLinkableInvoicesService(
         rows = await ExcludeAlreadyLinkedAsync(rows, ct);
 
         IReadOnlyDictionary<int, SapFiscalDocumentInfo> infos = new Dictionary<int, SapFiscalDocumentInfo>();
+        IReadOnlyDictionary<int, string> purposes = new Dictionary<int, string>();
         if (fiscal.IsAvailable && rows.Count > 0)
         {
             try
             {
-                infos = await fiscal.GetForInvoicesAsync(
-                    rows.Select(r => new SapInvoiceRef(r.DocEntry, r.BranchId)).ToList(), ct);
+                var refs = rows.Select(r => new SapInvoiceRef(r.DocEntry, r.BranchId)).ToList();
+                infos = await fiscal.GetForInvoicesAsync(refs, ct);
+
+                // Só a NF-e normal (finNFe = 1); complemento, ajuste e devolução ficam de fora, e a que não
+                // tem XML legível (ausente do dicionário) também. Lê só as já autorizadas.
+                var authorized = refs.Where(r => infos.TryGetValue(r.DocEntry, out var info)
+                                                 && info.Authorized && !info.Cancelled).ToList();
+                purposes = authorized.Count == 0
+                    ? new Dictionary<int, string>()
+                    : await fiscal.GetInvoicePurposesAsync(authorized, ct);
             }
             catch (Exception e) when (e is DbException or TimeoutException)
             {
@@ -218,12 +254,13 @@ public class SapLinkableInvoicesService(
 
             // Sem informação no add-on = não autorizada.
             rows = rows.Where(r => infos.TryGetValue(r.DocEntry, out var info)
-                                   && info.Authorized && !info.Cancelled).ToList();
+                                   && info.Authorized && !info.Cancelled
+                                   && purposes.TryGetValue(r.DocEntry, out var purpose) && purpose == "1").ToList();
         }
 
         return rows
             .Take(MaxRows)
-            .Select(r => ToDto(r, load, infos, usageNames))
+            .Select(r => ToDto(r, infos, usageNames))
             .ToList();
     }
 
@@ -255,7 +292,7 @@ public class SapLinkableInvoicesService(
     }
 
     private static SapLinkableInvoiceDto ToDto(
-        SapInvoiceProjection r, LoadInfo load, IReadOnlyDictionary<int, SapFiscalDocumentInfo> infos,
+        SapInvoiceProjection r, IReadOnlyDictionary<int, SapFiscalDocumentInfo> infos,
         IReadOnlyDictionary<int, string> usageNames)
     {
         var carrier = r.Carrier?.Trim();
@@ -278,8 +315,6 @@ public class SapLinkableInvoicesService(
                 ? usageName.Trim()
                 : null,
             CarrierCode = string.IsNullOrEmpty(carrier) ? null : carrier,
-            CarrierMismatch = !string.IsNullOrEmpty(carrier)
-                              && !string.Equals(carrier, load.CarrierCardCode?.Trim(), StringComparison.OrdinalIgnoreCase),
             FreightTerms = MapFreightTerms(r.Incoterms),
             AccessKey = infos.TryGetValue(r.DocEntry, out var info) ? info.AccessKey : null,
         };
