@@ -27,4 +27,12 @@ public interface ISapFiscalDocumentSource
         IReadOnlyCollection<SapInvoiceRef> creditMemos, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyDictionary<int, SapFiscalDocumentInfo>>(
             new Dictionary<int, SapFiscalDocumentInfo>());
+
+    /// <summary>
+    /// finNFe de cada invoice AUTORIZADA, lido do XML; a invoice sem XML legível ou sem a tag não entra no
+    /// resultado. Padrão: nada.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, string>> GetInvoicePurposesAsync(
+        IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyDictionary<int, string>>(new Dictionary<int, string>());
 }

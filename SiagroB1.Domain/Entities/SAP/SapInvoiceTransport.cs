@@ -17,5 +17,9 @@ public class SapInvoiceTransport
     [Column("Incoterms", TypeName = "NVARCHAR(3)")]
     public string? Incoterms { get; set; }
 
+    /// <summary>Placa do veículo (INV12.Vehicle), ex.: ABC1D23.</summary>
+    [Column("Vehicle", TypeName = "NVARCHAR(10)")]
+    public string? Vehicle { get; set; }
+
     public SapInvoice? Invoice { get; set; }
 }

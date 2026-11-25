@@ -1,3 +1,6 @@
+using System.IO.Compression;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities.SAP;
 using SiagroB1.Domain.Interfaces;
@@ -38,6 +41,68 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
     public Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetForCreditMemosAsync(
         IReadOnlyCollection<SapInvoiceRef> creditMemos, CancellationToken ct = default) =>
         GetAsync(creditMemos, BuildCreditMemoQuery, ct);
+
+    /// <summary>
+    /// finNFe das invoices autorizadas (DocType 13, StatusId 4), lido do XML assinado. Mesmos lotes e filtro de
+    /// filial de <see cref="GetAsync"/>. A sincronização não chama este método: o XML pesa ~4 KB por documento.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<int, string>> GetInvoicePurposesAsync(
+        IReadOnlyCollection<SapInvoiceRef> invoices, CancellationToken ct = default)
+    {
+        var result = new Dictionary<int, string>();
+
+        var wanted = invoices.Where(i => i.BranchId.HasValue)
+            .Select(i => (i.DocEntry, Branch: i.BranchId!.Value))
+            .Distinct()
+            .ToList();
+        var branches = wanted.Select(w => w.Branch).Distinct().ToList();
+        var pairs = wanted.ToHashSet();
+
+        foreach (var batch in wanted.Select(w => w.DocEntry).Distinct().Chunk(BatchSize))
+        {
+            var rows = await BuildQuery(db, batch, branches)
+                .Where(p => p.StatusId == AuthorizedStatus)
+                .Select(p => new { p.DocEntry, p.CompanyId, p.XmlEnvAssinado })
+                .ToListAsync(ct);
+
+            foreach (var row in rows.Where(r => r.DocEntry.HasValue && r.CompanyId.HasValue
+                                           && pairs.Contains((r.DocEntry.Value, r.CompanyId.Value))))
+            {
+                var purpose = ReadPurpose(row.XmlEnvAssinado);
+                if (purpose != null) result[row.DocEntry!.Value] = purpose;
+            }
+        }
+
+        return result;
+    }
+
+    private static readonly Regex PurposeRegex = new(@"<finNFe>(\d)</finNFe>", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Descomprime o XML (deflate sem cabeçalho; UTF-16LE se o segundo byte for 0, senão UTF-8) e devolve o
+    /// finNFe. Qualquer falha devolve null.
+    /// </summary>
+    internal static string? ReadPurpose(byte[]? compressedXml)
+    {
+        if (compressedXml is not { Length: > 0 }) return null;
+        try
+        {
+            using var input = new MemoryStream(compressedXml);
+            using var deflate = new DeflateStream(input, CompressionMode.Decompress);
+            using var output = new MemoryStream();
+            deflate.CopyTo(output);
+            var bytes = output.ToArray();
+            if (bytes.Length == 0) return null;
+
+            var text = bytes.Length > 1 && bytes[1] == 0 ? Encoding.Unicode.GetString(bytes) : Encoding.UTF8.GetString(bytes);
+            var match = PurposeRegex.Match(text);
+            return match.Success ? match.Groups[1].Value : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     private async Task<IReadOnlyDictionary<int, SapFiscalDocumentInfo>> GetAsync(
         IReadOnlyCollection<SapInvoiceRef> invoices,
