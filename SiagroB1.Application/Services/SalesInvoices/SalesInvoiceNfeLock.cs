@@ -54,6 +54,7 @@ public static class SalesInvoiceNfeLock
     [
         nameof(SalesInvoice.SapDocEntry), nameof(SalesInvoice.SapDocNum), nameof(SalesInvoice.SapCancelPending),
         nameof(SalesInvoice.SapCancelPendingReason), nameof(SalesInvoice.SapCancelDetectedAt),
+        nameof(SalesInvoice.SapLinkType),
     ];
 
     /// <summary>Gravado com vínculo a uma invoice de venda do SAP.</summary>
@@ -170,6 +171,7 @@ public static class SalesInvoiceNfeLock
         invoice.RefusalStorageTransactionKey = null;
         invoice.SapDocEntry = null;
         invoice.SapDocNum = null;
+        invoice.SapLinkType = null;
         invoice.SapCancelPending = false;
         invoice.SapCancelPendingReason = null;
         invoice.SapCancelDetectedAt = null;
