@@ -38,6 +38,14 @@ public class SapInvoiceLinkEdmTests
     }
 
     [Fact]
+    public void Unlink_action_exists_with_the_key_parameter()
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>().Single(o => o.Name == "ShipmentLoadsUnlinkSapInvoices");
+
+        Assert.NotNull(action.FindParameter("Key"));
+    }
+
+    [Fact]
     public void Preview_function_exists_with_its_parameters()
     {
         var function = Model().SchemaElements.OfType<IEdmFunction>().Single(o => o.Name == "ShipmentLoadsGetSapLinkPreview");

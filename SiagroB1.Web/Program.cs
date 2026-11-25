@@ -132,6 +132,7 @@ switch (erp.ToUpper().Trim())
         // Lista de invoices vinculáveis a uma carga (GAC-1226): lê o SAP, então só existe neste modo.
         builder.Services.AddScoped<SiagroB1.Application.Services.SAP.SapLinkableInvoicesService>();
         builder.Services.AddScoped<SiagroB1.Application.Services.ShipmentLoads.ShipmentLoadsLinkSapInvoiceService>();
+        builder.Services.AddScoped<SiagroB1.Application.Services.ShipmentLoads.ShipmentLoadsUnlinkSapInvoicesService>();
 
         // NF de devolução do SAP (A/R Credit Memo) na devolução da carga (GAC-1226): mesma razão.
 

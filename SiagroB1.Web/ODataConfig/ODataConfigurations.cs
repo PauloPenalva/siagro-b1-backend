@@ -1677,6 +1677,11 @@ public static class ODataConfigurations
         shipmentLoadsLinkSapInvoice.Parameter<bool>("ConfirmDivergence").Optional();
         shipmentLoadsLinkSapInvoice.Returns<IActionResult>();
 
+        // GAC-1226: desfaz o vínculo cancelando todos os documentos da carga ligados a NFs do SAP.
+        var shipmentLoadsUnlinkSapInvoices = modelBuilder.Action("ShipmentLoadsUnlinkSapInvoices");
+        shipmentLoadsUnlinkSapInvoices.Parameter<Guid>("Key");
+        shipmentLoadsUnlinkSapInvoices.Returns<IActionResult>();
+
         var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");
         shipmentLoadsDetach.Parameter<Guid>("Key");
         shipmentLoadsDetach.CollectionParameter<Guid>("StorageTransactionKeys");
