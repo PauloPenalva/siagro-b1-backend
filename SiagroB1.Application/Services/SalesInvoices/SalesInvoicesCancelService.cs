@@ -42,6 +42,11 @@ public class SalesInvoicesCancelService(
     public Task CancelForRefusalAsync(Guid key, string userName) =>
         CancelAsync(key, userName, afterNfe: false, CommitMode.Deferred, fromRefusal: true);
 
+    /// <summary>Cancelamento pelo "Desvincular NFs do SAP" (GAC-1226), na transação de quem chama.</summary>
+    public Task CancelForUnlinkAsync(Guid key, string userName) =>
+        CancelAsync(key, userName, afterNfe: false, CommitMode.Deferred,
+            divergenceVoidReason: SalesInvoiceDivergenceRules.UnlinkedReason);
+
     /// <summary>Ensaio antes de falar com a SEFAZ: só as regras de negócio, nada é alterado.</summary>
     public async Task EnsureCanCancelAsync(Guid key)
     {
@@ -58,7 +63,8 @@ public class SalesInvoicesCancelService(
     }
 
     private async Task CancelAsync(Guid key, string userName, bool afterNfe,
-        CommitMode commitMode = CommitMode.Auto, bool fromRefusal = false)
+        CommitMode commitMode = CommitMode.Auto, bool fromRefusal = false,
+        string divergenceVoidReason = SalesInvoiceDivergenceRules.CancelledReason)
     {
         var existingInvoice = await db.Context.SalesInvoices
                                   .Include(e => e.SalesTransactions)
@@ -156,6 +162,12 @@ public class SalesInvoicesCancelService(
             existingInvoice.SapCancelPending = false;
             existingInvoice.SapCancelPendingReason = null;
             existingInvoice.SapCancelDetectedAt = null;
+
+            // GAC-1226: a divergência do vínculo com a NF do SAP é anulada junto, no mesmo SaveChanges do status —
+            // o recálculo da carga lê o estado GRAVADO. O documento cancelado já sai do termo pelo status; a
+            // anulação é a trilha de auditoria.
+            await SalesInvoiceDivergenceRules.VoidForInvoiceAsync(
+                db.Context, existingInvoice.Key, userName, divergenceVoidReason);
 
             // Ledger: remove as alocações da nota (inclui pares de realocação) e recalcula
             // contratos e liberações derivado-da-soma, na mesma transação.

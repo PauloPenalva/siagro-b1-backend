@@ -13,8 +13,9 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// Só calcula, sem gravar: o escritor único de <see cref="ShipmentLoad.InvoiceDivergenceQuantity"/> é
 /// <see cref="ShipmentLoadsRecalculateInvoicedService"/>, porque o status depende deste termo.
 /// <para>
-/// O registro não é anulado quando o documento é cancelado ou devolvido: o termo é que deixa de
-/// contar. Assim, cancelar a devolução faz a divergência voltar a contar sem mexer no registro.
+/// O registro não é anulado quando o documento é devolvido: o termo é que deixa de contar. Assim,
+/// cancelar a devolução faz a divergência voltar a contar sem mexer no registro. Já o cancelamento do
+/// próprio documento anula o registro (<see cref="SalesInvoices.SalesInvoiceDivergenceRules"/>).
 /// </para>
 /// </remarks>
 public static class ShipmentLoadsRecalculateDivergenceService

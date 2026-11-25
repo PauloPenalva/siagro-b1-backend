@@ -580,6 +580,26 @@ public class SapInvoiceSyncServiceTests
     }
 
     [Fact]
+    public async Task Sap_cancellation_voids_the_divergence_and_reopens_the_load()
+    {
+        var scenario = await SalesInvoiceDivergenceTestSeed.SeedAsync(_context, sapDocEntry: 1);
+        await AddSapInvoiceAsync(1, canceled: "Y");
+
+        await Service().ExecuteAsync(CancellationToken.None);
+
+        Assert.Equal(InvoiceStatus.Cancelled, (await ReloadAsync(scenario.InvoiceKey)).InvoiceStatus);
+        await using var fresh = new AppDbContext(TestDb.Options(_dbName));
+        var divergence = await fresh.SalesInvoiceDivergences.AsNoTracking().SingleAsync();
+        Assert.Equal(SalesInvoiceDivergenceStatus.Voided, divergence.Status);
+        Assert.Equal(SalesInvoiceDivergenceRules.CancelledReason, divergence.VoidReason);
+        Assert.Equal("sap-sync", divergence.VoidedBy);
+        var load = await fresh.ShipmentLoads.AsNoTracking().SingleAsync(l => l.Key == scenario.LoadKey);
+        Assert.Equal(0m, load.InvoiceDivergenceQuantity);
+        Assert.Equal(30_000m, load.AvailableQuantity);
+        Assert.Equal(ShipmentLoadStatus.Open, load.Status);
+    }
+
+    [Fact]
     public async Task An_unexpected_failure_on_one_document_does_not_stop_the_next()
     {
         var first = await SeedInvoiceAsync(1);
