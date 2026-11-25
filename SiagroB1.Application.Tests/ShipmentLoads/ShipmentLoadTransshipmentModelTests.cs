@@ -56,7 +56,7 @@ public class ShipmentLoadTransshipmentModelTests
     public void CalculateAvailableQuantity_SubtractsTheFourTerms(
         decimal total, decimal invoiced, decimal returned, decimal transshipped, decimal expected)
     {
-        Assert.Equal(expected, ShipmentLoad.CalculateAvailableQuantity(total, invoiced, returned, transshipped, 0));
+        Assert.Equal(expected, ShipmentLoad.CalculateAvailableQuantity(total, invoiced, returned, transshipped, 0, 0));
     }
 
     /// <summary>GAC-1176: o fato "terminou aqui" mora no transbordo, e nulo = não é destino final.</summary>

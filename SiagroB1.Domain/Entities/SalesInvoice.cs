@@ -180,6 +180,12 @@ public class SalesInvoice : DocumentEntity, INfeDocument, IAccountingAssignment
     /// </summary>
     public int? SapDocEntry { get; set; }
 
+    /// <summary>
+    /// Tipo do vínculo com a invoice do SAP (GAC-1226): normal ou divergente em valor / quantidade e valor.
+    /// Nulo = sem vínculo.
+    /// </summary>
+    public SapLinkType? SapLinkType { get; set; }
+
     /// <summary>DocNum da invoice do SAP vinculada (exibição). Gravado junto com <see cref="SapDocEntry"/>.</summary>
     public int? SapDocNum { get; set; }
 

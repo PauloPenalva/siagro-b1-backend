@@ -1029,6 +1029,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesInvoiceChangeLog>("SalesInvoicesChangeLogs");
         // Histórico de CC-e: somente leitura; o XML do evento sai do EDM (download pela function).
         modelBuilder.EntitySet<SalesInvoiceNfeCorrection>("SalesInvoicesNfeCorrections");
+        modelBuilder.EntitySet<SalesInvoiceDivergence>("SalesInvoiceDivergences");
         modelBuilder.EntityType<SalesInvoiceNfeCorrection>().Ignore(x => x.ProcEventXml);
         modelBuilder.EntitySet<SalesInvoiceComment>("SalesInvoicesComments");
 

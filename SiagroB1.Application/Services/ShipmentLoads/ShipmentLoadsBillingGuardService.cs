@@ -162,7 +162,7 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
             .CalculateTransitLossAsync(context, loadKey);
 
         var available = ShipmentLoad.CalculateAvailableQuantity(
-            totalQuantity, invoiced, returned, transshipped, transitLoss);
+            totalQuantity, invoiced, returned, transshipped, transitLoss, 0m);
 
         return new LoadBalance(available, invoiced, returned, transitLoss);
     }
