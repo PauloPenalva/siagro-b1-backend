@@ -61,7 +61,7 @@ public class ShipmentLoadsGetSapLinkPreviewController(IServiceProvider services)
     /// <c>SapDocEntries</c> chega como string OData (anulável e com as aspas): inteiros positivos separados por
     /// vírgula. Qualquer elemento vazio ou inválido invalida o conjunto.
     /// </summary>
-    internal static bool TryParseDocEntries(string? raw, out List<int> entries)
+    public static bool TryParseDocEntries(string? raw, out List<int> entries)
     {
         entries = [];
         var text = raw?.Trim().Trim('\'').Trim();

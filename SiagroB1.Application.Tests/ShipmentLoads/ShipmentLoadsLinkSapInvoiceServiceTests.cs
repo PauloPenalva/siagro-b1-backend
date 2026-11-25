@@ -850,6 +850,106 @@ public class ShipmentLoadsLinkSapInvoiceServiceTests
         await AssertNothingPersistedAsync();
     }
 
+    // ---------- GAC-1226: trava da carga contra dois vínculos simultâneos ----------
+
+    /// <summary>
+    /// Registra cada SaveChanges a partir de <see cref="Recording"/>: tipo e estado das entidades alteradas.
+    /// O InMemory não tem trava de linha; o que dá para provar é que a escrita na carga é a PRIMEIRA da
+    /// transação — antes da releitura do saldo e da classificação.
+    /// </summary>
+    private sealed class SaveRecorder : SaveChangesInterceptor
+    {
+        public bool Recording { get; set; }
+        public List<List<(Type Type, EntityState State, object Entity)>> Saves { get; } = [];
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken ct = default)
+        {
+            if (Recording)
+                Saves.Add(eventData.Context!.ChangeTracker.Entries()
+                    .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+                    .Select(e => (e.Entity.GetType(), e.State, e.Entity))
+                    .ToList());
+
+            return base.SavingChangesAsync(eventData, result, ct);
+        }
+    }
+
+    private static void AssertLoadTouchOnly(List<(Type Type, EntityState State, object Entity)> save)
+    {
+        var entry = Assert.Single(save);
+        Assert.Equal(typeof(ShipmentLoad), entry.Type);
+        Assert.Equal(EntityState.Modified, entry.State);
+        Assert.Equal("tester", ((ShipmentLoad)entry.Entity).UpdatedBy);
+    }
+
+    [Fact]
+    public async Task Load_is_written_first_inside_the_transaction_even_when_the_divergence_is_refused()
+    {
+        var recorder = new SaveRecorder();
+        var test = new ShipmentLoadsLinkSapInvoiceServiceTests(recorder, Guid.NewGuid().ToString());
+        await test.SeedAsync(total: 30_000m, contractPrice: 2m);
+        await test.AddSapInvoiceAsync(quantity: 29_800m, price: 2m);
+        recorder.Recording = true;
+
+        await Assert.ThrowsAsync<SapLinkDivergenceException>(() => test.LinkAsync());
+
+        // A única escrita foi a da carga: a recusa por divergência veio DEPOIS da trava.
+        AssertLoadTouchOnly(Assert.Single(recorder.Saves));
+        Assert.Equal(["Begin", "Rollback"], test._recorder!.Log);
+    }
+
+    [Fact]
+    public async Task Load_is_written_before_any_document_of_the_link()
+    {
+        var recorder = new SaveRecorder();
+        var test = new ShipmentLoadsLinkSapInvoiceServiceTests(recorder, Guid.NewGuid().ToString());
+        await test.SeedAsync();
+        await test.AddSapInvoiceAsync();
+        recorder.Recording = true;
+
+        await test.LinkAsync();
+
+        Assert.True(recorder.Saves.Count > 1);
+        AssertLoadTouchOnly(recorder.Saves[0]);
+    }
+
+    /// <summary>Outro vínculo da mesma carga gravou antes: o UPDATE da trava perde no RowVersion.</summary>
+    private sealed class ConcurrencyOnLoadTouchInterceptor : SaveChangesInterceptor
+    {
+        public bool Armed { get; set; }
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken ct = default)
+        {
+            if (Armed && eventData.Context!.ChangeTracker.Entries<ShipmentLoad>()
+                    .Any(e => e.State == EntityState.Modified && e.Entity.UpdatedBy == "tester"))
+                throw new DbUpdateConcurrencyException("The database operation was expected to affect 1 row(s).");
+
+            return base.SavingChangesAsync(eventData, result, ct);
+        }
+    }
+
+    [Fact]
+    public async Task Concurrent_change_of_the_load_reaches_the_caller_as_a_concurrency_failure()
+    {
+        var interceptor = new ConcurrencyOnLoadTouchInterceptor();
+        var test = new ShipmentLoadsLinkSapInvoiceServiceTests(interceptor, Guid.NewGuid().ToString());
+        await test.SeedAsync();
+        await test.AddSapInvoiceAsync();
+        interceptor.Armed = true;
+
+        var ex = await Assert.ThrowsAnyAsync<Exception>(() => test.LinkAsync());
+
+        // O controller procura DbUpdateConcurrencyException na cadeia para responder "A carga foi alterada
+        // por outro usuário"; a causa não pode se perder no embrulho.
+        var chain = new List<Exception>();
+        for (var inner = ex; inner != null; inner = inner.InnerException) chain.Add(inner);
+        Assert.Contains(chain, e => e is DbUpdateConcurrencyException);
+        Assert.Equal(["Begin", "Rollback"], test._recorder!.Log);
+        Assert.Equal(0, await test.InvoiceCountAsync());
+    }
+
     [Fact]
     public async Task Empty_list_is_refused()
     {

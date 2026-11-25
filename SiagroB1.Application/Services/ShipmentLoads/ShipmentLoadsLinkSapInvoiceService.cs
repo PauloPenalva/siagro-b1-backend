@@ -84,6 +84,17 @@ public class ShipmentLoadsLinkSapInvoiceService(
         await db.BeginTransactionAsync();
         try
         {
+            // TRAVA da carga — primeira escrita da transação. O faturamento deste vínculo pula o teste de
+            // excesso do guard (allowLoadExcess), então é esta trava que serializa dois vínculos da mesma carga:
+            // sem RCSI, o UPDATE segura a linha até o commit; o vínculo concorrente espera aqui e relê saldo
+            // zero ("não tem saldo a faturar"), ou, se já leu a carga rastreada, perde no RowVersion
+            // (DbUpdateConcurrencyException). A releitura do saldo abaixo sozinha é ler-e-agir sem trava.
+            // Não remova por parecer redundante.
+            var lockedLoad = await db.Context.ShipmentLoads.FirstAsync(x => x.Key == load.Key);
+            lockedLoad.UpdatedAt = DateTime.Now;
+            lockedLoad.UpdatedBy = username;
+            await db.SaveChangesAsync();
+
             // A QE é relida DENTRO da transação: é ela que vale para a classificação e para os registros.
             var assessment = await AssessAsync(request);
 
@@ -112,12 +123,12 @@ public class ShipmentLoadsLinkSapInvoiceService(
             if (assessment.Type != SapLinkType.Normal)
             {
                 // Um registro por documento, com os números da parte (rateio da QE) daquela NF.
-                for (var i = 0; i < created.Count; i++)
+                foreach (var document in created)
                 {
-                    var share = assessment.Shares[i];
+                    var share = assessment.Shares.Single(s => s.DocEntry == document.SapDocEntry);
                     db.Context.SalesInvoiceDivergences.Add(new SalesInvoiceDivergence
                     {
-                        SalesInvoiceKey = created[i].Key,
+                        SalesInvoiceKey = document.Key,
                         ShipmentLoadKey = load.Key,
                         LinkType = assessment.Type,
                         EffectiveQuantity = share.EffectiveQuantity,
@@ -167,6 +178,8 @@ public class ShipmentLoadsLinkSapInvoiceService(
 
             // Falha inesperada de gravação (inclusive embrulhada pelo orquestrador): o usuário não deve ver
             // a mensagem crua do EF. A original vai para o log; erros de negócio seguem com a própria mensagem.
+            // A original fica como InnerException: o controller procura DbUpdateConcurrencyException na cadeia
+            // (vínculo concorrente da mesma carga, ver a trava acima) ANTES de olhar a mensagem.
             if (HasDbUpdateException(e))
             {
                 logger?.LogError(e, "Falha ao gravar o vínculo de NFs do SAP da carga {LoadKey}", loadKey);
