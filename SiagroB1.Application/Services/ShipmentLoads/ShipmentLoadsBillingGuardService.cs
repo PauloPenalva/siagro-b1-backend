@@ -130,7 +130,8 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
     }
 
     /// <summary>
-    /// Saldo físico recalculado da carga (total − faturado − devolvido − transbordado − quebra),
+    /// Saldo físico recalculado da carga (total − faturado − devolvido − transbordado − quebra −
+    /// divergência de NF),
     /// o mesmo que <see cref="EnsureCanBillAsync"/> usa para decidir. Não valida situação da
     /// carga: quem chama decide o que fazer com o número. Carga inexistente devolve zero.
     /// </summary>
@@ -161,8 +162,11 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
         var transitLoss = await ShipmentLoadsRecalculateTransitLossService
             .CalculateTransitLossAsync(context, loadKey);
 
+        var invoiceDivergence = await ShipmentLoadsRecalculateDivergenceService
+            .CalculateAsync(context, loadKey, excludedInvoiceKeys: null);
+
         var available = ShipmentLoad.CalculateAvailableQuantity(
-            totalQuantity, invoiced, returned, transshipped, transitLoss, 0m);
+            totalQuantity, invoiced, returned, transshipped, transitLoss, invoiceDivergence);
 
         return new LoadBalance(available, invoiced, returned, transitLoss);
     }

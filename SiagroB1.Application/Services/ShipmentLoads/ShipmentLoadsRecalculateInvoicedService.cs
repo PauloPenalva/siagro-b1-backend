@@ -134,6 +134,11 @@ public class ShipmentLoadsRecalculateInvoicedService(
         var transitLoss = await ShipmentLoadsRecalculateTransitLossService
             .CalculateTransitLossAsync(context, shipmentLoadKey);
 
+        // O sexto termo (GAC-1226), mesmo motivo: o status depende dele. Recebe os excluídos porque
+        // o documento removido na mesma transação também leva a divergência dele.
+        var invoiceDivergence = await ShipmentLoadsRecalculateDivergenceService
+            .CalculateAsync(context, shipmentLoadKey, excludedInvoiceKeys);
+
         var hasOpenTransshipment = await ShipmentLoadsRecalculateTransshippedService
             .HasOpenTransshipmentAsync(context, shipmentLoadKey);
 
@@ -147,7 +152,8 @@ public class ShipmentLoadsRecalculateInvoicedService(
 
         var baseStatus = ResolveStatus(
             load.TotalQuantity, invoiced, returned, transshipped, transitLoss, hasOpenTransshipment, hasPendingRefusal,
-            endsAtFinalTransshipment: lastTransshipment?.FinalDestinationAt != null);
+            endsAtFinalTransshipment: lastTransshipment?.FinalDestinationAt != null,
+            invoiceDivergenceQuantity: invoiceDivergence);
 
         // Só o ramo Faturada usa a Conferência e os tickets: fora dele a consulta seria trabalho à toa.
         var closure = baseStatus == ShipmentLoadStatus.Invoiced
@@ -158,6 +164,7 @@ public class ShipmentLoadsRecalculateInvoicedService(
         load.ReturnedToWarehouseQuantity = returned;
         load.TransshippedQuantity = transshipped;
         load.TransitLossQuantity = transitLoss;
+        load.InvoiceDivergenceQuantity = invoiceDivergence;
         load.Status = ResolveClosure(baseStatus, closure.AllDischarged, closure.AllDeliveriesClosed);
         load.IsInTransfer = load.Status == ShipmentLoadStatus.InTransshipment &&
                             lastTransshipment?.Type == TransshipmentType.Transfer;
@@ -251,7 +258,7 @@ public class ShipmentLoadsRecalculateInvoicedService(
     /// </para>
     /// </remarks>
     /// <remarks>
-    /// <b>O encerramento é decidido pelo SALDO (os cinco termos), o rótulo só pelo consumo
+    /// <b>O encerramento é decidido pelo SALDO (os seis termos), o rótulo só pelo consumo
     /// COMERCIAL (faturado + devolvido ao armazém + perdido em trajeto)</b> — o transbordo fecha a carga, mas não é
     /// venda nem devolução, então não pode fazer a carga ler "Faturada Parcial" sozinho: depois
     /// que a saída do transbordo é vinculada e nada foi faturado ainda, <c>available</c> fica
@@ -283,6 +290,11 @@ public class ShipmentLoadsRecalculateInvoicedService(
     /// <c>endsAtFinalTransshipment</c> (GAC-1176): o último transbordo é destino final — a carga
     /// de transferência entre armazéns de terceiros fecha em <c>Completed</c> sem faturamento.
     /// </para>
+    /// <para>
+    /// <c>invoiceDivergenceQuantity</c> (GAC-1226): a diferença com sinal entre o efetivo e a NF do SAP
+    /// vinculada entra só no <c>available</c> — o documento espelha a NF, e sem ela a carga com NF menor
+    /// ficaria Faturada Parcial para sempre. O rótulo Open × PartiallyInvoiced não muda.
+    /// </para>
     /// </remarks>
     public static ShipmentLoadStatus ResolveStatus(
         decimal totalQuantity,
@@ -292,7 +304,8 @@ public class ShipmentLoadsRecalculateInvoicedService(
         decimal transitLossQuantity,
         bool hasOpenTransshipment,
         bool hasPendingRefusal = false,
-        bool endsAtFinalTransshipment = false)
+        bool endsAtFinalTransshipment = false,
+        decimal invoiceDivergenceQuantity = 0m)
     {
         // Spec 2026-10-09: a recusa aguardando NF-e vence tudo — a carga fica travada até concluir ou cancelar.
         // Não colide com o transbordo: a recusa para Transbordo exige que não haja transbordo aberto.
@@ -309,7 +322,8 @@ public class ShipmentLoadsRecalculateInvoicedService(
             - invoicedQuantity
             - returnedToWarehouseQuantity
             - transshippedQuantity
-            - transitLossQuantity;
+            - transitLossQuantity
+            - invoiceDivergenceQuantity;
 
         if (available <= Tolerance)
         {
