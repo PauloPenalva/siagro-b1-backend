@@ -53,6 +53,27 @@ public class ShipmentLoadsRefuseTransshipmentTests
     // ─── Destino: transbordo ───
 
     /// <summary>
+    /// GAC-1226: carga de 30.000 faturada por NF de 29.800, devolvida por inteiro — o caminhão leva ao transbordo os
+    /// 30.000 físicos, não os 29.800 da NF.
+    /// </summary>
+    [Fact]
+    public async Task Full_refusal_to_transshipment_sends_the_effective_quantity()
+    {
+        var (load, invoice) = await _fixture.DivergentBilledLoadAsync();
+
+        await _fixture.Service().ExecuteAsync(
+            ShipmentLoadsRefuseServiceTests.Request(
+                load, invoice, 29_800m, RefusalDestination.Transshipment, TransshipmentWarehouse),
+            "tester");
+
+        Assert.Equal(30_000m, (await TransshipmentAsync(load.Key)).OutgoingQuantity);
+
+        var refused = await _fixture.LoadAsync(load.Key);
+        Assert.Equal(decimal.Zero, refused.InvoiceDivergenceQuantity);
+        Assert.Equal(decimal.Zero, refused.AvailableQuantity);
+    }
+
+    /// <summary>
     /// A recusa com destino Transbordo devolve o(s) documento(s) de saída — exatamente como
     /// Rebilling/Warehouse já fazem — e, além disso, abre a linha do transbordo.
     /// </summary>

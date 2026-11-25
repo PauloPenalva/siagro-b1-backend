@@ -75,10 +75,19 @@ public class ShipmentLoadRefusalCompleteService(
 
         if (origins.Count > 0 && totalQuantity > decimal.Zero)
         {
+            // GAC-1226: o ajuste do efetivo é calculado AQUI, quando os efeitos são aplicados, pelos registros Open
+            // deste momento — o físico do documento divergente devolvido por inteiro é o efetivo, não a NF.
+            var refusedDocuments = new List<(Guid SalesInvoiceKey, decimal RemainingAfterRefusal)>();
+            foreach (var origin in origins)
+                refusedDocuments.Add((origin.Key, await RemainingAfterReturnsAsync(origin.Key)));
+
+            var physicalQuantity = await ShipmentLoadRefusalRules.PhysicalQuantityAsync(
+                db.Context, refusal.Destination, totalQuantity, refusedDocuments);
+
             await effects.ApplyAsync(
                 new RefusalEffectsInput(
                     load, refusal.Destination, refusal.DestinationWarehouseCode, refusal.DestinationWarehouseName,
-                    origins, totalQuantity, refusal.Reason, refusal.TransitLossReason, returns),
+                    origins, physicalQuantity, refusal.Reason, refusal.TransitLossReason, returns),
                 userName);
         }
 
@@ -86,6 +95,36 @@ public class ShipmentLoadRefusalCompleteService(
         load.UpdatedAt = DateTime.Now;
         load.UpdatedBy = userName;
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// O que resta a devolver do documento de origem, depois das devoluções vivas (não canceladas) — o mesmo critério
+    /// de <c>SalesInvoicesConfirmService.IsFullyReturnedAsync</c>, que marcou a origem como devolvida: item a item,
+    /// faturado menos devolvido, sem deixar um item devolvido a mais compensar outro.
+    /// </summary>
+    private async Task<decimal> RemainingAfterReturnsAsync(Guid originKey)
+    {
+        var originItems = await db.Context.SalesInvoicesItems
+            .AsNoTracking()
+            .Where(x => x.SalesInvoiceKey == originKey)
+            .Select(x => new { x.Key, x.Quantity })
+            .ToListAsync();
+
+        var remaining = decimal.Zero;
+
+        foreach (var originItem in originItems)
+        {
+            var returned = await db.Context.SalesInvoicesItems
+                .AsNoTracking()
+                .Where(x => x.SalesInvoiceItemOriginKey == originItem.Key &&
+                            x.SalesInvoice!.InvoiceType == SalesInvoiceType.Return &&
+                            x.SalesInvoice.InvoiceStatus != InvoiceStatus.Cancelled)
+                .SumAsync(x => (decimal?)x.Quantity) ?? decimal.Zero;
+
+            remaining += Math.Max(decimal.Zero, originItem.Quantity - returned);
+        }
+
+        return decimal.Round(remaining, 3, MidpointRounding.ToEven);
     }
 
     /// <summary>Todas as NF-e de entrada da recusa foram canceladas pelo 2b: mesmo desfecho do "Cancelar recusa".</summary>

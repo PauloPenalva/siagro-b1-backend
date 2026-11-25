@@ -1,6 +1,8 @@
+using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
@@ -21,5 +23,32 @@ public static class ShipmentLoadRefusalRules
     {
         if (load.Status == ShipmentLoadStatus.RefusalPending)
             throw new DefaultException(PendingMessage(load.Code));
+    }
+
+    /// <summary>
+    /// GAC-1226: a quantidade FÍSICA que a recusa move — a devolvida (quantidade da NF) mais o ajuste do efetivo dos
+    /// documentos divergentes devolvidos por inteiro (<see cref="SalesInvoiceDivergenceRules.PhysicalAdjustmentAsync"/>).
+    /// </summary>
+    /// <remarks>
+    /// Só Warehouse, Transshipment e TransitLoss movem mercadoria. No "segue viagem" nada se move: a carga volta ao
+    /// faturamento pelo saldo, e o termo de divergência sai sozinho quando o documento fica totalmente devolvido.
+    /// As devoluções, o devolvido da origem e o contrato continuam na quantidade da NF — só o físico muda aqui.
+    /// </remarks>
+    public static async Task<decimal> PhysicalQuantityAsync(
+        AppDbContext context,
+        RefusalDestination destination,
+        decimal returnedQuantity,
+        IReadOnlyCollection<(Guid SalesInvoiceKey, decimal RemainingAfterRefusal)> refusedDocuments)
+    {
+        if (destination is not (RefusalDestination.Warehouse or RefusalDestination.Transshipment
+            or RefusalDestination.TransitLoss))
+            return returnedQuantity;
+
+        var adjustment = await SalesInvoiceDivergenceRules.PhysicalAdjustmentAsync(context, refusedDocuments);
+        var physical = decimal.Round(returnedQuantity + adjustment, 3, MidpointRounding.ToEven);
+
+        // Anomalia de dado: um registro de divergência negativa maior que o próprio documento zeraria (ou inverteria)
+        // o que se move. Não se movimenta quantidade não positiva — fica a devolvida, sem ajuste.
+        return physical > decimal.Zero ? physical : returnedQuantity;
     }
 }

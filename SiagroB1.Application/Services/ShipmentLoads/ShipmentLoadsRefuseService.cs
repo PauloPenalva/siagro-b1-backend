@@ -146,10 +146,15 @@ public class ShipmentLoadsRefuseService(
                 returns.Add(await ReturnAsync(load, line, request.Reason, userName));
             }
 
+            // GAC-1226: o físico do documento divergente devolvido por inteiro é o efetivo, não a NF.
+            var physicalQuantity = await ShipmentLoadRefusalRules.PhysicalQuantityAsync(
+                db.Context, request.Destination, totalQuantity,
+                lines.Select(l => (l.Invoice.Key, l.RemainingAfterRefusal)).ToList());
+
             await effects.ApplyAsync(
                 new RefusalEffectsInput(
                     load, request.Destination, warehouse?.Code, warehouse?.Name,
-                    lines.Select(l => l.Invoice).ToList(), totalQuantity, request.Reason,
+                    lines.Select(l => l.Invoice).ToList(), physicalQuantity, request.Reason,
                     // O tipo da quebra só vale para o próprio destino; nos outros é ignorado.
                     request.Destination == RefusalDestination.TransitLoss ? request.TransitLossReason : null,
                     returns),
@@ -433,9 +438,9 @@ public class ShipmentLoadsRefuseService(
                     $"O documento de saída {invoice.InvoiceNumber} está em situação " +
                     $"{invoice.InvoiceStatus} — só documentos confirmados podem ser recusados.");
 
-            var quantities = await ResolveItemQuantitiesAsync(invoice, line.Quantity);
+            var (quantities, remainingAfterRefusal) = await ResolveItemQuantitiesAsync(invoice, line.Quantity);
 
-            resolved.Add(new ResolvedLine(invoice, line.Quantity, quantities));
+            resolved.Add(new ResolvedLine(invoice, line.Quantity, quantities, remainingAfterRefusal));
         }
 
         return resolved;
@@ -450,17 +455,17 @@ public class ShipmentLoadsRefuseService(
     /// a distribuição é direta. O laço existe para o documento de vários itens não ficar sem
     /// resposta: consome na ordem, item a item, e sobra vira erro em vez de silêncio.
     /// </remarks>
-    private async Task<IReadOnlyDictionary<Guid, decimal>> ResolveItemQuantitiesAsync(
-        SalesInvoice invoice, decimal quantity)
+    private async Task<(IReadOnlyDictionary<Guid, decimal> Quantities, decimal RemainingAfterRefusal)>
+        ResolveItemQuantitiesAsync(SalesInvoice invoice, decimal quantity)
     {
         var quantities = new Dictionary<Guid, decimal>();
         var remaining = quantity;
+        // GAC-1226: o que sobra devolvível no documento depois desta recusa — o mesmo "devolvível" que limita a
+        // quantidade, menos o que esta recusa leva. Zero = devolução TOTAL, que é o que decide o ajuste do efetivo.
+        var remainingAfterRefusal = decimal.Zero;
 
         foreach (var item in invoice.Items.Where(i => i.Key != null))
         {
-            if (remaining <= Tolerance)
-                break;
-
             var alreadyReturned = await db.Context.SalesInvoicesItems
                 .AsNoTracking()
                 .Where(x => x.SalesInvoiceItemOriginKey == item.Key!.Value &&
@@ -473,10 +478,17 @@ public class ShipmentLoadsRefuseService(
             if (refusable <= Tolerance)
                 continue;
 
+            if (remaining <= Tolerance)
+            {
+                remainingAfterRefusal += refusable;
+                continue;
+            }
+
             var take = Math.Min(remaining, refusable);
 
             quantities[item.Key!.Value] = decimal.Round(take, 3, MidpointRounding.ToEven);
             remaining -= take;
+            remainingAfterRefusal += refusable - take;
         }
 
         if (remaining > Tolerance)
@@ -488,13 +500,17 @@ public class ShipmentLoadsRefuseService(
                 $"de saída {invoice.InvoiceNumber} ({refusableTotal:N3}).");
         }
 
-        return quantities;
+        return (quantities, decimal.Round(remainingAfterRefusal, 3, MidpointRounding.ToEven));
     }
 
+    /// <param name="RemainingAfterRefusal">
+    /// O que resta devolvível no documento depois desta recusa (GAC-1226: ≤ 0,001 = devolução total).
+    /// </param>
     private sealed record ResolvedLine(
         SalesInvoice Invoice,
         decimal Quantity,
-        IReadOnlyDictionary<Guid, decimal> QuantitiesByOriginItemKey);
+        IReadOnlyDictionary<Guid, decimal> QuantitiesByOriginItemKey,
+        decimal RemainingAfterRefusal);
 
     private sealed record WarehouseTarget(string Code, string? Name);
 }
