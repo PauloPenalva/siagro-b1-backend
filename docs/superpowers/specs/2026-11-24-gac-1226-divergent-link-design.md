@@ -283,3 +283,7 @@ registro. O ajuste vale só quando a recusa devolve o documento inteiro.
 QNF → tipo 0, sem registro; QE ≠ QNF → tipo 2, com o alerta do tipo 2). `EffectiveValue` e `ValueDifference`
 ficam nulos no registro; `InvoiceValue` é sempre gravado. A função das liberações devolve preço nulo nesses casos
 e a tela não mostra VE nem a diferença de valor.
+
+**Prévia no servidor (decisão do plano, 25/11).** Em vez de a função das liberações devolver o preço para a tela
+classificar, há a function `ShipmentLoadsGetSapLinkPreview`, que devolve QE, QNF, VE, VNF, tipo e mensagem já
+calculados. A regra de classificação fica só no servidor.
