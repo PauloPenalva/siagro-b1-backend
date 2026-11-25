@@ -196,22 +196,9 @@ public class SalesInvoice : DocumentEntity, INfeDocument, IAccountingAssignment
     /// </summary>
     public DateTime? SapCancelDetectedAt { get; set; }
 
-    /// <summary>
-    /// DocEntry da NF de devolução (A/R Credit Memo, ORIN) do SAP B1 vinculada a esta devolução (GAC-1226). Coluna
-    /// própria, e não <see cref="SapDocEntry"/>: OINV e ORIN numeram o DocEntry em sequências independentes, que
-    /// colidem. Só as ações de vincular/desvincular gravam; create e PATCH da API nunca (<c>SalesInvoiceNfeLock</c>).
-    /// </summary>
-    public int? SapCreditMemoDocEntry { get; set; }
-
-    /// <summary>DocNum do Credit Memo vinculado (exibição). Gravado junto com <see cref="SapCreditMemoDocEntry"/>.</summary>
-    public int? SapCreditMemoDocNum { get; set; }
-
-    /// <summary>
-    /// Documento vinculado a uma nota do SAP: invoice de venda ou Credit Memo de devolução. Derivado; não entra no
-    /// banco nem no EDM.
-    /// </summary>
+    /// <summary>Documento vinculado a uma invoice de venda do SAP. Derivado; não entra no banco nem no EDM.</summary>
     [NotMapped]
-    public bool IsSapLinked => SapDocEntry != null || SapCreditMemoDocEntry != null;
+    public bool IsSapLinked => SapDocEntry != null;
 
     /// <summary>
     /// Tipo do documento fiscal (spec 2026-10-06 D3). Só tem efeito no documento Normal da filial que emite NF-e pelo

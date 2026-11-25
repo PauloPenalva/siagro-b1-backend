@@ -7701,12 +7701,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("SapCancelPendingReason")
                         .HasColumnType("VARCHAR(500)");
 
-                    b.Property<int?>("SapCreditMemoDocEntry")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("SapCreditMemoDocNum")
-                        .HasColumnType("int");
-
                     b.Property<int?>("SapDocEntry")
                         .HasColumnType("int");
 
@@ -7781,10 +7775,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("RefusalStorageTransactionKey");
 
                     b.HasIndex("SalesInvoiceOriginKey");
-
-                    b.HasIndex("SapCreditMemoDocEntry")
-                        .IsUnique()
-                        .HasFilter("[SapCreditMemoDocEntry] IS NOT NULL AND [InvoiceStatus] <> 2 AND [InvoiceStatus] <> 3");
 
                     b.HasIndex("SapDocEntry")
                         .IsUnique()

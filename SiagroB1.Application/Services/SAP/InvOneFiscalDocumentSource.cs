@@ -16,8 +16,7 @@ public class InvOneFiscalDocumentSource(InvOneDbContext db) : ISapFiscalDocument
     private const int ArInvoiceDocType = 13;
 
     /// <summary>
-    /// DocType do A/R Credit Memo em <c>Process</c>. HIPÓTESE (ObjType de ORIN no SAP), ainda não conferida na base
-    /// da Yokotobi: com o valor errado nenhuma NF de devolução aparece para vincular (falha fechada).
+    /// DocType do A/R Credit Memo em <c>Process</c>: confirmado na produção da Yokotobi em 24/11/2026.
     /// </summary>
     internal const int ArCreditMemoDocType = 14;
     private const int AuthorizedStatus = 4;

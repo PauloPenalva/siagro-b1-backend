@@ -41,8 +41,6 @@ public class SalesInvoicesReverseConfirmService(
     /// </summary>
     private readonly List<Guid> _cancelledReturnEntryKeys = [];
 
-    public const string SapCreditMemoLinkedMessage = "Desvincule a NF de devolução do SAP antes de estornar.";
-
     public async Task ExecuteAsync(Guid key, string userName)
     {
         var invoice = await db.Context.SalesInvoices
@@ -61,11 +59,6 @@ public class SalesInvoicesReverseConfirmService(
             throw new DefaultException(
                 "A devolução com NF-e não pode ser estornada: ela só sai pelo cancelamento da NF-e (botão Cancelar do documento).");
         }
-
-        // Devolução com a NF de devolução do SAP vinculada (GAC-1226): a nota segue válida no SAP; o estorno
-        // desfaria o físico por baixo dela. Primeiro desvincula.
-        if (invoice.SapCreditMemoDocEntry is not null)
-            throw new DefaultException(SapCreditMemoLinkedMessage);
 
         // NF-e emitida continua valendo na SEFAZ: desfazer saldo e alocação dela deixaria a nota
         // sem efeito no sistema. O caminho é o cancelamento da NF-e.
