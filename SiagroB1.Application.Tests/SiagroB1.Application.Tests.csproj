@@ -41,6 +41,9 @@
     <None Include="..\SiagroB1.Reports\ThirdParty\Zeus-LGPL\NFe.Danfe.Base\NFe\NFeRetrato.frx"
           Link="ReportsContentRoot\ThirdParty\Zeus-LGPL\NFe.Danfe.Base\NFe\NFeRetrato.frx"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\SiagroB1.Reports\ThirdParty\Zeus-LGPL\NFe.Danfe.Base\NFe\NFeRetratoRtc.frx"
+          Link="ReportsContentRoot\ThirdParty\Zeus-LGPL\NFe.Danfe.Base\NFe\NFeRetratoRtc.frx"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\SiagroB1.Reports\ThirdParty\Zeus-LGPL\NFe.Danfe.Base\NFe\NFeEvento.frx"
           Link="ReportsContentRoot\ThirdParty\Zeus-LGPL\NFe.Danfe.Base\NFe\NFeEvento.frx"
           CopyToOutputDirectory="PreserveNewest" />

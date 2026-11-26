@@ -11,3 +11,10 @@ compila estes arquivos. `LICENSE`, `README.md` e o `.frx` vão para a saída do 
 
 Regra: **não editar estes arquivos.** Qualquer alteração obriga a publicar o diff (LGPL). Para
 atualizar, copie de novo do repositório e registre o novo commit acima.
+
+## Arquivo modificado
+
+`NFe.Danfe.Base/NFe/NFeRetratoRtc.frx` é obra **derivada** do `NFeRetrato.frx` (mesmo commit da Zeus acima),
+modificada em 26/11/2026 para a NT 2026.010 v1.00 (DANFE com a Reforma Tributária). Continua sob LGPL-2.1 e é
+entregue aberto, em texto, junto com a instalação. A regra "não editar" vale para todos os demais arquivos desta
+pasta. A lista das mudanças feitas no leiaute entra aqui conforme forem aplicadas.

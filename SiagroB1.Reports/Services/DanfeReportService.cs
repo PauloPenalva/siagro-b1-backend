@@ -12,8 +12,8 @@ using SiagroB1.Infra.Nfe;
 namespace SiagroB1.Reports.Services;
 
 /// <summary>
-/// DANFE da NF-e autorizada e PDF da carta de correção (CC-e), a partir do procNFe gravado, com o layout FastReport da Zeus
-/// (ThirdParty/Zeus-LGPL, DLL própria NFe.Danfe.Base, sem alteração). Homologação sai com a marca
+/// DANFE da NF-e autorizada e PDF da carta de correção (CC-e), a partir do procNFe gravado, com o layout FastReport derivado do da Zeus
+/// (ThirdParty/Zeus-LGPL, DLL própria NFe.Danfe.Base; o NFeRetratoRtc.frx é a cópia modificada para a NT 2026.010). Homologação sai com a marca
 /// "sem valor fiscal" do próprio layout. Casas decimais e unidades impressas saem do XML (<see cref="DanfeItemPrecision"/>). ⚠️ O caminho padrão do .frx na Zeus usa barra invertida e
 /// falha no Linux: o caminho vai absoluto. ⚠️ O script do .frx usa <c>Environment.NewLine</c>: exige
 /// desligar os stubs de script do FastReport (ver <see cref="DisableScriptStubs"/>).
@@ -94,8 +94,19 @@ public class DanfeReportService(IUnitOfWork db, IWebHostEnvironment env, ReportH
 
     private (byte[] Pdf, string FileName) Render(string xml, bool cancelled)
     {
+        using var report = Prepare(xml, cancelled);
+        var accessKey = new nfeProc().CarregarDeXmlString(xml).protNFe.infProt.chNFe;
+        return (PdfExporter.Export(report, null), $"{accessKey}-danfe.pdf");
+    }
+
+    /// <summary>
+    /// Monta o DANFE pelo leiaute derivado (NFeRetratoRtc.frx), entrega os parâmetros da Reforma Tributária
+    /// e devolve o relatório já preparado. Quem chama descarta.
+    /// </summary>
+    internal FastReport.Report Prepare(string xml, bool cancelled)
+    {
         var proc = new nfeProc().CarregarDeXmlString(xml);
-        var template = Path.Combine(env.ContentRootPath, "ThirdParty", "Zeus-LGPL", "NFe.Danfe.Base", "NFe", "NFeRetrato.frx");
+        var template = Path.Combine(env.ContentRootPath, "ThirdParty", "Zeus-LGPL", "NFe.Danfe.Base", "NFe", "NFeRetratoRtc.frx");
 
         FastReport.Utils.Config.WebMode = true;
 
@@ -111,9 +122,17 @@ public class DanfeReportService(IUnitOfWork db, IWebHostEnvironment env, ReportH
         // NF-e cancelada: a Zeus estampa "DOCUMENTO CANCELADO" no layout.
         var danfe = new DanfeFrNfe(proc, configuration,
             desenvolvedor: "IDX Consultoria e Sistemas", arquivoRelatorio: template);
-        using var report = danfe.Relatorio;
-
-        report.Prepare();
-        return (PdfExporter.Export(report, null), $"{proc.protNFe.infProt.chNFe}-danfe.pdf");
+        var report = danfe.Relatorio;
+        try
+        {
+            DanfeRtcData.From(proc).ApplyTo(report);
+            report.Prepare();
+            return report;
+        }
+        catch
+        {
+            report.Dispose();
+            throw;
+        }
     }
 }
