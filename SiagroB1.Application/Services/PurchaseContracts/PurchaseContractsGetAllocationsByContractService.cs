@@ -228,6 +228,63 @@ public class PurchaseContractsGetAllocationsByContractService(
           )
         """;
 
+    /// <summary>
+    /// GAC-1233: romaneio(s) de COMPRA que baixaram o contrato pelo volume de cada saída de transbordo — a
+    /// trilha da mercadoria. Caminho: liberação -> romaneio que a gerou (entrada do transbordo ou saída do
+    /// lote) -> transbordo -> carga -> perna de venda que ainda está na carga -> par de compra da Expedição.
+    /// O filtro pela alocação NESTE contrato é o que separa as compras quando a carga leva mais de um contrato.
+    /// Pode vir mais de uma compra (carga com dois romaneios do mesmo contrato) ou nenhuma (perna de venda
+    /// tirada da carga por troca de liberação): a coluna mostra o que houver.
+    /// </summary>
+    private static readonly string TransshipmentOriginPurchasesSql = """
+        SELECT DISTINCT
+            ST.[Key] AS StorageTransactionKey,
+            P.[Key] AS PurchaseKey,
+            P.Code AS PurchaseCode
+        FROM STORAGE_TRANSACTIONS ST WITH (NOLOCK)
+        JOIN SHIPMENT_RELEASES SR WITH (NOLOCK)
+               ON SR.[Key] = ST.ShipmentReleaseKey
+        JOIN SHIPMENT_LOAD_TRANSSHIPMENTS T WITH (NOLOCK)
+               ON SR.GeneratedByStorageTransactionKey IN (T.EntryStorageTransactionKey, T.LotExitStorageTransactionKey)
+        JOIN STORAGE_TRANSACTIONS S WITH (NOLOCK)
+               ON S.ShipmentLoadKey = T.ShipmentLoadKey
+              AND S.TransactionStatus <> 2
+        JOIN SHIPPING_TRANSACTIONS SHT WITH (NOLOCK)
+               ON SHT.SalesStorageTransactionKey = S.[Key]
+        JOIN STORAGE_TRANSACTIONS P WITH (NOLOCK)
+               ON P.[Key] = SHT.PurchaseStorageTransactionKey
+              AND P.TransactionStatus <> 2
+        JOIN PURCHASE_CONTRACTS_ALLOCATIONS PA WITH (NOLOCK)
+               ON PA.StorageTransactionKey = P.[Key]
+              AND PA.PurchaseContractKey = SR.PurchaseContractKey
+        WHERE SR.PurchaseContractKey = @purchaseContractKey
+          AND SR.Origin = 3
+          AND ST.TransactionType IN (7, 12, 13)
+          AND ST.TransactionStatus <> 2
+        """;
+
+    /// <summary>
+    /// GAC-1233: junta as compras de origem por romaneio de saída em dois textos paralelos (chaves e códigos
+    /// separados por vírgula, na mesma ordem — a do código). Textos, e não uma lista aninhada, para o DTO
+    /// continuar plano: ele é tipo de retorno no EDM do OData.
+    /// </summary>
+    public static IReadOnlyDictionary<Guid, (string Keys, string Codes)> GroupOriginPurchases(
+        IEnumerable<(Guid StorageTransactionKey, Guid PurchaseKey, string? PurchaseCode)> rows) =>
+        rows.GroupBy(r => r.StorageTransactionKey)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var purchases = g
+                        .GroupBy(r => r.PurchaseKey)
+                        .Select(p => p.First())
+                        .OrderBy(r => r.PurchaseCode, StringComparer.Ordinal)
+                        .ToList();
+
+                    return (string.Join(",", purchases.Select(r => r.PurchaseKey)),
+                            string.Join(",", purchases.Select(r => r.PurchaseCode ?? string.Empty)));
+                });
+
     private static readonly System.Globalization.CultureInfo PtBr = new("pt-BR");
 
     /// <summary>
@@ -312,9 +369,14 @@ public class PurchaseContractsGetAllocationsByContractService(
         }
 
         // GAC-1233: saídas por liberação de transbordo — linhas informativas, fora do ledger.
+        var originPurchases = GroupOriginPurchases(
+            dbConnection.Query(TransshipmentOriginPurchasesSql, new { purchaseContractKey })
+                .Select(r => ((Guid)r.StorageTransactionKey, (Guid)r.PurchaseKey, (string?)r.PurchaseCode)));
+
         foreach (var exit in dbConnection.Query(TransshipmentExitsSql, new { purchaseContractKey }).ToList())
         {
             var fiscalColumns = BuildFiscalColumns((string?)exit.Origin, 0m, 0m, false, false, null, false);
+            var origin = originPurchases.GetValueOrDefault((Guid)exit.StorageTransactionKey);
 
             allocations.Add(new PurchaseContractAllocationsByContractDto
             {
@@ -339,6 +401,8 @@ public class PurchaseContractsGetAllocationsByContractService(
                 LoadCode = exit.LoadCode,
                 StorageTransactionKey = (Guid?)exit.StorageTransactionKey,
                 ItemCode = (string?)exit.ItemCode,
+                OriginPurchaseKeys = string.IsNullOrEmpty(origin.Keys) ? null : origin.Keys,
+                OriginPurchaseCodes = string.IsNullOrEmpty(origin.Codes) ? null : origin.Codes,
                 SupplierInvoiceNumbers = fiscalColumns.SupplierInvoiceNumbers,
                 PhysicalQuantity = fiscalColumns.PhysicalQuantity,
                 FiscalQuantity = fiscalColumns.FiscalQuantity,

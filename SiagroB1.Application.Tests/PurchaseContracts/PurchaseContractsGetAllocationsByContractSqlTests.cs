@@ -28,6 +28,7 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
     [InlineData("SQL")]
     [InlineData("LinksSql")]
     [InlineData("TransshipmentExitsSql")]
+    [InlineData("TransshipmentOriginPurchasesSql")]
     public void Every_table_reference_has_nolock_hint(string field)
     {
         var sql = StripComments(ReadSql(field));
@@ -148,5 +149,26 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
         Assert.Contains("CAST(0 AS decimal(18,3)) AS Volume", sql);
         Assert.Contains("'TransshipmentExit' AS Origin", sql);
         Assert.Matches(@"NOT EXISTS \( SELECT 1 FROM PURCHASE_CONTRACTS_ALLOCATIONS PA WITH \(NOLOCK\) WHERE PA\.StorageTransactionKey = ST\.\[Key\] AND PA\.PurchaseContractKey = SR\.PurchaseContractKey \)", sql);
+    }
+
+    /// <summary>
+    /// GAC-1233: a linha da saída de transbordo aponta o romaneio de COMPRA que baixou o contrato, para a
+    /// trilha da mercadoria. O caminho é liberação -> romaneio gerador -> transbordo -> carga -> perna de
+    /// venda -> par de compra, filtrado pela alocação NESTE contrato (a carga pode ter outros contratos).
+    /// </summary>
+    [Fact]
+    public void Origin_purchases_query_walks_from_the_release_to_the_purchase_of_the_same_contract()
+    {
+        var sql = Regex.Replace(StripComments(ReadSql("TransshipmentOriginPurchasesSql")), @"\s+", " ");
+
+        Assert.Contains("SR.Origin = 3", sql);
+        Assert.Contains("SR.PurchaseContractKey = @purchaseContractKey", sql);
+        Assert.Contains("SR.GeneratedByStorageTransactionKey IN (T.EntryStorageTransactionKey, T.LotExitStorageTransactionKey)", sql);
+        Assert.Contains("S.ShipmentLoadKey = T.ShipmentLoadKey", sql);
+        Assert.Contains("SHT.SalesStorageTransactionKey = S.[Key]", sql);
+        Assert.Contains("P.[Key] = SHT.PurchaseStorageTransactionKey", sql);
+        Assert.Contains("PA.PurchaseContractKey = SR.PurchaseContractKey", sql);
+        Assert.Contains("P.TransactionStatus <> 2", sql);
+        Assert.Contains("ST.TransactionType IN (7, 12, 13)", sql);
     }
 }
