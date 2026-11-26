@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using NFe.Classes;
 using NFe.Classes.Informacoes.Detalhe;
 using NFe.Classes.Informacoes.Emitente;
@@ -62,11 +63,11 @@ internal sealed record DanfeRtcData(
             showIbsCbsMono ? Money(mono!.vIBSMono) : "", showIbsCbsMono ? Money(mono!.vCBSMono) : "",
             showIbsCbsMono ? Money(mono!.vIBSMonoReten) : "", showIbsCbsMono ? Money(mono!.vCBSMonoReten) : "",
             showFcp,
-            showFcp ? Money(icmsTot!.vFCP ?? 0) : "", showFcp ? Money(icmsTot!.vFCPST ?? 0) : "",
-            showFcp ? Money(icmsTot!.vICMSUFDest ?? 0) : "", showFcp ? Money(icmsTot!.vFCPUFDest ?? 0) : "",
+            showFcp ? Money(icmsTot!.vFCP) : "", showFcp ? Money(icmsTot!.vFCPST) : "",
+            showFcp ? Money(icmsTot!.vICMSUFDest) : "", showFcp ? Money(icmsTot!.vFCPUFDest) : "",
             showIcmsMono,
-            showIcmsMono ? Money(icmsTot!.qBCMono ?? 0) : "", showIcmsMono ? Money(icmsTot!.vICMSMono ?? 0) : "",
-            showIcmsMono ? Money(icmsTot!.qBCMonoReten ?? 0) : "", showIcmsMono ? Money(icmsTot!.vICMSMonoReten ?? 0) : "",
+            showIcmsMono ? Money(icmsTot!.qBCMono) : "", showIcmsMono ? Money(icmsTot!.vICMSMono) : "",
+            showIcmsMono ? Money(icmsTot!.qBCMonoReten) : "", showIcmsMono ? Money(icmsTot!.vICMSMonoReten) : "",
             inf.det.Select(BuildItem).ToList());
     }
 
@@ -159,6 +160,9 @@ internal sealed record DanfeRtcData(
 
     private static string Money(decimal value) => value.ToString("N2", PtBr);
 
+    /// <summary>Campo ausente no XML sai em branco, nunca "0,00".</summary>
+    private static string Money(decimal? value) => value is { } v ? Money(v) : "";
+
     private static string Rate(decimal value) => value.ToString("0.00##", PtBr) + "%";
 
     private static bool Positive(decimal? value) => value is > 0;
@@ -174,7 +178,7 @@ internal sealed record DanfeRtcData(
                 _ => null,
             };
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is AmbiguousMatchException or TargetInvocationException)
         {
             return null;
         }

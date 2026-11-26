@@ -1,6 +1,7 @@
 using System.Globalization;
 using NFe.Classes;
 using NFe.Classes.Informacoes.Detalhe.Tributacao.Compartilhado.InformacoesIbsCbs;
+using NFe.Classes.Informacoes.Detalhe.Tributacao.Estadual;
 using NFe.Classes.Informacoes.Detalhe.Tributacao.Federal;
 using NFe.Classes.Informacoes.Emitente;
 using NFe.Classes.Informacoes.Total;
@@ -55,15 +56,22 @@ public class DanfeRtcDataTests
     }
 
     [Fact]
-    public void Icms_comes_from_the_item_icms_group()
+    public void Icms_and_ipi_come_from_the_item_groups()
     {
         var proc = Proc();
-        var tipo = proc.NFe.infNFe.det[0].imposto.ICMS.TipoICMS;
-        var vBc = (decimal?)tipo.GetType().GetProperty("vBC")?.GetValue(tipo);
+        var imposto = proc.NFe.infNFe.det[0].imposto;
+        imposto.ICMS.TipoICMS = new ICMS00 { vBC = 1000m, pICMS = 18m, vICMS = 180m };
+        imposto.IPI = new IPI { TipoIPI = new IPITrib { vBC = 1000m, pIPI = 5m, vIPI = 50m } };
 
-        var lines = DanfeRtcData.From(proc).Items[0].Bases.Split('\n');
+        var item = DanfeRtcData.From(proc).Items[0];
 
-        Assert.Equal(vBc is { } v ? v.ToString("N2", CultureInfo.GetCultureInfo("pt-BR")) : "", lines[0]);
+        var bases = item.Bases.Split('\n');
+        Assert.Equal("1.000,00", bases[0]);
+        Assert.Equal("1.000,00", bases[3]);
+        Assert.Equal("18,00%", item.RatesLeft.Split('\n')[0]);
+        Assert.Equal("5,00%", item.RatesRight.Split('\n')[1]);
+        Assert.Equal("180,00", item.ValuesLeft.Split('\n')[0]);
+        Assert.Equal("50,00", item.ValuesRight.Split('\n')[1]);
     }
 
     [Fact]
@@ -187,6 +195,24 @@ public class DanfeRtcDataTests
 
         Assert.True(data.ShowFcpLine);
         Assert.Equal("12,34", data.TotalFcp);
+    }
+
+    [Fact]
+    public void Absent_fcp_fields_stay_blank_on_the_visible_line()
+    {
+        var proc = Proc();
+        var tot = proc.NFe.infNFe.total.ICMSTot;
+        tot.vFCP = null;
+        tot.vFCPST = null;
+        tot.vICMSUFDest = 3.5m;
+
+        var data = DanfeRtcData.From(proc);
+
+        Assert.True(data.ShowFcpLine);
+        Assert.Equal("", data.TotalFcp);
+        Assert.Equal("", data.TotalFcpSt);
+        Assert.Equal("3,50", data.TotalDifal);
+        Assert.Equal("", data.TotalFcpUfDest);
     }
 
     [Fact]
