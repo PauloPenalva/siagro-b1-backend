@@ -49,6 +49,9 @@ pasta. A lista das mudanças feitas no leiaute entra aqui conforme forem aplicad
   - A tabela `prodTable` virou objetos de texto soltos que crescem juntos (`CanGrow` + `GrowToBottom`), todos
     com `LineHeight` 9 para as linhas dos rótulos (5pt) e dos valores (6pt) ficarem alinhadas. Linha mínima
     de 40 (4 linhas de texto).
+  - Larguras (px): descrição 159,57; CST/CFOP 24; QTD 58; VLR UNIT 56; VLR TOTAL 56; bases 37 + 56; alíquotas
+    37 + 36 | 20 + 36; valores 37 + 56 | 20 + 56. Valores até 9.999.999,99 (inclusive ICMS e CBS de 7 dígitos) e
+    alíquotas de 4 casas ("0,0375%") cabem em fonte normal com 4% de folga (teste `Large_amounts_fit_their_columns`).
   - Saíram as colunas próprias de código, NCM, desconto, BC ST e valor ST, e com elas o IPI devolvido por
     item (`impostoDevol`): o IPI do item agora vem de `RtcItem*`. Os parâmetros `DuasLinhas`,
     `ImprimirDescPorc` e `ImprimirTotalLiquido` deixaram de ter efeito na grade.
@@ -58,4 +61,4 @@ pasta. A lista das mudanças feitas no leiaute entra aqui conforme forem aplicad
     o motor também dispara o `BeforePrint` quando só mede a faixa.
   - Quebra da folha 1: `DadosProdutos_AfterPrint` passa a quebrar quando a próxima linha (altura mínima) não
     cabe mais, e a soma do cabeçalho conta todas as linhas de duplicatas (o contador da Zeus deixava de fora a
-    última linha incompleta).
+    última linha incompleta; ele e os eventos `Duplicatas_BeforePrint`/`DuplicatasHeader_BeforePrint` foram removidos).

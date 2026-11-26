@@ -212,6 +212,9 @@ namespace FastReport
         var posicao = proc.NFe.infNFe.det.IndexOf(item);
         if (posicao &gt;= 0) return posicao;
       }
+      // Reserva: só vale se a linha corrente não for um det da lista do XML (não acontece com o nfeProc da Zeus).
+      // CurrentRowNo é a posição na lista ORDENADA por nItem, então só coincide com a posição em det enquanto o
+      // XML trouxer os itens em ordem de nItem (o caso normal da NF-e autorizada).
       return DadosProdutos.DataSource.CurrentRowNo;
     }
 
@@ -362,25 +365,6 @@ namespace FastReport
       TotalIbsCbsMono.Visible = ((Boolean?)Report.GetParameterValue(&quot;RtcShowIbsCbsMonoLine&quot;)) ?? false;
     }
 
-    private int contadorDuplicatas =0;
-    private float _TamanhoDuplicatas = 0;
-
-    private void DuplicatasHeader_BeforePrint(object sender, EventArgs e)
-    {
-      contadorDuplicatas = 0;
-      _TamanhoDuplicatas = 0;
-    }
-
-    private void Duplicatas_BeforePrint(object sender, EventArgs e)
-    {
-      contadorDuplicatas++;
-      if (contadorDuplicatas == 6)
-      {
-        _TamanhoDuplicatas += Duplicatas.Height;
-        contadorDuplicatas = 0;
-      }
-    }
-
     private float _Tamanho = 0;
     private float _TamanhoItens = 0;
     private float _AlturaMinimaLinha = 0;
@@ -418,8 +402,8 @@ namespace FastReport
       if (DuplicatasHeader.Visible)
         _Tamanho += DuplicatasHeader.Height;
 
-      // Uma linha de duplicatas a cada Columns.Count títulos. O contador do Duplicatas_BeforePrint (_TamanhoDuplicatas)
-      // não contava a última linha incompleta, e com a linha de produtos de 4 linhas de texto essa folga sumiu.
+      // Uma linha de duplicatas a cada Columns.Count títulos. Substitui o contador da Zeus (Duplicatas_BeforePrint),
+      // que não contava a última linha incompleta; com a linha de produtos de 4 linhas de texto essa folga sumiu.
       if (Duplicatas.Visible &amp;&amp; Duplicatas.DataSource != null)
       {
         var colunas = Math.Max(1, Duplicatas.Columns.Count);
@@ -1254,13 +1238,13 @@ namespace FastReport
       <TextObject Name="Memo190" Top="3.78" Width="430.87" Height="13.23" Text="FATURA" Padding="0, 1, 0, 1" VertAlign="Bottom" Font="Times New Roman, 7pt, style=Bold"/>
       <TextObject Name="MemoFatura" Left="128.5" Top="17.01" Width="616.06" Height="20.79" Border.Lines="All" Border.Width="0.5" Text="  Número:   [NFe.NFe.infNFe.cobr.fat.nFat]    -   Valor Original: [FormatCurrency([NFe.NFe.infNFe.cobr.fat.vOrig])]    -   Valor Desconto:  [FormatCurrency([NFe.NFe.infNFe.cobr.fat.vDesc])]    -   ValorLíquido: [FormatCurrency([NFe.NFe.infNFe.cobr.fat.vLiq])]" Padding="3, 0, 3, 0" VertAlign="Center" WordWrap="false" Font="Times New Roman, 8pt"/>
     </DataBand>
-    <DataBand Name="Duplicatas" Top="645.03" Width="148.91" Height="38.55" BeforePrintEvent="Duplicatas_BeforePrint" DataSource="dup" Columns.Count="5" Columns.Width="148.91">
+    <DataBand Name="Duplicatas" Top="645.03" Width="148.91" Height="38.55" DataSource="dup" Columns.Count="5" Columns.Width="148.91">
       <TextObject Name="Memo66" Top="1.13" Width="148.91" Height="36.67" Border.Lines="All" Border.Width="0.5" Text="Número&#13;&#10;Vencimento&#13;&#10;Valor" Padding="3, 1, 3, 1" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
       <TextObject Name="Memo138" Left="56.69" Width="3.78" Height="37.8" Text=":&#13;&#10;:&#13;&#10;:" Padding="2, 1, 2, 1" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
       <TextObject Name="Memo147" Left="60.47" Width="86.93" Height="12.47" Text="[NFe.NFe.infNFe.cobr.dup.nDup]" Padding="3, 1, 3, 1" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
       <TextObject Name="Memo148" Left="60.47" Top="12.47" Width="86.93" Height="12.47" Text="[FormatDateTime(ToDateTime([NFe.NFe.infNFe.cobr.dup.dVenc]), &quot;dd/MM/yyyy&quot;)]" Padding="3, 1, 3, 1" Format="Date" Format.Format="dd/MM/yyyy" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
       <TextObject Name="Memo156" Left="60.47" Top="24.94" Width="86.93" Height="12.47" Text="[FormatCurrency([NFe.NFe.infNFe.cobr.dup.vDup])]" Padding="3, 1, 3, 1" Format="Currency" Format.UseLocale="true" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
-      <DataHeaderBand Name="DuplicatasHeader" Top="625.19" Width="744.66" Height="18.9" BeforePrintEvent="DuplicatasHeader_BeforePrint">
+      <DataHeaderBand Name="DuplicatasHeader" Top="625.19" Width="744.66" Height="18.9">
         <TextObject Name="Memo205" Top="3.78" Width="430.87" Height="13.23" Text="DUPLICATAS" Padding="0, 1, 0, 1" VertAlign="Bottom" Font="Times New Roman, 7pt, style=Bold"/>
       </DataHeaderBand>
       <Sort>
@@ -1372,31 +1356,31 @@ namespace FastReport
       <TextObject Name="Memo114" Left="636.22" Top="79.37" Width="108.35" Height="17.01" Text="[NFe.NFe.infNFe.transp.vol.pesoL]" Padding="5, 1, 5, 1" HideValue="0" Format="Number" Format.UseLocale="true" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Times New Roman, 8pt"/>
     </DataBand>
     <DataBand Name="DadosProdutos" Top="1065.22" Width="744.66" Height="40" CanGrow="true" BeforePrintEvent="DadosProdutos_BeforePrint" AfterPrintEvent="DadosProdutos_AfterPrint" Guides="0" DataSource="det">
-      <TextObject Name="txtRtcItemDescricao" Width="192.57" Height="40" Border.Lines="Left, Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="2, 1, 2, 1" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
-      <TextObject Name="txtRtcItemCstCfop" Left="192.57" Width="24" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 1, 1" HorzAlign="Center" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
-      <TextObject Name="txtRtcItemQtdUn" Left="216.57" Width="54" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
-      <TextObject Name="txtRtcItemVlrUnit" Left="270.57" Width="54" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
-      <TextObject Name="txtRtcItemVlrTotal" Left="324.57" Width="54" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
-      <TextObject Name="lblRtcItemBases" Left="378.57" Width="36" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="ICMS&#13;&#10;IBS / CBS&#13;&#10;IS&#13;&#10;IPI" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
-      <TextObject Name="txtRtcItemBases" Left="414.57" Width="54" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
-      <TextObject Name="lblRtcItemRatesLeft" Left="468.57" Width="36" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="ICMS&#13;&#10;IBS UF&#13;&#10;IBS MUN" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
-      <TextObject Name="txtRtcItemRatesLeft" Left="504.57" Width="34" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
-      <TextObject Name="lblRtcItemRatesRight" Left="538.57" Width="20" Height="40" Border.Lines="Left, Bottom" Border.Width="0.5" Border.LeftLine.Style="Dot" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="CBS&#13;&#10;IPI&#13;&#10;IS" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
-      <TextObject Name="txtRtcItemRatesRight" Left="558.57" Width="34" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
-      <TextObject Name="lblRtcItemValuesLeft" Left="592.57" Width="36" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="ICMS&#13;&#10;IBS UF&#13;&#10;IBS MUN" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
-      <TextObject Name="txtRtcItemValuesLeft" Left="628.57" Width="48" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
-      <TextObject Name="lblRtcItemValuesRight" Left="676.57" Width="20" Height="40" Border.Lines="Left, Bottom" Border.Width="0.5" Border.LeftLine.Style="Dot" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="CBS&#13;&#10;IPI&#13;&#10;IS" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
-      <TextObject Name="txtRtcItemValuesRight" Left="696.57" Width="48" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemDescricao" Width="159.57" Height="40" Border.Lines="Left, Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="2, 1, 2, 1" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemCstCfop" Left="159.57" Width="24" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 1, 1" HorzAlign="Center" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemQtdUn" Left="183.57" Width="58" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemVlrUnit" Left="241.57" Width="56" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemVlrTotal" Left="297.57" Width="56" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="lblRtcItemBases" Left="353.57" Width="37" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="ICMS&#13;&#10;IBS / CBS&#13;&#10;IS&#13;&#10;IPI" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemBases" Left="390.57" Width="56" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="lblRtcItemRatesLeft" Left="446.57" Width="37" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="ICMS&#13;&#10;IBS UF&#13;&#10;IBS MUN" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemRatesLeft" Left="483.57" Width="36" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 1, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="lblRtcItemRatesRight" Left="519.57" Width="20" Height="40" Border.Lines="Left, Bottom" Border.Width="0.5" Border.LeftLine.Style="Dot" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="CBS&#13;&#10;IPI&#13;&#10;IS" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemRatesRight" Left="539.57" Width="36" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 1, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="lblRtcItemValuesLeft" Left="575.57" Width="37" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="ICMS&#13;&#10;IBS UF&#13;&#10;IBS MUN" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemValuesLeft" Left="612.57" Width="56" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="lblRtcItemValuesRight" Left="668.57" Width="20" Height="40" Border.Lines="Left, Bottom" Border.Width="0.5" Border.LeftLine.Style="Dot" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="CBS&#13;&#10;IPI&#13;&#10;IS" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemValuesRight" Left="688.57" Width="56" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
       <DataHeaderBand Name="DadosProdutosHeader" Top="1023.09" Width="744.66" Height="41.25" BeforePrintEvent="DadosProdutosHeader_BeforePrint" RepeatOnEveryPage="true">
         <TextObject Name="Memo115" Top="3.78" Width="430.87" Height="13.23" Text="DADOS DOS PRODUTOS / SERVIÇOS" Padding="0, 1, 0, 1" VertAlign="Bottom" Font="Times New Roman, 7pt, style=Bold"/>
-        <TextObject Name="hdrRtcItemDescricao" Top="18.34" Width="192.57" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="DESCRIÇÃO DO PRODUTO / SERVIÇO" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
-        <TextObject Name="hdrRtcItemCstCfop" Left="192.57" Top="18.34" Width="24" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="CST /&#13;&#10;CFOP" Padding="0, 2, 0, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="hdrRtcItemQtdUn" Left="216.57" Top="18.34" Width="54" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="QTD /&#13;&#10;UN" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
-        <TextObject Name="hdrRtcItemVlrUnit" Left="270.57" Top="18.34" Width="54" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VLR UNIT" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
-        <TextObject Name="hdrRtcItemVlrTotal" Left="324.57" Top="18.34" Width="54" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VLR TOTAL" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
-        <TextObject Name="hdrRtcItemBases" Left="378.57" Top="18.34" Width="90" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="BASES DE CÁLCULO" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
-        <TextObject Name="hdrRtcItemRates" Left="468.57" Top="18.34" Width="124" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="ALÍQUOTAS" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
-        <TextObject Name="hdrRtcItemValues" Left="592.57" Top="18.34" Width="152" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VALOR DOS TRIBUTOS" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemDescricao" Top="18.34" Width="159.57" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="DESCRIÇÃO DO PRODUTO / SERVIÇO" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemCstCfop" Left="159.57" Top="18.34" Width="24" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="CST /&#13;&#10;CFOP" Padding="0, 2, 0, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
+        <TextObject Name="hdrRtcItemQtdUn" Left="183.57" Top="18.34" Width="58" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="QTD /&#13;&#10;UN" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemVlrUnit" Left="241.57" Top="18.34" Width="56" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VLR UNIT" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemVlrTotal" Left="297.57" Top="18.34" Width="56" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VLR TOTAL" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemBases" Left="353.57" Top="18.34" Width="93" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="BASES DE CÁLCULO" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemRates" Left="446.57" Top="18.34" Width="129" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="ALÍQUOTAS" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemValues" Left="575.57" Top="18.34" Width="169" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VALOR DOS TRIBUTOS" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
       </DataHeaderBand>
       <DataFooterBand Name="DadosProdutosFooter" Top="1077.44" Width="744.66" Height="9.45"/>
       <Sort>

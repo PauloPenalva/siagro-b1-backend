@@ -219,8 +219,15 @@ public class DanfeRtcLayoutTests
         var footerTop = page.AllObjects.OfType<BandBase>().Single(b => b.Name == "DadosAdicionais").Top;
         var cells = page.AllObjects.OfType<TextObject>().Where(t => ItemCells.Contains(t.Name)).ToList();
         Assert.NotEmpty(cells);
-        Assert.True(cells.Max(c => c.AbsBottom) <= footerTop,
-            $"última linha termina em {cells.Max(c => c.AbsBottom)}, rodapé começa em {footerTop}");
+        var lastBottom = cells.Max(c => c.AbsBottom);
+        Assert.True(lastBottom <= footerTop, $"última linha termina em {lastBottom}, rodapé começa em {footerTop}");
+
+        // Prende a quebra da folha 1: com o XML padrão cabem 6 linhas de 40 e a sobra até o rodapé é menor que uma linha.
+        var rows = cells.Where(c => c.Name == "txtRtcItemDescricao").ToList();
+        Assert.Equal(6, rows.Count);
+        var minimumRow = rows.Min(c => c.Height);
+        Assert.True(footerTop - lastBottom < minimumRow,
+            $"sobram {footerTop - lastBottom} na folha 1, cabe mais uma linha de {minimumRow}");
     }
 
     [Fact]
@@ -249,26 +256,37 @@ public class DanfeRtcLayoutTests
     [Fact]
     public void Large_amounts_fit_their_columns()
     {
+        // Pior caso realista de 9 dígitos: base 9.999.999,99, ICMS de 18% (1.799.999,99), CBS de 7 dígitos,
+        // alíquota com 4 casas, quantidade de 9 dígitos e valor unitário com 4 casas.
         var xml = WithItems(ProcXml(), 1, (_, det) => det
-            .Replace("<vProd>60000.00</vProd>", "<vProd>5063850.00</vProd>")
-            .Replace("<vBC>60000.00</vBC>", "<vBC>5063850.00</vBC>")
-            .Replace("<vICMS>4200.00</vICMS>", "<vICMS>354469.50</vICMS>")
-            .Replace("<vBC>50638.50</vBC>", "<vBC>5063850.00</vBC>")
-            .Replace("<vIBSUF>50.64</vIBSUF>", "<vIBSUF>5063.85</vIBSUF>")
-            .Replace("<vCBS>455.75</vCBS>", "<vCBS>45574.65</vCBS>")
-            .Replace("<qCom>30000.0000</qCom>", "<qCom>2531925.0000</qCom>"));
+            .Replace("<vProd>60000.00</vProd>", "<vProd>9999999.99</vProd>")
+            .Replace("<vBC>60000.00</vBC>", "<vBC>9999999.99</vBC>")
+            .Replace("<pICMS>7.0000</pICMS>", "<pICMS>18.0000</pICMS>")
+            .Replace("<vICMS>4200.00</vICMS>", "<vICMS>1799999.99</vICMS>")
+            .Replace("<vBC>50638.50</vBC>", "<vBC>9999999.99</vBC>")
+            .Replace("<vIBSUF>50.64</vIBSUF>", "<vIBSUF>1234567.89</vIBSUF>")
+            .Replace("<pCBS>0.9000</pCBS>", "<pCBS>0.0375</pCBS>")
+            .Replace("<vCBS>455.75</vCBS>", "<vCBS>1234567.89</vCBS>")
+            .Replace("<qCom>30000.0000</qCom>", "<qCom>9999999.9900</qCom>")
+            .Replace("<vUnCom>2.0000000000</vUnCom>", "<vUnCom>12345.6789000000</vUnCom>"));
 
         using var report = Service().Prepare(xml, cancelled: false);
         var texts = Texts(report);
-        Assert.Contains("5.063.850,00", texts["txtRtcItemVlrTotal"]);
-        Assert.Contains("5.063.850,00", texts["txtRtcItemBases"]);
+        Assert.Contains("9.999.999,99", texts["txtRtcItemVlrTotal"]);
+        Assert.Contains("9.999.999,99", texts["txtRtcItemBases"]);
+        Assert.Contains("1.799.999,99", texts["txtRtcItemValuesLeft"]);
+        Assert.Contains("1.234.567,89", texts["txtRtcItemValuesRight"]);
+        Assert.Contains("0,0375%", texts["txtRtcItemRatesRight"]);
+        Assert.Contains("12.345,6789", texts["txtRtcItemVlrUnit"]);
 
         using var page = report.PreparedPages.GetPage(0);
         var row = page.AllObjects.OfType<TextObject>()
             .Where(t => t.Name.StartsWith("txtRtcItem") || t.Name.StartsWith("lblRtcItem")).ToList();
         Assert.True(row.Count >= ItemCells.Length);
+        // Folga de 4%: no Linux as fontes métricas podem medir um pouco mais largo que o GDI+ do Windows.
+        const float slack = 1.04f;
         var clipped = row
-            .Select(cell => (cell, needed: MeasuredWidth(report, cell)))
+            .Select(cell => (cell, needed: MeasuredWidth(report, cell) * slack))
             .Where(x => x.needed > x.cell.Width)
             .Select(x => $"{x.cell.Name}: \"{x.cell.Text.Replace('\n', '|')}\" precisa de {x.needed:0.0}, a coluna tem {x.cell.Width:0.0}")
             .ToList();
