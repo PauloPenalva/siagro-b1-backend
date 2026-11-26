@@ -44,8 +44,7 @@ namespace FastReport
       if(BarCodeContigencia.Visible) BarCodeContigencia.Text = contigenciaId;
       DadosISSQN.Visible = !(bool)Report.GetParameterValue(&quot;ImprimirISSQN&quot;);
       DadosRetencoes.Visible = (bool)Report.GetParameterValue(&quot;ExibeRetencoes&quot;);
-      prodRow.AutoSize = (bool)Report.GetParameterValue(&quot;DuasLinhas&quot;);
-      if(prodRow.AutoSize == false) prodNomeCell.WordWrap = false;
+      // NT 2026.010: a grade nova sempre quebra a descrição em linhas (NCM/cClassTrib na última); DuasLinhas não tem mais efeito.
 
       if (Report.GetColumnValue(&quot;NFe.NFe.infNFe.emit.enderEmit.fone&quot;) != null) {
         Text209.Text = FormatarCampo(Report.GetColumnValue(&quot;NFe.NFe.infNFe.emit.enderEmit.fone&quot;).ToString(), 'f');
@@ -192,11 +191,44 @@ namespace FastReport
       //}
       }
 
+    // NT 2026.010: grade de produtos. Bases, alíquotas e valores dos tributos vêm prontos do DanfeRtcData
+    // (parâmetros string[] RtcItem*, índice = posição do item em det, linhas separadas por &quot;\n&quot;; ausente no XML = em branco).
+    // Os objetos txtRtcItem* têm AllowExpressions=false: o texto entra literal (os colchetes do NCM não viram expressão).
+    private static readonly System.Globalization.CultureInfo PtBr = System.Globalization.CultureInfo.GetCultureInfo(&quot;pt-BR&quot;);
+
+    private static string Numero(decimal valor, int casas)
+    {
+      return valor.ToString(&quot;N&quot; + casas, PtBr);
+    }
+
+    // Posição do item corrente em det. Sai do próprio objeto da linha, e não de um contador, porque o motor dispara o
+    // BeforePrint também quando só mede a faixa; a ordenação por nItem também não desloca o índice.
+    private int RtcItemIndex()
+    {
+      var item = DadosProdutos.DataSource.CurrentRow as global::NFe.Classes.Informacoes.Detalhe.det;
+      var proc = Report.GetDataSource(&quot;NFe&quot;).CurrentRow as global::NFe.Classes.nfeProc;
+      if (item != null &amp;&amp; proc != null &amp;&amp; proc.NFe != null &amp;&amp; proc.NFe.infNFe != null &amp;&amp; proc.NFe.infNFe.det != null)
+      {
+        var posicao = proc.NFe.infNFe.det.IndexOf(item);
+        if (posicao &gt;= 0) return posicao;
+      }
+      return DadosProdutos.DataSource.CurrentRowNo;
+    }
+
+    private string RtcItem(string parametro, int indice)
+    {
+      var valores = Report.GetParameterValue(parametro) as string[];
+      if (valores == null || indice &lt; 0 || indice &gt;= valores.Length) return &quot;&quot;;
+      return valores[indice] ?? &quot;&quot;;
+    }
+
 	  private void DadosProdutos_BeforePrint(object sender, EventArgs e)
 	  {
 	  var icmsBasico = (ICMSBasico)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.imposto.ICMS.TipoICMS&quot;);
-	  var ipiBasico = (IPIBasico)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.imposto.IPI.TipoIPI&quot;);
+	  var indice = RtcItemIndex();
 
+	  // CST com a origem (ou CSOSN no Simples), sobre o CFOP: mesma regra do leiaute da Zeus.
+	  var cst = &quot;&quot;;
 	  if (icmsBasico != null)
 	  {
 	      var orig = icmsBasico.GetIcmsOrig();
@@ -204,35 +236,33 @@ namespace FastReport
 	      {
              if (icmsBasico.GetIcmsCst().CsticmsParaString() == &quot;02&quot; || icmsBasico.GetIcmsCst().CsticmsParaString() == &quot;15&quot; ||
                  icmsBasico.GetIcmsCst().CsticmsParaString() == &quot;53&quot; || icmsBasico.GetIcmsCst().CsticmsParaString() == &quot;61&quot;)
-	            prodOriginCell.Text = orig.OrigemMercadoriaParaString() + icmsBasico.GetIcmsCst().CsticmsParaString();
+	            cst = orig.OrigemMercadoriaParaString() + icmsBasico.GetIcmsCst().CsticmsParaString();
              else
-                prodOriginCell.Text = orig.OrigemMercadoriaParaString() + icmsBasico.GetIcmsCsosn().CsosnicmsParaString();
+                cst = orig.OrigemMercadoriaParaString() + icmsBasico.GetIcmsCsosn().CsosnicmsParaString();
 	      }
 	      else
 	      {
-	        prodOriginCell.Text = orig.OrigemMercadoriaParaString() + icmsBasico.GetIcmsCst().CsticmsParaString();
+	        cst = orig.OrigemMercadoriaParaString() + icmsBasico.GetIcmsCst().CsticmsParaString();
 	      }
-
-	      prodBcCell.Text = FormatNumber(icmsBasico.GetIcmsBcValue(), 2);
-	      prodICMSCell.Text = FormatNumber(icmsBasico.GetIcmsValue(), 2);
-	      prodAlqICMSCell.Text = FormatNumber(icmsBasico.GetIcmsPercent(),2);
 	  }
+	  txtRtcItemCstCfop.Text = cst + &quot;\n&quot; + Convert.ToString(Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.prod.CFOP&quot;));
 
+	  // Descrição: código e nome; informações adicionais do item; por último [NCM] e [cClassTrib] (este só quando existe).
+	  var descricao = (String)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.prod.cProd&quot;) + &quot; - &quot; + (String)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.prod.xProd&quot;);
+	  var infAdProd = (String)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.infAdProd&quot;);
+	  if (!string.IsNullOrEmpty(infAdProd)) descricao += &quot;\n&quot; + infAdProd;
+	  var classTrib = RtcItem(&quot;RtcItemClassTrib&quot;, indice);
+	  descricao += &quot;\n[NCM &quot; + (String)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.prod.NCM&quot;) + &quot;]&quot;
+	    + (string.IsNullOrEmpty(classTrib) ? &quot;&quot; : &quot; [cClassTrib &quot; + classTrib + &quot;]&quot;);
+	  txtRtcItemDescricao.Text = descricao;
 
-	  if(ipiBasico != null)
-	  {
-	    prodIPICell.Text = FormatNumber(ipiBasico.GetIpiValue(),2);
-	    prodAlqIPICell.Text = FormatNumber(ipiBasico.GetIpiPercent(),2);
-	  }
-	  else
-	  {
-	    prodIPICell.Text = &quot;0,00&quot;;
-        prodAlqIPICell.Text = &quot;0,00&quot;;
-      }
+	  txtRtcItemBases.Text = RtcItem(&quot;RtcItemBases&quot;, indice);
+	  txtRtcItemRatesLeft.Text = RtcItem(&quot;RtcItemRatesLeft&quot;, indice);
+	  txtRtcItemRatesRight.Text = RtcItem(&quot;RtcItemRatesRight&quot;, indice);
+	  txtRtcItemValuesLeft.Text = RtcItem(&quot;RtcItemValuesLeft&quot;, indice);
+	  txtRtcItemValuesRight.Text = RtcItem(&quot;RtcItemValuesRight&quot;, indice);
 
       var imprimirUnidQtdeValor = (ImprimirUnidQtdeValor)Report.GetParameterValue(&quot;ImprimirUnidQtdeValor&quot;);
-      var imprimirDescPorc = (bool)Report.GetParameterValue(&quot;ImprimirDescPorc&quot;);
-      var imprimirTotalLiquido = (bool)Report.GetParameterValue(&quot;ImprimirTotalLiquido&quot;);
 
       var uCom = ((String)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.prod.uCom&quot;));
       var uTrib = ((String)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.prod.uTrib&quot;));
@@ -243,61 +273,33 @@ namespace FastReport
       var vUnCom = ((Decimal)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.prod.vUnCom&quot;));
       var vUnTrib = ((Decimal)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.prod.vUnTrib&quot;));
 
+      // VLR TOTAL é o vProd do item (a coluna de desconto saiu da grade; ImprimirDescPorc/ImprimirTotalLiquido não têm mais efeito).
       var vProd = ((Decimal)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.prod.vProd&quot;));
-      var vDesc = (((Nullable&lt;Decimal&gt;)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.prod.vDesc&quot;)) ?? 0);
-
-      if(imprimirTotalLiquido) vProd = vProd - vDesc;
-      if(vDesc &gt; 0 &amp;&amp; imprimirDescPorc)
-      {
-        vDesc = ((vDesc*100)/(vUnCom*qCom));
-      }
-
-      prodValorCell.Text = FormatNumber(vProd,2);
-      prodDescontoCell.Text = FormatNumber(vDesc, 2);
+      txtRtcItemVlrTotal.Text = Numero(vProd, 2);
 
       var decimaisQuantidadeItem = (int)Report.GetParameterValue(&quot;DecimaisQuantidadeItem&quot;);
       var decimaisValorUnitario = (int)Report.GetParameterValue(&quot;DecimaisValorUnitario&quot;);
 
+      // QTD / UN: quantidade sobre a unidade; com as duas unidades, a tributável vem abaixo da comercial
+      // e o valor unitário de cada uma fica na mesma linha da sua quantidade.
       switch(imprimirUnidQtdeValor)
       {
-        case ImprimirUnidQtdeValor.Comercial:
-          prodUnidadeCell.Text = uCom;
-          prodQtdCell.Text = FormatNumber(qCom, decimaisQuantidadeItem);
-          prodValorUnitarioCell.Text = FormatNumber(vUnCom, decimaisValorUnitario);
-          break;
-
         case ImprimirUnidQtdeValor.Tributavel:
-          prodUnidadeCell.Text = uTrib;
-          prodQtdCell.Text = FormatNumber(qTrib, decimaisQuantidadeItem);
-          prodValorUnitarioCell.Text = FormatNumber(vUnTrib, decimaisValorUnitario);
+          txtRtcItemQtdUn.Text = Numero(qTrib, decimaisQuantidadeItem) + &quot;\n&quot; + uTrib;
+          txtRtcItemVlrUnit.Text = Numero(vUnTrib, decimaisValorUnitario);
           break;
 
         case ImprimirUnidQtdeValor.Ambos:
+          txtRtcItemQtdUn.Text = Numero(qCom, decimaisQuantidadeItem) + &quot;\n&quot; + uCom + &quot;\n&quot; + Numero(qTrib, decimaisQuantidadeItem) + &quot;\n&quot; + uTrib;
+          txtRtcItemVlrUnit.Text = Numero(vUnCom, decimaisValorUnitario) + &quot;\n\n&quot; + Numero(vUnTrib, decimaisValorUnitario);
+          break;
 
-          var qTribFormatado = FormatNumber(qTrib, decimaisQuantidadeItem);
-          var qComFormatado = FormatNumber(qCom, decimaisQuantidadeItem);
-          var vUnComFormatado = FormatNumber(vUnCom, decimaisValorUnitario);
-          var vUnTribFormatado = FormatNumber(vUnTrib, decimaisValorUnitario);
-
-          prodUnidadeCell.Text = string.Format(&quot;{0}{2}{1}&quot;, uCom, uTrib, Environment.NewLine);
-          prodQtdCell.Text = string.Format(&quot;{0}{2}{1}&quot;, qComFormatado, qTribFormatado, Environment.NewLine);
-          prodValorUnitarioCell.Text = string.Format(&quot;{0}{2}{1}&quot;, vUnComFormatado, vUnTribFormatado, Environment.NewLine);
+        default:
+          txtRtcItemQtdUn.Text = Numero(qCom, decimaisQuantidadeItem) + &quot;\n&quot; + uCom;
+          txtRtcItemVlrUnit.Text = Numero(vUnCom, decimaisValorUnitario);
           break;
       }
-
-      if ((FinalidadeNFe)(Report.GetColumnValue(&quot;NFe.NFe.infNFe.ide.finNFe&quot;)) == FinalidadeNFe.fnDevolucao)
-      {
-        if(ipiBasico == null)
-        {
-          var DevolvidoPercentual = ((Nullable&lt;decimal&gt;)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.impostoDevol.pDevol&quot;)) ?? 0M;
-          var ipiDevolvidoValor = ((Nullable&lt;decimal&gt;)Report.GetColumnValue(&quot;NFe.NFe.infNFe.det.impostoDevol.IPI.vIPIDevol&quot;)) ?? 0M;
-          prodIPICell.Text = FormatNumber(ipiDevolvidoValor,2);
-	  if(ipiDevolvidoValor > 0)
-	  {
-            prodAlqIPICell.Text = FormatNumber(DevolvidoPercentual,2);
-	  }
-        }
-      }
+      // O IPI devolvido por item (impostoDevol) saiu com a coluna antiga: o IPI do item agora vem de RtcItem*.
     }
 
     private string FormatarCampo(string valor, char format)
@@ -351,6 +353,7 @@ namespace FastReport
     private void Imposto_BeforePrint(object sender, EventArgs e)
     {
       ImpostoFcp.Visible = ((Boolean?)Report.GetParameterValue(&quot;RtcShowFcpLine&quot;)) ?? false;
+      // ImpostoIcmsMono é filha de ImpostoFcp: depende de o FastReport imprimir a filha mesmo com a mãe oculta (há teste).
       ImpostoIcmsMono.Visible = ((Boolean?)Report.GetParameterValue(&quot;RtcShowIcmsMonoLine&quot;)) ?? false;
     }
 
@@ -380,16 +383,19 @@ namespace FastReport
 
     private float _Tamanho = 0;
     private float _TamanhoItens = 0;
+    private float _AlturaMinimaLinha = 0;
 
     private void DadosProdutosHeader_BeforePrint(object sender, EventArgs e)
     {
-
-      if (((CRT)Report.GetColumnValue(&quot;NFe.NFe.infNFe.emit.CRT&quot;)) == CRT.SimplesNacional || ((CRT)Report.GetColumnValue(&quot;NFe.NFe.infNFe.emit.CRT&quot;)) == CRT.SimplesNacionalMei) {
-	    Memo119.Text = &quot;O/CSOSN&quot;;
-      }
+      // NT 2026.010: o cabeçalho da grade se repete em cada folha (RepeatOnEveryPage). A conta abaixo só vale para a
+      // folha 1 (DadosProdutos_AfterPrint olha Engine.PageNo == 1), por isso as repetições saem sem refazê-la.
+      if (Engine.PageNo != 1)
+        return;
 
       _Tamanho = 0;
       _TamanhoItens = 0;
+      // Altura de projeto da linha (4 linhas de texto: as bases). Aqui a faixa ainda não está em impressão.
+      _AlturaMinimaLinha = DadosProdutos.Height;
 
       if (Canhoto.Visible)
         _Tamanho += Canhoto.Height;
@@ -412,7 +418,13 @@ namespace FastReport
       if (DuplicatasHeader.Visible)
         _Tamanho += DuplicatasHeader.Height;
 
-      _Tamanho += _TamanhoDuplicatas;
+      // Uma linha de duplicatas a cada Columns.Count títulos. O contador do Duplicatas_BeforePrint (_TamanhoDuplicatas)
+      // não contava a última linha incompleta, e com a linha de produtos de 4 linhas de texto essa folga sumiu.
+      if (Duplicatas.Visible &amp;&amp; Duplicatas.DataSource != null)
+      {
+        var colunas = Math.Max(1, Duplicatas.Columns.Count);
+        _Tamanho += ((Duplicatas.DataSource.RowCount + colunas - 1) / colunas) * Duplicatas.Height;
+      }
 
       // NT 2026.010: blocos de totais novos e linhas facultativas (faixas filhas só contam quando visíveis).
       if (TotalProdutosNota.Visible)
@@ -466,9 +478,12 @@ namespace FastReport
 
       if (Engine.PageNo == 1)
       {
+        // O AfterPrint dispara antes do RestoreState, então Height ainda é a altura real (crescida) desta linha.
         _TamanhoItens += DadosProdutos.Height;
 
-        if (_Tamanho + _TamanhoItens &gt;= Engine.PageHeight)
+        // NT 2026.010: a linha tem no mínimo 4 linhas de texto; se a próxima não couber na folha 1 com as faixas de
+        // baixo (rodapé da grade, ISSQN, retenções, dados adicionais), ela começa na folha 2.
+        if (_Tamanho + _TamanhoItens + _AlturaMinimaLinha &gt; Engine.PageHeight)
         {
           DadosProdutos.StartNewPage = true;
           _TamanhoItens = 0;
@@ -1356,59 +1371,32 @@ namespace FastReport
       <TextObject Name="Memo113" Left="636.22" Top="69.92" Width="108.35" Height="26.46" Border.Lines="All" Border.Width="0.5" Text="PESO LÍQUIDO" Padding="2, 2, 2, 2" Font="Times New Roman, 5pt"/>
       <TextObject Name="Memo114" Left="636.22" Top="79.37" Width="108.35" Height="17.01" Text="[NFe.NFe.infNFe.transp.vol.pesoL]" Padding="5, 1, 5, 1" HideValue="0" Format="Number" Format.UseLocale="true" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Times New Roman, 8pt"/>
     </DataBand>
-    <DataBand Name="DadosProdutos" Top="1065.22" Width="744.66" Height="11.34" CanGrow="true" CanShrink="true" BeforePrintEvent="DadosProdutos_BeforePrint" AfterPrintEvent="DadosProdutos_AfterPrint" Guides="0" DataSource="det">
-      <TableObject Name="prodTable" Width="745.04" Height="11.34">
-        <TableColumn Name="prodCodigo" Width="60.48"/>
-        <TableColumn Name="prodNome" Width="211.68"/>
-        <TableColumn Name="prodNCM" Width="37.8"/>
-        <TableColumn Name="prodOrigin" Width="32.89"/>
-        <TableColumn Name="prodCFOP" Width="21.92"/>
-        <TableColumn Name="prodUnidade" Width="21.17"/>
-        <TableColumn Name="prodQtd" Width="43.47"/>
-        <TableColumn Name="prodValorUnitario" Width="45.36"/>
-        <TableColumn Name="prodDesconto" Width="39.69"/>
-        <TableColumn Name="prodValor" Width="49.14"/>
-        <TableColumn Name="prodBc" Width="49.14"/>
-        <TableColumn Name="prodICMS" Width="45.36"/>
-        <TableColumn Name="prodIPI" Width="45.36"/>
-        <TableColumn Name="prodAlqICMS" Width="20.79"/>
-        <TableColumn Name="prodAlqIPI" Width="20.79"/>
-        <TableRow Name="prodRow" Height="11.34" AutoSize="true">
-          <TableCell Name="prodCodigoCell" Border.Lines="Left, Right, Bottom" Border.LeftLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Text="[NFe.NFe.infNFe.det.prod.cProd]" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodNomeCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Text="[NFe.NFe.infNFe.det.prod.xProd][IIf([NFe.NFe.infNFe.det.infAdProd] == null || [NFe.NFe.infNFe.det.infAdProd] == &quot;&quot;, &quot;&quot;, &quot; &quot; + [NFe.NFe.infNFe.det.infAdProd])]" HorzAlign="Justify" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodNCMCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Text="[NFe.NFe.infNFe.det.prod.NCM]" Padding="1, 1, 1, 1" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodOriginCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodCFOPCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Text="[NFe.NFe.infNFe.det.prod.CFOP]" Padding="1, 1, 1, 1" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodUnidadeCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodQtdCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" HorzAlign="Right" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodValorUnitarioCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" HorzAlign="Right" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodDescontoCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" HorzAlign="Right" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodValorCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" HorzAlign="Right" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodBcCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" HorzAlign="Right" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodICMSCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" HorzAlign="Right" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodIPICell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" HorzAlign="Right" VertAlign="Center" Font="Times New Roman, 6pt"/>
-          <TableCell Name="prodAlqICMSCell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" Format="Percent" Format.UseLocale="true" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 5pt"/>
-          <TableCell Name="prodAlqIPICell" Border.Lines="Right, Bottom" Border.LeftLine.Width="0.5" Border.TopLine.Width="0.5" Border.RightLine.Width="0.5" Border.BottomLine.Style="Dot" Border.BottomLine.Width="0.5" Padding="1, 1, 1, 1" Format="Percent" Format.UseLocale="true" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 5pt"/>
-        </TableRow>
-      </TableObject>
-      <DataHeaderBand Name="DadosProdutosHeader" Top="1023.09" Width="744.66" Height="41.25" BeforePrintEvent="DadosProdutosHeader_BeforePrint">
-        <TextObject Name="Memo130" Left="723.78" Top="29.68" Width="20.79" Height="11.34" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="IPI" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo116" Top="18.34" Width="60.47" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="CÓDIGO&#13;&#10;PRODUTO" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo117" Left="60.47" Top="18.34" Width="211.68" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="DESCRIÇÃO DO PRODUTO / SERVIÇO" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo118" Left="272.01" Top="18.34" Width="37.8" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="NCM/SH" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo119" Left="309.81" Top="18.34" Width="32.89" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="O/CST" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo120" Left="342.72" Top="18.34" Width="22.3" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="CFOP" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo121" Left="364.71" Top="18.34" Width="21.55" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="UNID" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo122" Left="385.96" Top="18.34" Width="43.85" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="QTDE." Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo123" Left="429.43" Top="18.34" Width="45.74" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VALOR&#13;&#10;UNITÁRIO" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo124" Left="474.89" Top="18.34" Width="39.69" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="[IIf([ImprimirDescPorc],&quot;%&quot;, &quot;VALOR&quot;)]&#13;&#10;DESCONTO" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo125" Left="514.42" Top="18.34" Width="49.14" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VALOR&#13;&#10;[IIf([ImprimirTotalLiquido], &quot;LÍQUIDO&quot;, &quot;TOTAL&quot;)]" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo126" Left="563.56" Top="18.34" Width="49.14" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="BASE DE &#13;&#10;CÁLC. ICMS" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo127" Left="612.7" Top="18.34" Width="45.74" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VALOR&#13;&#10;ICMS" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo128" Left="658.39" Top="18.34" Width="45.36" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VALOR&#13;&#10;IPI" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
-        <TextObject Name="Memo189" Left="703.08" Top="18.34" Width="41.54" Height="11.34" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="ALÍQ. %" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
+    <DataBand Name="DadosProdutos" Top="1065.22" Width="744.66" Height="40" CanGrow="true" BeforePrintEvent="DadosProdutos_BeforePrint" AfterPrintEvent="DadosProdutos_AfterPrint" Guides="0" DataSource="det">
+      <TextObject Name="txtRtcItemDescricao" Width="192.57" Height="40" Border.Lines="Left, Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="2, 1, 2, 1" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemCstCfop" Left="192.57" Width="24" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 1, 1" HorzAlign="Center" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemQtdUn" Left="216.57" Width="54" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemVlrUnit" Left="270.57" Width="54" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemVlrTotal" Left="324.57" Width="54" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="lblRtcItemBases" Left="378.57" Width="36" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="ICMS&#13;&#10;IBS / CBS&#13;&#10;IS&#13;&#10;IPI" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemBases" Left="414.57" Width="54" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="lblRtcItemRatesLeft" Left="468.57" Width="36" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="ICMS&#13;&#10;IBS UF&#13;&#10;IBS MUN" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemRatesLeft" Left="504.57" Width="34" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="lblRtcItemRatesRight" Left="538.57" Width="20" Height="40" Border.Lines="Left, Bottom" Border.Width="0.5" Border.LeftLine.Style="Dot" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="CBS&#13;&#10;IPI&#13;&#10;IS" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemRatesRight" Left="558.57" Width="34" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="lblRtcItemValuesLeft" Left="592.57" Width="36" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="ICMS&#13;&#10;IBS UF&#13;&#10;IBS MUN" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemValuesLeft" Left="628.57" Width="48" Height="40" Border.Lines="Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <TextObject Name="lblRtcItemValuesRight" Left="676.57" Width="20" Height="40" Border.Lines="Left, Bottom" Border.Width="0.5" Border.LeftLine.Style="Dot" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Text="CBS&#13;&#10;IPI&#13;&#10;IS" Padding="2, 2, 1, 1" WordWrap="false" LineHeight="9" Font="Times New Roman, 5pt" AllowExpressions="false"/>
+      <TextObject Name="txtRtcItemValuesRight" Left="696.57" Width="48" Height="40" Border.Lines="Right, Bottom" Border.Width="0.5" Border.BottomLine.Style="Dot" CanGrow="true" GrowToBottom="true" Padding="1, 1, 2, 1" HorzAlign="Right" WordWrap="false" LineHeight="9" Font="Times New Roman, 6pt" AllowExpressions="false"/>
+      <DataHeaderBand Name="DadosProdutosHeader" Top="1023.09" Width="744.66" Height="41.25" BeforePrintEvent="DadosProdutosHeader_BeforePrint" RepeatOnEveryPage="true">
         <TextObject Name="Memo115" Top="3.78" Width="430.87" Height="13.23" Text="DADOS DOS PRODUTOS / SERVIÇOS" Padding="0, 1, 0, 1" VertAlign="Bottom" Font="Times New Roman, 7pt, style=Bold"/>
-        <TextObject Name="Memo129" Left="703.08" Top="29.68" Width="20.79" Height="11.34" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="ICMS" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
+        <TextObject Name="hdrRtcItemDescricao" Top="18.34" Width="192.57" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="DESCRIÇÃO DO PRODUTO / SERVIÇO" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemCstCfop" Left="192.57" Top="18.34" Width="24" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="CST /&#13;&#10;CFOP" Padding="0, 2, 0, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 5pt"/>
+        <TextObject Name="hdrRtcItemQtdUn" Left="216.57" Top="18.34" Width="54" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="QTD /&#13;&#10;UN" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemVlrUnit" Left="270.57" Top="18.34" Width="54" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VLR UNIT" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemVlrTotal" Left="324.57" Top="18.34" Width="54" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VLR TOTAL" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemBases" Left="378.57" Top="18.34" Width="90" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="BASES DE CÁLCULO" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemRates" Left="468.57" Top="18.34" Width="124" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="ALÍQUOTAS" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
+        <TextObject Name="hdrRtcItemValues" Left="592.57" Top="18.34" Width="152" Height="22.68" Border.Lines="All" Border.Width="0.5" Fill.Color="Gainsboro" Text="VALOR DOS TRIBUTOS" Padding="2, 2, 2, 2" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Times New Roman, 6pt"/>
       </DataHeaderBand>
       <DataFooterBand Name="DadosProdutosFooter" Top="1077.44" Width="744.66" Height="9.45"/>
       <Sort>

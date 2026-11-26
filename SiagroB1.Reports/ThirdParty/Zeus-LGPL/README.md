@@ -38,3 +38,24 @@ pasta. A lista das mudanças feitas no leiaute entra aqui conforme forem aplicad
 - **Parâmetros `Rtc*`** declarados no dicionário (preenchidos por `DanfeRtcData.ApplyTo`).
 - **Quebra da primeira página**: `DadosProdutosHeader_BeforePrint` soma também `TotalProdutosNota`,
   `TotalIbsCbsIs` e as faixas filhas visíveis.
+- **Grade de produtos** (faixas `DadosProdutosHeader` e `DadosProdutos`), colunas do modelo retrato da NT:
+  DESCRIÇÃO DO PRODUTO / SERVIÇO (`txtRtcItemDescricao`: código - nome, informações adicionais do item e, na
+  última linha, `[NCM …]` e `[cClassTrib …]`, este só quando o item tem `IBSCBS`), CST / CFOP
+  (`txtRtcItemCstCfop`, origem+CST ou CSOSN sobre o CFOP), QTD / UN (`txtRtcItemQtdUn`; com as duas unidades,
+  a tributável abaixo da comercial), VLR UNIT (`txtRtcItemVlrUnit`), VLR TOTAL (`txtRtcItemVlrTotal`, `vProd`),
+  BASES DE CÁLCULO (`lblRtcItemBases` + `txtRtcItemBases`), ALÍQUOTAS (`…RatesLeft` ICMS/IBS UF/IBS MUN e
+  `…RatesRight` CBS/IPI/IS) e VALOR DOS TRIBUTOS (`…ValuesLeft`/`…ValuesRight`, mesmos pares). Os valores vêm
+  prontos dos parâmetros `string[]` `RtcItem*` (`DanfeRtcData`); ausente no XML sai em branco.
+  - A tabela `prodTable` virou objetos de texto soltos que crescem juntos (`CanGrow` + `GrowToBottom`), todos
+    com `LineHeight` 9 para as linhas dos rótulos (5pt) e dos valores (6pt) ficarem alinhadas. Linha mínima
+    de 40 (4 linhas de texto).
+  - Saíram as colunas próprias de código, NCM, desconto, BC ST e valor ST, e com elas o IPI devolvido por
+    item (`impostoDevol`): o IPI do item agora vem de `RtcItem*`. Os parâmetros `DuasLinhas`,
+    `ImprimirDescPorc` e `ImprimirTotalLiquido` deixaram de ter efeito na grade.
+  - Números da grade formatados com cultura pt-BR fixa (antes dependiam da cultura do servidor).
+  - O cabeçalho da grade agora se repete em cada folha (`RepeatOnEveryPage`), como na folha de continuação da NT.
+  - O índice do item no script sai da posição do objeto `det` corrente na lista do XML, e não de um contador:
+    o motor também dispara o `BeforePrint` quando só mede a faixa.
+  - Quebra da folha 1: `DadosProdutos_AfterPrint` passa a quebrar quando a próxima linha (altura mínima) não
+    cabe mais, e a soma do cabeçalho conta todas as linhas de duplicatas (o contador da Zeus deixava de fora a
+    última linha incompleta).

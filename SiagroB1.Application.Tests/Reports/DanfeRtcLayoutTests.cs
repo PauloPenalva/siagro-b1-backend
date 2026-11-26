@@ -133,6 +133,195 @@ public class DanfeRtcLayoutTests
         Assert.Equal("", Texts(report)["txtRtcTotalCbs"]);
     }
 
+    // ---- Grade de produtos (Task 4) ----
+
+    private static readonly string[] ItemCells =
+    [
+        "txtRtcItemDescricao", "txtRtcItemCstCfop", "txtRtcItemQtdUn", "txtRtcItemVlrUnit", "txtRtcItemVlrTotal",
+        "txtRtcItemBases", "txtRtcItemRatesLeft", "txtRtcItemRatesRight", "txtRtcItemValuesLeft", "txtRtcItemValuesRight",
+    ];
+
+    [Fact]
+    public void Item_row_prints_the_reform_columns()
+    {
+        using var report = Service().Prepare(ProcXml(), cancelled: false);
+        var texts = Texts(report);
+        Assert.Contains("50.638,50", texts["txtRtcItemBases"]);
+        Assert.Contains("0,10%", texts["txtRtcItemRatesLeft"]);
+        Assert.Contains("0,90%", texts["txtRtcItemRatesRight"]);
+        Assert.Contains("50,64", texts["txtRtcItemValuesLeft"]);
+        Assert.Contains("455,75", texts["txtRtcItemValuesRight"]);
+        Assert.Contains("60.000,00", texts["txtRtcItemVlrTotal"]);
+        Assert.Contains("6102", texts["txtRtcItemCstCfop"]);
+        Assert.Contains("000", texts["txtRtcItemCstCfop"]);
+        Assert.Contains("KG", texts["txtRtcItemQtdUn"]);
+    }
+
+    [Fact]
+    public void Description_cell_carries_code_ncm_and_classification()
+    {
+        using var report = Service().Prepare(ProcXml(), cancelled: false);
+        var description = Texts(report)["txtRtcItemDescricao"];
+        Assert.Contains("SOJA", description);
+        Assert.Contains("SOJA EM GRAOS", description);
+        Assert.Contains("[NCM 12019000]", description);
+        Assert.Contains("[cClassTrib 000001]", description);
+    }
+
+    [Fact]
+    public void Item_without_ibscbs_omits_the_classification()
+    {
+        var xml = ProcXml();
+        Assert.Contains("<IBSCBS>", xml);
+        xml = Regex.Replace(xml, "<IBSCBS>.*?</IBSCBS>", "", RegexOptions.Singleline);
+
+        using var report = Service().Prepare(xml, cancelled: false);
+        var description = Texts(report)["txtRtcItemDescricao"];
+        Assert.Contains("[NCM 12019000]", description);
+        Assert.DoesNotContain("[cClassTrib", description);
+    }
+
+    [Fact]
+    public void Old_grid_columns_are_gone()
+    {
+        using var report = Service().Prepare(ProcXml(), cancelled: false);
+        using var page = report.PreparedPages.GetPage(0);
+        var header = page.AllObjects.OfType<BandBase>().Single(b => b.Name == "DadosProdutosHeader");
+        var headerTexts = header.AllObjects.OfType<TextObject>().Select(t => t.Text).ToList();
+
+        Assert.Contains(headerTexts, t => t.Contains("BASES DE CÁLCULO"));
+        Assert.DoesNotContain(headerTexts, t => t.Contains("DESCONTO"));
+        Assert.DoesNotContain(headerTexts, t => t.Contains("NCM"));
+        Assert.DoesNotContain(headerTexts, t => t.Contains("CÓDIGO"));
+        Assert.DoesNotContain(headerTexts, t => t.Contains("BC ST") || t.Contains("VALOR ST") || t.Contains("ICMS ST"));
+    }
+
+    [Fact]
+    public void Each_item_gets_its_own_values()
+    {
+        var xml = WithItems(ProcXml(), 2, (n, det) => n == 2 ? det.Replace("<vBC>50638.50</vBC>", "<vBC>12345.67</vBC>") : det);
+
+        using var report = Service().Prepare(xml, cancelled: false);
+        var bases = AllTexts(report).Where(t => t.Name == "txtRtcItemBases").Select(t => t.Text).ToList();
+        Assert.Equal(2, bases.Count);
+        Assert.Contains("50.638,50", bases[0]);
+        Assert.Contains("12.345,67", bases[1]);
+    }
+
+    [Fact]
+    public void Many_items_do_not_overlap_the_footer()
+    {
+        using var report = Service().Prepare(WithItems(ProcXml(), 60), cancelled: false);
+        Assert.True(report.PreparedPages.Count > 1);
+        Assert.Equal(60, AllTexts(report).Count(t => t.Name == "txtRtcItemDescricao"));
+
+        using var page = report.PreparedPages.GetPage(0);
+        var footerTop = page.AllObjects.OfType<BandBase>().Single(b => b.Name == "DadosAdicionais").Top;
+        var cells = page.AllObjects.OfType<TextObject>().Where(t => ItemCells.Contains(t.Name)).ToList();
+        Assert.NotEmpty(cells);
+        Assert.True(cells.Max(c => c.AbsBottom) <= footerTop,
+            $"última linha termina em {cells.Max(c => c.AbsBottom)}, rodapé começa em {footerTop}");
+    }
+
+    [Fact]
+    public void Long_description_grows_the_whole_row()
+    {
+        var longName = string.Concat(Enumerable.Repeat("PRODUTO COM NOME LONGO ", 6))[..120];
+        var longInfo = string.Concat(Enumerable.Repeat("INFORMACAO ADICIONAL DO ITEM ", 11))[..300];
+        var xml = WithItems(ProcXml(), 3, (n, det) => n == 1
+            ? det.Replace("<xProd>SOJA EM GRAOS</xProd>", $"<xProd>{longName}</xProd>").Replace("</imposto>", $"</imposto><infAdProd>{longInfo}</infAdProd>")
+            : det);
+
+        using var report = Service().Prepare(xml, cancelled: false);
+        var all = AllTexts(report).Where(t => ItemCells.Contains(t.Name)).ToList();
+        Assert.Contains(all, t => t.Name == "txtRtcItemDescricao" && t.Text.Contains(longInfo[..40]));
+
+        var rows = all.GroupBy(t => t.Parent).Select(g => g.ToList()).ToList();
+        Assert.Equal(3, rows.Count);
+        // Todas as células da mesma linha crescem juntas.
+        foreach (var row in rows)
+            Assert.Single(row.Select(c => Math.Round(c.AbsBottom, 1)).Distinct());
+        Assert.True(rows[0].Max(c => c.Height) > rows[1].Max(c => c.Height),"a linha da descrição longa deveria ser mais alta");
+        for (var i = 0; i + 1 < rows.Count; i++)
+            Assert.True(rows[i].Max(c => c.AbsBottom) <= rows[i + 1].Min(c => c.AbsTop) + 0.01f);
+    }
+
+    [Fact]
+    public void Large_amounts_fit_their_columns()
+    {
+        var xml = WithItems(ProcXml(), 1, (_, det) => det
+            .Replace("<vProd>60000.00</vProd>", "<vProd>5063850.00</vProd>")
+            .Replace("<vBC>60000.00</vBC>", "<vBC>5063850.00</vBC>")
+            .Replace("<vICMS>4200.00</vICMS>", "<vICMS>354469.50</vICMS>")
+            .Replace("<vBC>50638.50</vBC>", "<vBC>5063850.00</vBC>")
+            .Replace("<vIBSUF>50.64</vIBSUF>", "<vIBSUF>5063.85</vIBSUF>")
+            .Replace("<vCBS>455.75</vCBS>", "<vCBS>45574.65</vCBS>")
+            .Replace("<qCom>30000.0000</qCom>", "<qCom>2531925.0000</qCom>"));
+
+        using var report = Service().Prepare(xml, cancelled: false);
+        var texts = Texts(report);
+        Assert.Contains("5.063.850,00", texts["txtRtcItemVlrTotal"]);
+        Assert.Contains("5.063.850,00", texts["txtRtcItemBases"]);
+
+        using var page = report.PreparedPages.GetPage(0);
+        var row = page.AllObjects.OfType<TextObject>()
+            .Where(t => t.Name.StartsWith("txtRtcItem") || t.Name.StartsWith("lblRtcItem")).ToList();
+        Assert.True(row.Count >= ItemCells.Length);
+        var clipped = row
+            .Select(cell => (cell, needed: MeasuredWidth(report, cell)))
+            .Where(x => x.needed > x.cell.Width)
+            .Select(x => $"{x.cell.Name}: \"{x.cell.Text.Replace('\n', '|')}\" precisa de {x.needed:0.0}, a coluna tem {x.cell.Width:0.0}")
+            .ToList();
+        Assert.True(clipped.Count == 0, string.Join(Environment.NewLine, clipped));
+    }
+
+    [Fact]
+    public void Simples_issuer_prints_csosn()
+    {
+        var xml = ProcXml();
+        Assert.Contains("<CRT>3</CRT>", xml);
+        xml = xml.Replace("<CRT>3</CRT>", "<CRT>1</CRT>");
+        xml = Regex.Replace(xml, "<ICMS><ICMS00>.*?</ICMS00></ICMS>",
+            "<ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS>", RegexOptions.Singleline);
+
+        using var report = Service().Prepare(xml, cancelled: false);
+        Assert.Contains("0102", Texts(report)["txtRtcItemCstCfop"]);
+    }
+
+    /// <summary>
+    /// Largura que o texto preparado precisa (sem quebra de linha), medida com a fonte e o padding do objeto,
+    /// no próprio objeto de design do relatório.
+    /// </summary>
+    private static float MeasuredWidth(Report report, TextObject prepared)
+    {
+        var design = Assert.IsType<TextObject>(report.FindObject(prepared.Name), exactMatch: false);
+        var (text, wrap) = (design.Text, design.WordWrap);
+        try
+        {
+            design.Text = prepared.Text;
+            design.WordWrap = false;
+            return design.CalcWidth();
+        }
+        finally
+        {
+            design.Text = text;
+            design.WordWrap = wrap;
+        }
+    }
+
+    /// <summary>Repete o det do XML em <paramref name="count"/> itens (nItem 1..n), com uma alteração opcional por item.</summary>
+    private static string WithItems(string xml, int count, Func<int, string, string>? change = null)
+    {
+        var det = Regex.Match(xml, "<det nItem=\"1\">.*?</det>", RegexOptions.Singleline);
+        Assert.True(det.Success);
+        var items = string.Concat(Enumerable.Range(1, count).Select(n =>
+        {
+            var block = det.Value.Replace("<det nItem=\"1\">", $"<det nItem=\"{n}\">");
+            return change is null ? block : change(n, block);
+        }));
+        return xml.Remove(det.Index, det.Length).Insert(det.Index, items);
+    }
+
     /// <summary>Texto impresso por nome de objeto (primeira ocorrência: o cabeçalho se repete por página).</summary>
     private static Dictionary<string, string> Texts(Report report)
     {
