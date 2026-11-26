@@ -18,3 +18,23 @@ atualizar, copie de novo do repositório e registre o novo commit acima.
 modificada em 26/11/2026 para a NT 2026.010 v1.00 (DANFE com a Reforma Tributária). Continua sob LGPL-2.1 e é
 entregue aberto, em texto, junto com a instalação. A regra "não editar" vale para todos os demais arquivos desta
 pasta. A lista das mudanças feitas no leiaute entra aqui conforme forem aplicadas.
+
+### Mudanças no `NFeRetratoRtc.frx`
+
+- **Emitente**: nova linha com "CÓDIGO DO REGIME TRIBUTÁRIO" (`txtRtcCrt`, parâmetro `RtcCrt`) e
+  "TIPO DE REGIME DE APURAÇÃO DO IBS E DA CBS" (`txtRtcRegimeApuracao`, sempre vazio: a tag sai em NT
+  futura). A faixa passou de 173,86 para 200,32 de altura.
+- **Totais em três blocos**, na ordem da NT, entre Fatura/Duplicatas e Transportador:
+  - `TotalProdutosNota` — "TOTAL DOS PRODUTOS E TOTAL DA NOTA": produtos, frete, seguro, desconto,
+    outras despesas e, na segunda linha, o valor total da nota (objetos e expressões que estavam na
+    faixa `Imposto`).
+  - `Imposto` — "TOTAL DO ICMS / IPI" (antes "CÁLCULO DO IMPOSTO"): BC ICMS, ICMS, BC ICMS ST, ICMS ST e
+    IPI. Faixas filhas encadeadas `ImpostoFcp` (FCP, FCP retido por ST, DIFAL e FCP na UF de destino) e
+    `ImpostoIcmsMono` (ICMS monofásico), visíveis só quando `RtcShowFcpLine` / `RtcShowIcmsMonoLine`.
+  - `TotalIbsCbsIs` — "TOTAL DO IBS / CBS / IS": CBS, IBS UF, IBS município e IS. Faixa filha
+    `TotalIbsCbsMono` (IBS/CBS monofásicos), visível só quando `RtcShowIbsCbsMonoLine`.
+- **Removidos**: totais de PIS e COFINS e o quadro "Total dos Tributos (Fonte: IBPT)"; o parâmetro
+  `ExibirTotalTributos` deixou de ter efeito. O script `Imposto_BeforePrint` agora só liga as faixas filhas.
+- **Parâmetros `Rtc*`** declarados no dicionário (preenchidos por `DanfeRtcData.ApplyTo`).
+- **Quebra da primeira página**: `DadosProdutosHeader_BeforePrint` soma também `TotalProdutosNota`,
+  `TotalIbsCbsIs` e as faixas filhas visíveis.
