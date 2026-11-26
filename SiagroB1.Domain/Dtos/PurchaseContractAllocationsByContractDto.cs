@@ -84,6 +84,17 @@ public class PurchaseContractAllocationsByContractDto
     [JsonPropertyName("ItemCode")]
     public string? ItemCode { get; set; }
 
+    /// <summary>
+    /// GAC-1233: chaves dos romaneios de COMPRA que baixaram o contrato pelo volume desta saída de transbordo,
+    /// separadas por vírgula e na mesma ordem de <see cref="OriginPurchaseCodes"/>. Nulo nas demais linhas.
+    /// </summary>
+    [JsonPropertyName("OriginPurchaseKeys")]
+    public string? OriginPurchaseKeys { get; set; }
+
+    /// <summary>GAC-1233: códigos dos romaneios de compra de origem, separados por vírgula.</summary>
+    [JsonPropertyName("OriginPurchaseCodes")]
+    public string? OriginPurchaseCodes { get; set; }
+
     /// <summary>Conciliação fiscal (spec 2026-10-13 §7): NFs do fornecedor vinculadas ao ROMANEIO inteiro.</summary>
     [JsonPropertyName("SupplierInvoiceNumbers")]
     public string? SupplierInvoiceNumbers { get; set; }
