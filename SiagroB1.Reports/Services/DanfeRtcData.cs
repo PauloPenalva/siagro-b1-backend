@@ -66,8 +66,8 @@ internal sealed record DanfeRtcData(
             showFcp ? Money(icmsTot!.vFCP) : "", showFcp ? Money(icmsTot!.vFCPST) : "",
             showFcp ? Money(icmsTot!.vICMSUFDest) : "", showFcp ? Money(icmsTot!.vFCPUFDest) : "",
             showIcmsMono,
-            showIcmsMono ? Money(icmsTot!.qBCMono) : "", showIcmsMono ? Money(icmsTot!.vICMSMono) : "",
-            showIcmsMono ? Money(icmsTot!.qBCMonoReten) : "", showIcmsMono ? Money(icmsTot!.vICMSMonoReten) : "",
+            showIcmsMono ? Quantity(icmsTot!.qBCMono) : "", showIcmsMono ? Money(icmsTot!.vICMSMono) : "",
+            showIcmsMono ? Quantity(icmsTot!.qBCMonoReten) : "", showIcmsMono ? Money(icmsTot!.vICMSMonoReten) : "",
             inf.det.Select(BuildItem).ToList());
     }
 
@@ -162,6 +162,12 @@ internal sealed record DanfeRtcData(
 
     /// <summary>Campo ausente no XML sai em branco, nunca "0,00".</summary>
     private static string Money(decimal? value) => value is { } v ? Money(v) : "";
+
+    /// <summary>
+    /// Quantidade tributada (qBCMono/qBCMonoReten), não valor em reais: mínimo 2 casas, até 4. No total (ICMSTot) o
+    /// leiaute é TDec_1302 e a Zeus já arredonda para 2 casas, então hoje sai igual a N2. Ausente no XML sai em branco.
+    /// </summary>
+    private static string Quantity(decimal? value) => value is { } v ? v.ToString("#,##0.00##", PtBr) : "";
 
     private static string Rate(decimal value) => value.ToString("0.00##", PtBr) + "%";
 

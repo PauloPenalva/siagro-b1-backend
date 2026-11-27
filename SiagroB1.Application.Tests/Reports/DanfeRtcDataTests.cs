@@ -243,6 +243,25 @@ public class DanfeRtcDataTests
         Assert.Equal("7,00", data.TotalIcmsMono);
     }
 
+    // qBCMono e qBCMonoReten são quantidades. No total (ICMSTot) o leiaute as define como TDec_1302 e a Zeus
+    // arredonda para 2 casas ao atribuir, então 4 casas nunca chegam aqui: o teste prende esse arredondamento.
+    [Theory]
+    [InlineData(1234.5678, "1.234,57")]
+    [InlineData(100, "100,00")]
+    [InlineData(0.5, "0,50")]
+    public void Icms_monophase_quantities_print_with_two_decimals(double quantity, string expected)
+    {
+        var proc = Proc();
+        var tot = proc.NFe.infNFe.total.ICMSTot;
+        tot.qBCMono = (decimal)quantity;
+        tot.qBCMonoReten = (decimal)quantity;
+
+        var data = DanfeRtcData.From(proc);
+
+        Assert.Equal(expected, data.TotalIcmsMonoBase);
+        Assert.Equal(expected, data.TotalIcmsMonoRetenBase);
+    }
+
     [Theory]
     [InlineData(CRT.SimplesNacional, "1 - SIMPLES NACIONAL")]
     [InlineData(CRT.SimplesNacionalExcessoSublimite, "2 - SIMPLES NACIONAL, EXCESSO DE SUBLIMITE DE RECEITA BRUTA")]

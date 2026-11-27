@@ -13,7 +13,7 @@ using SiagroB1.Reports.Services;
 
 namespace SiagroB1.Application.Tests.Reports;
 
-/// <summary>O DANFE sai do procNFe gravado, pelo layout da Zeus copiado sem alteração.</summary>
+/// <summary>O DANFE sai do procNFe gravado, pelo NFeRetratoRtc.frx (leiaute derivado do NFeRetrato.frx da Zeus para a NT 2026.010).</summary>
 public class DanfeReportServiceTests
 {
     [Fact]

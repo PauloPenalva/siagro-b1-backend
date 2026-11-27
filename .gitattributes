@@ -1,0 +1,2 @@
+# Leiautes da Zeus (LGPL): bytes exatos, sem conversão de fim de linha (um teste prende o SHA-256 do original).
+SiagroB1.Reports/ThirdParty/Zeus-LGPL/**/*.frx -text

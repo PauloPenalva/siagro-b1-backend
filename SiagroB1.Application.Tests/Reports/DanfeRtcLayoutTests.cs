@@ -230,6 +230,75 @@ public class DanfeRtcLayoutTests
             $"sobram {footerTop - lastBottom} na folha 1, cabe mais uma linha de {minimumRow}");
     }
 
+    // Pior caso da folha 1: retirada, entrega, duplicatas e as três linhas facultativas de totais ocupam o topo.
+    // Com os dois locais não sobra lugar nem para o cabeçalho da grade: ele e todos os itens vão para a folha 2.
+    // Só com a retirada cabem algumas linhas na folha 1, e elas têm de parar antes de "Dados adicionais".
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Worst_case_first_page_keeps_items_above_the_additional_data(bool withDelivery)
+    {
+        const int count = 40;
+        var xml = WithItems(ProcXml(), count, (n, det) => det
+            .Replace("<xProd>SOJA EM GRAOS</xProd>", $"<xProd>ITEM {n:00}</xProd>")
+            .Replace("<vProd>60000.00</vProd>", $"<vProd>{n}000.00</vProd>"));
+        Assert.Contains("<dup>", xml);
+        Assert.DoesNotContain("<retirada>", xml);
+        Assert.DoesNotContain("<entrega>", xml);
+        const string place = "<CNPJ>11222333000181</CNPJ><xNome>FAZENDA TESTE</xNome><xLgr>ESTRADA RURAL</xLgr><nro>100</nro>"
+            + "<xBairro>ZONA RURAL</xBairro><cMun>3550308</cMun><xMun>SAO PAULO</xMun><UF>SP</UF>";
+        xml = xml.Replace("</dest>", $"</dest><retirada>{place}</retirada>" + (withDelivery ? $"<entrega>{place}</entrega>" : ""));
+        Assert.Matches("<vFCP>0(\\.00)?</vFCP>", xml);
+        xml = Regex.Replace(xml, "<vFCP>0(\\.00)?</vFCP>", "<vFCP>12.34</vFCP>");
+        xml = xml.Replace("<vIPIDevol>", "<qBCMono>100.00</qBCMono><vICMSMono>7.50</vICMSMono><vIPIDevol>");
+        Assert.Contains("</IBSCBSTot>", xml);
+        xml = xml.Replace("</IBSCBSTot>", "<gMono><vIBSMono>1.00</vIBSMono><vCBSMono>2.00</vCBSMono>"
+            + "<vIBSMonoReten>0.00</vIBSMonoReten><vCBSMonoReten>0.00</vCBSMonoReten>"
+            + "<vIBSMonoRet>0.00</vIBSMonoRet><vCBSMonoRet>0.00</vCBSMonoRet></gMono></IBSCBSTot>");
+
+        using var report = Service().Prepare(xml, cancelled: false);
+
+        using (var first = report.PreparedPages.GetPage(0))
+        {
+            var bands = first.AllObjects.OfType<BandBase>().Where(b => b.Visible).Select(b => b.Name).ToList();
+            foreach (var band in withDelivery ? new[] { "LocalRetirada", "LocalEntrega", "Duplicatas" } : ["LocalRetirada", "Duplicatas"])
+                Assert.Contains(band, bands);
+            // As linhas facultativas são faixas filhas: confere pelo texto impresso na folha 1.
+            var texts = first.AllObjects.OfType<TextObject>().Select(t => t.Name).ToHashSet();
+            foreach (var line in new[] { "txtRtcTotalFcp", "txtRtcTotalIcmsMono", "txtRtcTotalIbsMono" })
+                Assert.True(texts.Contains(line), $"{line} ausente; faixas: {string.Join(", ", bands)}");
+
+            var footerTop = first.AllObjects.OfType<BandBase>().Single(b => b.Name == "DadosAdicionais").Top;
+            var cells = first.AllObjects.OfType<TextObject>().Where(t => t.Name.StartsWith("txtRtcItem")).ToList();
+            var headerOnFirst = first.AllObjects.OfType<BandBase>().Any(b => b.Name == "DadosProdutosHeader");
+            if (withDelivery)
+            {
+                // Cabeçalho órfão na folha 1 seria pior que levá-lo inteiro para a folha 2.
+                Assert.Empty(cells);
+                Assert.False(headerOnFirst, "cabeçalho da grade ficou sozinho na folha 1");
+            }
+            else
+            {
+                Assert.True(headerOnFirst);
+                Assert.NotEmpty(cells);
+                var lastBottom = cells.Max(c => c.AbsBottom);
+                Assert.True(lastBottom <= footerTop, $"última linha termina em {lastBottom}, dados adicionais começam em {footerTop}");
+            }
+        }
+
+        // Cada item sai uma única vez, em ordem, e a linha traz os próprios valores.
+        var rows = AllTexts(report).Where(t => ItemCells.Contains(t.Name)).GroupBy(t => t.Parent).ToList();
+        Assert.Equal(count, rows.Count);
+        for (var i = 0; i < count; i++)
+        {
+            var n = i + 1;
+            var cells = rows[i].ToDictionary(c => c.Name, c => c.Text);
+            Assert.Contains($"ITEM {n:00}", cells["txtRtcItemDescricao"]);
+            Assert.Equal((n * 1000m).ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("pt-BR")),
+                cells["txtRtcItemVlrTotal"].Trim());
+        }
+    }
+
     [Fact]
     public void Long_description_grows_the_whole_row()
     {
@@ -257,8 +326,11 @@ public class DanfeRtcLayoutTests
     public void Large_amounts_fit_their_columns()
     {
         // Pior caso realista de 9 dígitos: base 9.999.999,99, ICMS de 18% (1.799.999,99), CBS de 7 dígitos,
-        // alíquota com 4 casas, quantidade de 9 dígitos e valor unitário com 4 casas.
-        var xml = WithItems(ProcXml(), 1, (_, det) => det
+        // alíquotas com 4 casas ("0,0375%" e "12,3456%") e de três dígitos ("100,00%"), quantidade de 9 dígitos e
+        // valor unitário com 4 casas.
+        var xml = WithItems(ProcXml(), 1, (_, det) => Regex.Replace(Regex.Replace(det,
+                "<pIBSUF>[^<]*</pIBSUF>", "<pIBSUF>12.3456</pIBSUF>"),
+                "<pIBSMun>[^<]*</pIBSMun>", "<pIBSMun>100.0000</pIBSMun>")
             .Replace("<vProd>60000.00</vProd>", "<vProd>9999999.99</vProd>")
             .Replace("<vBC>60000.00</vBC>", "<vBC>9999999.99</vBC>")
             .Replace("<pICMS>7.0000</pICMS>", "<pICMS>18.0000</pICMS>")
@@ -277,6 +349,8 @@ public class DanfeRtcLayoutTests
         Assert.Contains("1.799.999,99", texts["txtRtcItemValuesLeft"]);
         Assert.Contains("1.234.567,89", texts["txtRtcItemValuesRight"]);
         Assert.Contains("0,0375%", texts["txtRtcItemRatesRight"]);
+        Assert.Contains("12,3456%", texts["txtRtcItemRatesLeft"]);
+        Assert.Contains("100,00%", texts["txtRtcItemRatesLeft"]);
         Assert.Contains("12.345,6789", texts["txtRtcItemVlrUnit"]);
 
         using var page = report.PreparedPages.GetPage(0);
@@ -291,6 +365,10 @@ public class DanfeRtcLayoutTests
             .Select(x => $"{x.cell.Name}: \"{x.cell.Text.Replace('\n', '|')}\" precisa de {x.needed:0.0}, a coluna tem {x.cell.Width:0.0}")
             .ToList();
         Assert.True(clipped.Count == 0, string.Join(Environment.NewLine, clipped));
+        // AutoShrink é só rede de segurança (métrica mais larga no Linux): aqui tudo cabe no tamanho normal.
+        var shrunk = row.Where(c => c.Name.StartsWith("txtRtcItem") && c.Font.Size < 6f)
+            .Select(c => $"{c.Name}: {c.Font.Size}pt").ToList();
+        Assert.True(shrunk.Count == 0, string.Join(Environment.NewLine, shrunk));
     }
 
     [Fact]
