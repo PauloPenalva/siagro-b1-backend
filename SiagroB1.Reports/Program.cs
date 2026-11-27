@@ -76,8 +76,8 @@ FastReport.Utils.RegisteredObjects.AddConnection(typeof(FastReport.Data.MsSqlDat
 // ⚠️ Com os stubs desligados o FastReport NÃO valida nada nos scripts dos relatórios (no
 // FastReport.OpenSource 2026.1.3 a StopList/RegexStopList nunca é lida pelo núcleo). Aceito porque todo
 // .frx é arquivo versionado neste repositório; nenhum modelo vem do usuário nem do banco. Os stubs
-// precisam sair porque declaram um System.Environment vazio e o script do DANFE da Zeus (NFeRetrato.frx)
-// usa Environment.NewLine. Armadilha: nunca carregue um modelo de fora do repositório sem restaurar a validação.
+// precisam sair porque declaram um System.Environment vazio e o script do DANFE (NFeRetratoRtc.frx, derivado
+// do NFeRetrato.frx da Zeus) usa Environment.NewLine. Armadilha: nunca carregue um modelo de fora do repositório sem restaurar a validação.
 SiagroB1.Reports.Services.DanfeReportService.DisableScriptStubs();
 // Linux: sem substitutos o FastReport troca Times New Roman/Arial/Tahoma por DejaVu Sans e o texto estoura.
 SiagroB1.Reports.Services.ReportFonts.RegisterSubstitutes();
